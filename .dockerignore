@@ -1,0 +1,25 @@
+# dependencies & build output
+node_modules
+dist
+*.tsbuildinfo
+
+# env 
+.env
+.env.*
+!.env.example
+
+# legacy / removed code
+removed
+
+# custom scripts
+dbuild.sh
+
+# tooling config
+eslint.config.mts
+
+# git 
+.git
+.gitignore
+
+# static assets
+public

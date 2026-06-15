@@ -1,0 +1,44 @@
+{
+  "name": "fastify-boilerplate-v3",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon -e ts,json,env --exec ts-node --files -r dotenv/config src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node -r dotenv/config src/index.js",
+    "test": "LOG_LEVEL=error node -r ts-node/register --test src/**/*.test.ts",
+    "prepare": "npx ts-patch install -s",
+    "lint": "eslint"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.1",
+    "@types/qs": "^6.14.0",
+    "@types/supertest": "^6.0.3",
+    "dotenv": "^16.5.0",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "nodemon": "^3.1.10",
+    "prettier": "3.7.4",
+    "supertest": "^7.1.0",
+    "ts-node": "^10.9.2",
+    "ts-patch": "^3.3.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.49.0",
+    "typescript-transform-paths": "^3.5.5"
+  },
+  "dependencies": {
+    "@fastify/autoload": "^6.3.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/csrf-protection": "^7.1.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/redis": "^7.1.0",
+    "axios": "^1.13.2",
+    "fastify": "^5.6.2",
+    "fastify-type-provider-zod": "^6.1.0",
+    "qs": "^6.14.0",
+    "zod": "^4.1.13"
+  }
+}
