@@ -11,6 +11,7 @@ import fastifyRedis from '@fastify/redis';
 //
 //
 
+import env from '@/env';
 import redis from '@/instances/redis';
 
 import indexRoute from '@/routes/indexRoute';
@@ -29,13 +30,13 @@ const app = Fastify({
 });
 
 app.register(cors, {
-  origin: [process.env.CLIENT_URL_PUBLIC!],
+  origin: [env.CLIENT_URL],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 });
 
 app.register(fastifyJwt, {
-  secret: process.env.JWT_TOKEN_SECRET!,
+  secret: env.JWT_TOKEN_SECRET,
   cookie: {
     cookieName: 'guest_token',
     signed: false
