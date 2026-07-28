@@ -1,12 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 
-const authMiddlewares: FastifyPluginAsync = async (fastify, options) => {
-  fastify.decorate('JWTAuthMW', async (request, reply) => {
+import { UnauthorizedError } from '@/errors';
+
+const authMiddlewares: FastifyPluginAsync = async (fastify) => {
+  fastify.decorate('JWTAuthMW', async (request) => {
     try {
       await request.jwtVerify();
     } catch {
-      return reply.code(401).send();
+      throw new UnauthorizedError('Invalid client token');
     }
   });
 };
