@@ -8,7 +8,9 @@
     "start": "node -r dotenv/config src/index.js",
     "test": "LOG_LEVEL=error node -r ts-node/register -r tsconfig-paths/register --test src/**/*.test.ts",
     "prepare": "npx ts-patch install -s",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -35,10 +37,14 @@
     "@fastify/cors": "^11.3.0",
     "@fastify/jwt": "^10.2.1",
     "@fastify/redis": "^8.0.0",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "axios": "^1.18.1",
     "fastify": "^5.10.0",
     "fastify-type-provider-zod": "^7.0.0",
     "ioredis": "^5.11.1",
+    "pg": "^8.22.0",
+    "prisma": "^7.9.1",
     "qs": "^6.15.3",
     "zod": "^4.4.3"
   }
