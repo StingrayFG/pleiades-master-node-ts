@@ -12,10 +12,13 @@ import fastifyRedis from '@fastify/redis';
 //
 
 import env from '@/env';
+import prisma from '@/instances/prisma';
 import redis from '@/instances/redis';
 
+import bucketRoutes from '@/routes/bucketRoutes';
 import indexRoute from '@/routes/indexRoute';
 import authMiddlewares from '@/middlewares/authMiddlewares';
+import bucketMiddlewares from '@/middlewares/bucketMiddlewares';
 
 import errorHandlerPlugin from '@/plugins/errorHandlerPlugin';
 
@@ -36,14 +39,14 @@ app.register(cors, {
 });
 
 app.register(fastifyJwt, {
-  secret: env.JWT_TOKEN_SECRET,
-  cookie: {
-    cookieName: 'guest_token',
-    signed: false
-  }
+  secret: env.JWT_TOKEN_SECRET
 });
 
 app.register(fastifyRedis, { client: redis });
+
+app.addHook('onClose', async () => {
+  await prisma.$disconnect();
+});
 
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
@@ -55,7 +58,9 @@ app.setSerializerCompiler(serializerCompiler);
 app.register(errorHandlerPlugin);
 
 app.register(authMiddlewares);
+app.register(bucketMiddlewares);
 
+app.register(bucketRoutes);
 app.register(indexRoute);
 
 //
