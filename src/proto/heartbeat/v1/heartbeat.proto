@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package heartbeat.v1;
+
+option go_package = "app/internal/gen/heartbeat/v1;heartbeatv1";
+
+import "health/v1/health.proto";
+
+service HeartbeatService {
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message HeartbeatRequest {
+  health.v1.HealthStatus health_status = 1;
+}
+
+message HeartbeatResponse {}
