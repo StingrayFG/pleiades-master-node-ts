@@ -2,6 +2,7 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv {
       PORT: string;
+      GRPC_PORT: string;
 
       CLIENT_URL: string;
       REDIS_URL: string;

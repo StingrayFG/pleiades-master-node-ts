@@ -1,11 +1,17 @@
 const defaultEnv = {
   PORT: '4400',
+  GRPC_PORT: '4410',
   PLACEMENT_GROUP_COUNT: '1024'
 } as const;
 
 let PORT = process.env.PORT?.trim();
 if (!PORT) {
   PORT = defaultEnv.PORT;
+}
+
+let GRPC_PORT = process.env.GRPC_PORT?.trim();
+if (!GRPC_PORT) {
+  GRPC_PORT = defaultEnv.GRPC_PORT;
 }
 
 const CLIENT_URL = process.env.CLIENT_URL?.trim();
@@ -33,6 +39,7 @@ if (!JWT_TOKEN_SECRET) {
 
 export const env = {
   PORT,
+  GRPC_PORT,
   CLIENT_URL,
   REDIS_URL,
   DATABASE_URL,
