@@ -15,12 +15,11 @@ import env from '@/env';
 import prisma from '@/instances/prisma';
 import redis from '@/instances/redis';
 
-import bucketRoutes from '@/routes/bucketRoutes';
+import bucketRoutes from '@/modules/buckets/bucket.routes';
 import indexRoute from '@/routes/indexRoute';
 import authMiddlewares from '@/middlewares/authMiddlewares';
-import bucketMiddlewares from '@/middlewares/bucketMiddlewares';
 
-import errorHandlerPlugin from '@/plugins/errorHandlerPlugin';
+import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
 //
 //
@@ -58,7 +57,6 @@ app.setSerializerCompiler(serializerCompiler);
 app.register(errorHandlerPlugin);
 
 app.register(authMiddlewares);
-app.register(bucketMiddlewares);
 
 app.register(bucketRoutes);
 app.register(indexRoute);
