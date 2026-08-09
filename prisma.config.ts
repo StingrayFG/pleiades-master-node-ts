@@ -6,9 +6,9 @@ import { defineConfig } from 'prisma/config';
 import env from './src/env';
 
 export default defineConfig({
-  schema: 'src/prisma/schema.prisma',
+  schema: 'src/database/prisma/schema.prisma',
   migrations: {
-    path: 'src/prisma/migrations'
+    path: 'src/database/prisma/migrations'
   },
   datasource: {
     url: env.DATABASE_URL

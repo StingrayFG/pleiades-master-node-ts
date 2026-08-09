@@ -12,7 +12,7 @@ import fastifyRedis from '@fastify/redis';
 //
 
 import env from '@/env';
-import prisma from '@/instances/prisma';
+import prisma from '@/database/prisma/prisma.client';
 import redis from '@/instances/redis';
 
 import bucketRoutes from '@/modules/buckets/bucket.routes';

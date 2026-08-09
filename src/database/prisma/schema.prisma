@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DataNodeState {
+  joining
+  active
+  draining
+  offline
+  failed
+}
+
+model DataNode {
+  node_id           String                  @id
+  hostname          String
+  api_port          Int
+  scheme            String                  @default("grpcs")
+  state             DataNodeState           @default(joining)
+
+  total_bytes       BigInt
+  free_bytes        BigInt
+
+  last_heartbeat_at DateTime?
+  registered_at     DateTime                @default(now())
+  updated_at        DateTime                @updatedAt
+
+  @@map("data_nodes")
+}
+
+enum BucketState {
+  active
+  deleting
+  disabled
+}
+
+model Bucket {
+  id                String                  @id @default(uuid())
+  name              String                  @unique
+  state             BucketState             @default(active)
+  created_at        DateTime                @default(now())
+  updated_at        DateTime                @updatedAt
+  @@map("buckets")
+}
