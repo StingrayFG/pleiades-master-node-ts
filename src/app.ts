@@ -1,29 +1,20 @@
 import Fastify from 'fastify';
-
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
-
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-
 import fastifyRedis from '@fastify/redis';
-
-//
-//
-//
 
 import env from '@/env';
 import prisma from '@/database/prisma/prisma.client';
 import redis from '@/instances/redis';
 
-import bucketRoutes from '@/modules/buckets/bucket.routes';
 import indexRoute from '@/routes/indexRoute';
+import { createBucketRoutes } from './modules/buckets/bucket.http-routes';
+import { createBucketModule } from './modules/buckets/bucket.module';
 import authMiddlewares from '@/middlewares/authMiddlewares';
-
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
-//
-//
-//
+/**/
 
 const app = Fastify({
   logger: {
@@ -48,21 +39,29 @@ app.addHook('onClose', async () => {
 });
 
 app.setValidatorCompiler(validatorCompiler);
+
 app.setSerializerCompiler(serializerCompiler);
 
-//
-//
-//
+/**/
 
-app.register(errorHandlerPlugin);
+app.register(indexRoute);
+
+const bucketModule = createBucketModule({
+  prisma
+});
+app.register(
+  createBucketRoutes({
+    controller: bucketModule.controller
+  }),
+  {
+    prefix: '/buckets'
+  }
+);
 
 app.register(authMiddlewares);
 
-app.register(bucketRoutes);
-app.register(indexRoute);
+app.register(errorHandlerPlugin);
 
-//
-//
-//
+/**/
 
 export default app;
