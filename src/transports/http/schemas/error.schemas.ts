@@ -41,11 +41,11 @@ export const ConflictHttpErrorResponseSchema = conflictHttpErrorDefinition.schem
 export const InternalServerErrorHttpErrorResponseSchema = internalServerErrorHttpErrorDefinition.schema;
 
 export type BadRequestHttpErrorResponse = z.infer<typeof badRequestHttpErrorDefinition.schema>;
-export type UnauthorizedHttpErrorResponse = z.infer<typeof unauthorizedHttpErrorDefinition>;
-export type ForbiddenHttpErrorResponse = z.infer<typeof forbiddenHttpErrorDefinition>;
-export type NotFoundHttpErrorResponse = z.infer<typeof notFoundHttpErrorDefinition>;
-export type ConflictHttpErrorResponse = z.infer<typeof conflictHttpErrorDefinition>;
-export type InternalServerErrorHttpErrorResponse = z.infer<typeof internalServerErrorHttpErrorDefinition>;
+export type UnauthorizedHttpErrorResponse = z.infer<typeof unauthorizedHttpErrorDefinition.schema>;
+export type ForbiddenHttpErrorResponse = z.infer<typeof forbiddenHttpErrorDefinition.schema>;
+export type NotFoundHttpErrorResponse = z.infer<typeof notFoundHttpErrorDefinition.schema>;
+export type ConflictHttpErrorResponse = z.infer<typeof conflictHttpErrorDefinition.schema>;
+export type InternalServerErrorHttpErrorResponse = z.infer<typeof internalServerErrorHttpErrorDefinition.schema>;
 
 /**/
 
