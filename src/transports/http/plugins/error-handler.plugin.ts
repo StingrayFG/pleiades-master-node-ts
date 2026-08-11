@@ -173,6 +173,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
     switch (classifiedError.kind) {
       case 'application': {
         const error = classifiedError.error;
+
         const definition = mapApplicationErrorToHttpErrorDefinition(error);
 
         if (definition.statusCode >= 500) {
@@ -194,6 +195,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
 
       case 'client': {
         const error = classifiedError.error;
+
         const definition = mapStatusCodeToKnownHttpErrorDefinition(error.statusCode);
 
         if (definition) {
