@@ -9,11 +9,12 @@
     "test": "LOG_LEVEL=error node -r ts-node/register -r tsconfig-paths/register --test src/**/*.test.ts",
     "prepare": "npx ts-patch install -s",
     "lint": "eslint",
-    "proto:generate": "mkdir -p src/gen/proto && protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/gen/proto --ts_proto_opt=outputServices=grpc-js,env=node,snakeToCamel=false,forceLong=string src/proto/health/v1/health.proto src/proto/register/v1/register.proto src/proto/heartbeat/v1/heartbeat.proto -I src/proto",
+    "proto:generate": "buf dep update && buf generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.72.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.1",
     "@types/qs": "^6.15.1",
