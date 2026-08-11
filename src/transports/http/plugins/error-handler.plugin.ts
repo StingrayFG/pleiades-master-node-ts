@@ -177,7 +177,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
         const definition = mapApplicationErrorToHttpErrorDefinition(error);
 
         if (definition.statusCode >= 500) {
-          req.log.error(error);
+          req.log.error(err);
         }
 
         const message = definition.statusCode >= 500 ? INTERNAL_SERVER_ERROR_MESSAGE : error.message;
@@ -215,7 +215,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
       }
 
       case 'internal':
-        req.log.error(classifiedError.error);
+        req.log.error(err);
 
         return sendKnownHttpErrorResponseByDefinition(
           req,
