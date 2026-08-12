@@ -1,4 +1,5 @@
 import { Metadata, status, type ServerErrorResponse } from '@grpc/grpc-js';
+import { ZodError } from 'zod';
 
 import { ApplicationError } from '@/errors/application.errors';
 import { mapApplicationErrorToGrpcStatusCode } from '@/transports/grpc/mappers/error.mappers';
@@ -20,6 +21,10 @@ type ClassifiedError =
       error: ApplicationError;
     }
   | {
+      kind: 'validation';
+      error: ZodError;
+    }
+  | {
       kind: 'grpc';
       error: NormalizedGrpcError;
     }
@@ -32,10 +37,12 @@ type ToGrpcServerErrorOptions = {
   onInternalError?: (error: unknown) => void;
 };
 
+const INVALID_REQUEST_DETAILS = 'Invalid request';
 const INTERNAL_ERROR_DETAILS = 'Internal server error';
 const GRPC_ERROR_DETAILS = 'gRPC error';
 
 const PRIVATE_DETAILS_GRPC_ERROR_CODES = new Set<GrpcErrorCode>([status.UNKNOWN, status.INTERNAL, status.DATA_LOSS]);
+
 const ALLOWED_ERROR_METADATA_KEYS = new Set<string>();
 
 /**/
@@ -118,6 +125,13 @@ const classifyError = (error: unknown): ClassifiedError => {
     };
   }
 
+  if (error instanceof ZodError) {
+    return {
+      kind: 'validation',
+      error
+    };
+  }
+
   const normalizedGrpcError = normalizeGrpcError(error);
 
   if (normalizedGrpcError) {
@@ -151,6 +165,9 @@ const toGrpcServerError = (err: unknown, options: ToGrpcServerErrorOptions = {})
 
       return createGrpcServerError(code, applicationError.message);
     }
+
+    case 'validation':
+      return createGrpcServerError(status.INVALID_ARGUMENT, INVALID_REQUEST_DETAILS);
 
     case 'grpc': {
       const { code, details, metadata } = classifiedError.error;
