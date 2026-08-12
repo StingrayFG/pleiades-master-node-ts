@@ -1,0 +1,1 @@
+export const DEFAULT_GRPC_DEADLINE_MS = 5000;
