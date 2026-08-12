@@ -15,6 +15,7 @@ import {
   notFoundHttpErrorDefinition,
   type KnownHttpErrorDefinition
 } from '@/transports/http/schemas/error.schemas';
+import { ZodError } from 'zod';
 
 /**/
 
@@ -138,7 +139,7 @@ const classifyError = (err: unknown): ClassifiedError => {
     };
   }
 
-  if (hasZodFastifySchemaValidationErrors(err)) {
+  if (err instanceof ZodError || hasZodFastifySchemaValidationErrors(err)) {
     return {
       kind: 'validation',
       error: err
