@@ -48,13 +48,13 @@ const startGrpcServer = async (): Promise<Server> => {
   registerGrpcServiceWithErrorHandling(
     grpcServer,
     RegisterService,
-    dataNodeGrpcRoutes.registerService,
+    dataNodeGrpcRoutes.registerDataNodeService,
     grpcErrorHandlerOptions
   );
   registerGrpcServiceWithErrorHandling(
     grpcServer,
     HeartbeatService,
-    dataNodeGrpcRoutes.heartbeatService,
+    dataNodeGrpcRoutes.heartbeatDataNodeService,
     grpcErrorHandlerOptions
   );
 

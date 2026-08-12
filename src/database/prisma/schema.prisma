@@ -15,18 +15,18 @@ enum DataNodeState {
 }
 
 model DataNode {
-  node_id           String                  @id
-  hostname          String
-  api_port          Int
-  scheme            String                  @default("grpcs")
-  state             DataNodeState           @default(joining)
+  node_id             String                  @id
+  hostname            String
+  port                Int                     
+  scheme              String                  @default("grpcs")
+  state               DataNodeState           @default(joining)
 
-  total_bytes       BigInt
-  free_bytes        BigInt
+  storage_total_bytes BigInt
+  storage_free_bytes  BigInt
 
-  last_heartbeat_at DateTime?
-  registered_at     DateTime                @default(now())
-  updated_at        DateTime                @updatedAt
+  last_heartbeat_at   DateTime?
+  registered_at       DateTime                @default(now())
+  updated_at          DateTime                @updatedAt
 
   @@map("data_nodes")
 }
