@@ -1,44 +1,24 @@
-import type { Server } from '@grpc/grpc-js';
+import { startGrpcApp } from '@/grpc-app';
 
-import app from './app';
+import app from '@/app';
 
 import env from '@/env';
-import { startRegisterGrpcServer, stopRegisterGrpcServer } from '@/grpc/registerServer';
 
 const port = Number(env.PORT);
-const grpcPort = Number(env.GRPC_PORT);
 
-const start = async (): Promise<void> => {
-  let grpcServer: Server | undefined;
+void startGrpcApp();
 
-  try {
-    grpcServer = await startRegisterGrpcServer({
-      host: '0.0.0.0',
-      port: grpcPort
-    });
-
-    app.addHook('onClose', async () => {
-      if (grpcServer) {
-        await stopRegisterGrpcServer(grpcServer);
-      }
-    });
-
-    const address = await app.listen({
-      port,
-      host: '0.0.0.0'
-    });
-
-    app.log.info(`http running on ${address}`);
-    app.log.info(`node grpc running on 0.0.0.0:${grpcPort}`);
-  } catch (err) {
-    app.log.error(err);
-
-    if (grpcServer) {
-      await stopRegisterGrpcServer(grpcServer).catch(() => undefined);
+app.listen(
+  {
+    port,
+    host: '0.0.0.0'
+  },
+  (err, address) => {
+    if (err) {
+      app.log.error(err);
+      process.exit(1);
     }
 
-    process.exit(1);
+    app.log.info(`app running on ${address}`);
   }
-};
-
-void start();
+);
