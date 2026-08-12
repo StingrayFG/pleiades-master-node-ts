@@ -4,19 +4,13 @@ package health.v1;
 
 option go_package = "app/internal/gen/health/v1;healthv1";
 
-enum CheckHealthStatus {
-  CHECK_HEALTH_STATUS_HEALTHY = 0;
-  CHECK_HEALTH_STATUS_DEGRADED = 1;
+enum HealthSnapshotStatus {
+  HEALTH_SNAPSHOT_STATUS_HEALTHY = 0;
+  HEALTH_SNAPSHOT_STATUS_DEGRADED = 1;
 }
 
-service HealthService {
-  rpc CheckHealth(CheckHealthRequest) returns (CheckHealthResponse);
-}
-
-message CheckHealthRequest {}
-
-message HealthStatus {
-  CheckHealthStatus status = 1;
+message HealthSnapshot {
+  HealthSnapshotStatus status = 1;
   bool database_ok = 2;
   bool storage_ok = 3;
   int64 storage_total_bytes = 4;
@@ -24,6 +18,13 @@ message HealthStatus {
   string message = 6;
 }
 
-message CheckHealthResponse {
-  HealthStatus health_status = 1;
+
+service CheckHealthDataNode {
+  rpc CheckHealthDataNode(CheckHealthDataNodeRequest) returns (CheckHealthDataNodeResponse);
+}
+
+message CheckHealthDataNodeRequest {}
+
+message CheckHealthDataNodeResponse {
+  HealthSnapshot health_snapshot = 1;
 }

@@ -6,12 +6,13 @@ option go_package = "app/internal/gen/heartbeat/v1;heartbeatv1";
 
 import "health/v1/health.proto";
 
-service HeartbeatService {
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+service HeartbeatDataNode {
+  rpc HeartbeatDataNode(HeartbeatDataNodeRequest) returns (HeartbeatDataNodeResponse);
 }
 
-message HeartbeatRequest {
-  health.v1.HealthStatus health_status = 1;
+message HeartbeatDataNodeRequest {
+  string node_id = 1;
+  health.v1.HealthSnapshot health_snapshot = 2;
 }
 
-message HeartbeatResponse {}
+message HeartbeatDataNodeResponse {}
