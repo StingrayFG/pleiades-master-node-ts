@@ -21,6 +21,12 @@ export class ApplicationError extends Error {
 }
 /**/
 
+export class GenericMappingError extends ApplicationError {
+  constructor(message = 'Mapping error', options?: ErrorOptions) {
+    super(ApplicationErrorCodes.INTERNAL_SERVER_ERROR, message, options);
+  }
+}
+
 export class GenericBadRequestError extends ApplicationError {
   constructor(message = 'Bad request', options?: ErrorOptions) {
     super(ApplicationErrorCodes.BAD_REQUEST, message, options);
