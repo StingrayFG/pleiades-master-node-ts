@@ -3,15 +3,17 @@ import type { PrismaClient } from '@prisma/client';
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
 
-import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
+import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
-import type { EnsureBucketResult } from './bucket.application';
+import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 
 /**/
 
 type BucketRepositoryContract = {
+  findAll(): Promise<Bucket[]>;
   findByName(name: BucketName): Promise<Bucket | null>;
-  createIfNotExists(name: BucketName): Promise<EnsureBucketResult>;
+  findOrCreate(name: BucketName): Promise<EnsureBucketExistsResult>;
+  delete(name: BucketName): Promise<Bucket>;
 };
 
 /**/
@@ -20,6 +22,22 @@ const errorMap: PrismaErrorMapperOverrides = {};
 
 class BucketRepository implements BucketRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async findAll(): Promise<Bucket[]> {
+    let buckets;
+
+    try {
+      buckets = await this.prisma.bucket.findMany({
+        orderBy: {
+          name: 'asc'
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return buckets.map(mapPrismaBucketToDomainBucket);
+  }
 
   async findByName(bucketName: BucketName): Promise<Bucket | null> {
     let bucket;
@@ -37,7 +55,7 @@ class BucketRepository implements BucketRepositoryContract {
     return bucket ? mapPrismaBucketToDomainBucket(bucket) : null;
   }
 
-  async createIfNotExists(bucketName: BucketName): Promise<EnsureBucketResult> {
+  async findOrCreate(bucketName: BucketName): Promise<EnsureBucketExistsResult> {
     let bucket;
 
     try {
@@ -67,6 +85,22 @@ class BucketRepository implements BucketRepositoryContract {
       bucket: mapPrismaBucketToDomainBucket(bucket),
       created: true
     };
+  }
+
+  async delete(bucketName: BucketName): Promise<Bucket> {
+    let bucket;
+
+    try {
+      bucket = await this.prisma.bucket.delete({
+        where: {
+          name: bucketName
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaBucketToDomainBucket(bucket);
   }
 }
 

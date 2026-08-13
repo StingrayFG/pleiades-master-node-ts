@@ -9,7 +9,7 @@ import prisma from '@/database/prisma/prisma.client';
 import redis from '@/instances/redis';
 
 import indexRoute from '@/routes/indexRoute';
-import { createBucketRoutes } from '@/modules/buckets/bucket.http-routes';
+import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
 import authMiddlewares from '@/middlewares/authMiddlewares';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
@@ -50,7 +50,7 @@ const bucketModule = createBucketModule({
   prisma
 });
 app.register(
-  createBucketRoutes({
+  createBucketHttpRoutes({
     controller: bucketModule.controller
   }),
   {

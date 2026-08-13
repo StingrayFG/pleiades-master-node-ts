@@ -1,27 +1,39 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import type { BucketControllerContract } from './bucket.http-controller';
 import {
+  deleteBucketHttpSchema,
   getBucketHttpSchema,
+  listBucketsHttpSchema,
   putBucketHttpSchema,
+  type DeleteBucketHttpRoute,
   type GetBucketHttpRoute,
+  type ListBucketsHttpRoute,
   type PutBucketHttpRoute
 } from './bucket.http-contracts';
+import type { BucketHttpControllerContract } from './bucket.http-controller';
 
 /**/
 
-type BucketRoutesDependencies = {
-  controller: BucketControllerContract;
+type BucketHttpRoutesDependencies = {
+  controller: BucketHttpControllerContract;
 };
 
 /**/
 
-const createBucketRoutes = ({ controller }: BucketRoutesDependencies): FastifyPluginAsync => {
+const createBucketHttpRoutes = ({ controller }: BucketHttpRoutesDependencies): FastifyPluginAsync => {
   return async (app) => {
     app.addHook('onRequest', app.JWTAuthMW);
 
     const typedApp = app.withTypeProvider<ZodTypeProvider>();
+
+    typedApp.get<ListBucketsHttpRoute>(
+      '/',
+      {
+        schema: listBucketsHttpSchema
+      },
+      (_, reply) => controller.listBuckets(reply)
+    );
 
     typedApp.get<GetBucketHttpRoute>(
       '/:bucketName',
@@ -38,7 +50,15 @@ const createBucketRoutes = ({ controller }: BucketRoutesDependencies): FastifyPl
       },
       (req, reply) => controller.putBucket(req, reply)
     );
+
+    typedApp.delete<DeleteBucketHttpRoute>(
+      '/:bucketName',
+      {
+        schema: deleteBucketHttpSchema
+      },
+      (req, reply) => controller.deleteBucket(req, reply)
+    );
   };
 };
 
-export { createBucketRoutes };
+export { createBucketHttpRoutes };
