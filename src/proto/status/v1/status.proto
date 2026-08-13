@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package health.v1;
+package status.v1;
 
-option go_package = "app/internal/gen/health/v1;healthv1";
+option go_package = "app/internal/gen/status/v1;statusv1";
 
 enum HealthSnapshotStatus {
   HEALTH_SNAPSHOT_STATUS_HEALTHY = 0;
@@ -18,13 +18,12 @@ message HealthSnapshot {
   string message = 6;
 }
 
-
-service CheckHealthDataNode {
-  rpc CheckHealthDataNode(CheckHealthDataNodeRequest) returns (CheckHealthDataNodeResponse);
+service DataNodeStatus {
+  rpc CheckDataNodeHealth(CheckDataNodeHealthRequest) returns (CheckDataNodeHealthResponse);
 }
 
-message CheckHealthDataNodeRequest {}
+message CheckDataNodeHealthRequest {}
 
-message CheckHealthDataNodeResponse {
+message CheckDataNodeHealthResponse {
   HealthSnapshot health_snapshot = 1;
 }

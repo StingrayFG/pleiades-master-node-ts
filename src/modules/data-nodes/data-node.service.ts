@@ -15,8 +15,8 @@ import type { DataNodeRepositoryContract } from './data-node.repository';
 
 type DataNodeServiceContract = {
   registerDataNode(input: RegisterDataNodeInput): Promise<DataNode>;
-  heartbeatDataNode(input: HeartbeatDataNodeInput): Promise<DataNode>;
-  checkHealthDataNode(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot>;
+  recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode>;
+  checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot>;
 };
 
 /**/
@@ -46,7 +46,7 @@ class DataNodeService implements DataNodeServiceContract {
     return await this.repository.upsert(repositoryInput);
   }
 
-  async heartbeatDataNode(input: HeartbeatDataNodeInput): Promise<DataNode> {
+  async recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode> {
     const now = new Date();
 
     const state = resolveDataNodeState(input.healthSnapshot);
@@ -62,7 +62,7 @@ class DataNodeService implements DataNodeServiceContract {
     return await this.repository.applyHeartbeat(repositoryInput);
   }
 
-  async checkHealthDataNode(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot> {
+  async checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot> {
     const dataNode = await this.repository.findById(nodeId);
 
     if (!dataNode) {
@@ -75,7 +75,7 @@ class DataNodeService implements DataNodeServiceContract {
       scheme: dataNode.scheme
     };
 
-    return await this.grpcClient.checkHealthDataNode(clientInput);
+    return await this.grpcClient.checkDataNodeHealth(clientInput);
   }
 }
 

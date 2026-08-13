@@ -1,10 +1,15 @@
 import type { DataNode as PrismaDataNode } from '@prisma/client';
 
-import { wrapMapping } from '@/mappers/mapping';
 import { GenericMappingError } from '@/errors/application.errors';
-import { healthSnapshotStatusToJSON, type HealthSnapshot as GrpcHealthSnapshot } from '@/gen/proto/health/v1/health';
-import type { RegisterDataNodeRequest } from '@/gen/proto/register/v1/register';
-import type { HeartbeatDataNodeRequest } from '@/gen/proto/heartbeat/v1/heartbeat';
+import { wrapMapping } from '@/mappers/mapping';
+import {
+  healthSnapshotStatusToJSON,
+  type HealthSnapshot as GrpcHealthSnapshot
+} from '@/gen/proto/status/v1/status';
+import type {
+  RecordDataNodeHeartbeatRequest,
+  RegisterDataNodeRequest
+} from '@/gen/proto/membership/v1/membership';
 
 import {
   heartbeatDataNodeInputSchema,
@@ -79,10 +84,10 @@ export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
   );
 };
 
-export const mapGrpcHeartbeatDataNodeRequestToHeartbeatDataNodeInput = (
-  request: HeartbeatDataNodeRequest
+export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
+  request: RecordDataNodeHeartbeatRequest
 ): HeartbeatDataNodeInput => {
-  return wrapMapping('Failed to map gRPC heartbeat data node request to heartbeat data node input', () => {
+  return wrapMapping('Failed to map gRPC record data node heartbeat request to heartbeat data node input', () => {
     if (!request.health_snapshot) {
       throw new GenericMappingError('Health snapshot is required');
     }

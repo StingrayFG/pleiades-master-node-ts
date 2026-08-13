@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package membership.v1;
+
+option go_package = "app/internal/gen/membership/v1;membershipv1";
+
+import "buf/validate/validate.proto";
+import "status/v1/status.proto";
+
+service DataNodeMembership {
+  rpc RegisterDataNode(RegisterDataNodeRequest) returns (RegisterDataNodeResponse);
+  rpc RecordDataNodeHeartbeat(RecordDataNodeHeartbeatRequest) returns (RecordDataNodeHeartbeatResponse);
+}
+
+message RegisterDataNodeRequest {
+  string node_id = 1;
+  string hostname = 2;
+  uint32 port = 3 [(buf.validate.field).uint32.lte = 65535];
+  string scheme = 4 [(buf.validate.field).string = { in: ["grpc", "grpcs"] }];
+  status.v1.HealthSnapshot health_snapshot = 5;
+}
+
+message RegisterDataNodeResponse {}
+
+message RecordDataNodeHeartbeatRequest {
+  string node_id = 1;
+  status.v1.HealthSnapshot health_snapshot = 2;
+}
+
+message RecordDataNodeHeartbeatResponse {}

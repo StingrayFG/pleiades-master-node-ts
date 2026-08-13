@@ -2,7 +2,7 @@
 // versions:
 //   protoc-gen-ts_proto  v2.12.0
 //   protoc               unknown
-// source: register/v1/register.proto
+// source: membership/v1/membership.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
@@ -18,9 +18,9 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
-import { HealthSnapshot } from "../../health/v1/health";
+import { HealthSnapshot } from "../../status/v1/status";
 
-export const protobufPackage = "register.v1";
+export const protobufPackage = "membership.v1";
 
 export interface RegisterDataNodeRequest {
   node_id: string;
@@ -31,6 +31,14 @@ export interface RegisterDataNodeRequest {
 }
 
 export interface RegisterDataNodeResponse {
+}
+
+export interface RecordDataNodeHeartbeatRequest {
+  node_id: string;
+  health_snapshot: HealthSnapshot | undefined;
+}
+
+export interface RecordDataNodeHeartbeatResponse {
 }
 
 function createBaseRegisterDataNodeRequest(): RegisterDataNodeRequest {
@@ -210,10 +218,141 @@ export const RegisterDataNodeResponse: MessageFns<RegisterDataNodeResponse> = {
   },
 };
 
-export type RegisterDataNodeService = typeof RegisterDataNodeService;
-export const RegisterDataNodeService = {
+function createBaseRecordDataNodeHeartbeatRequest(): RecordDataNodeHeartbeatRequest {
+  return { node_id: "", health_snapshot: undefined };
+}
+
+export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatRequest> = {
+  encode(message: RecordDataNodeHeartbeatRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.node_id !== "") {
+      writer.uint32(10).string(message.node_id);
+    }
+    if (message.health_snapshot !== undefined) {
+      HealthSnapshot.encode(message.health_snapshot, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordDataNodeHeartbeatRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordDataNodeHeartbeatRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.node_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.health_snapshot = HealthSnapshot.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RecordDataNodeHeartbeatRequest {
+    return {
+      node_id: isSet(object.nodeId)
+        ? globalThis.String(object.nodeId)
+        : isSet(object.node_id)
+        ? globalThis.String(object.node_id)
+        : "",
+      health_snapshot: isSet(object.healthSnapshot)
+        ? HealthSnapshot.fromJSON(object.healthSnapshot)
+        : isSet(object.health_snapshot)
+        ? HealthSnapshot.fromJSON(object.health_snapshot)
+        : undefined,
+    };
+  },
+
+  toJSON(message: RecordDataNodeHeartbeatRequest): unknown {
+    const obj: any = {};
+    if (message.node_id !== "") {
+      obj.nodeId = message.node_id;
+    }
+    if (message.health_snapshot !== undefined) {
+      obj.healthSnapshot = HealthSnapshot.toJSON(message.health_snapshot);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordDataNodeHeartbeatRequest>, I>>(base?: I): RecordDataNodeHeartbeatRequest {
+    return RecordDataNodeHeartbeatRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordDataNodeHeartbeatRequest>, I>>(
+    object: I,
+  ): RecordDataNodeHeartbeatRequest {
+    const message = createBaseRecordDataNodeHeartbeatRequest();
+    message.node_id = object.node_id ?? "";
+    message.health_snapshot = (object.health_snapshot !== undefined && object.health_snapshot !== null)
+      ? HealthSnapshot.fromPartial(object.health_snapshot)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseRecordDataNodeHeartbeatResponse(): RecordDataNodeHeartbeatResponse {
+  return {};
+}
+
+export const RecordDataNodeHeartbeatResponse: MessageFns<RecordDataNodeHeartbeatResponse> = {
+  encode(_: RecordDataNodeHeartbeatResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordDataNodeHeartbeatResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordDataNodeHeartbeatResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RecordDataNodeHeartbeatResponse {
+    return {};
+  },
+
+  toJSON(_: RecordDataNodeHeartbeatResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordDataNodeHeartbeatResponse>, I>>(base?: I): RecordDataNodeHeartbeatResponse {
+    return RecordDataNodeHeartbeatResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordDataNodeHeartbeatResponse>, I>>(_: I): RecordDataNodeHeartbeatResponse {
+    const message = createBaseRecordDataNodeHeartbeatResponse();
+    return message;
+  },
+};
+
+export type DataNodeMembershipService = typeof DataNodeMembershipService;
+export const DataNodeMembershipService = {
   registerDataNode: {
-    path: "/register.v1.RegisterDataNode/RegisterDataNode" as const,
+    path: "/membership.v1.DataNodeMembership/RegisterDataNode" as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: RegisterDataNodeRequest): Buffer =>
@@ -223,13 +362,26 @@ export const RegisterDataNodeService = {
       Buffer.from(RegisterDataNodeResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RegisterDataNodeResponse => RegisterDataNodeResponse.decode(value),
   },
+  recordDataNodeHeartbeat: {
+    path: "/membership.v1.DataNodeMembership/RecordDataNodeHeartbeat" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RecordDataNodeHeartbeatRequest): Buffer =>
+      Buffer.from(RecordDataNodeHeartbeatRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordDataNodeHeartbeatRequest => RecordDataNodeHeartbeatRequest.decode(value),
+    responseSerialize: (value: RecordDataNodeHeartbeatResponse): Buffer =>
+      Buffer.from(RecordDataNodeHeartbeatResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordDataNodeHeartbeatResponse =>
+      RecordDataNodeHeartbeatResponse.decode(value),
+  },
 } as const;
 
-export interface RegisterDataNodeServer extends UntypedServiceImplementation {
+export interface DataNodeMembershipServer extends UntypedServiceImplementation {
   registerDataNode: handleUnaryCall<RegisterDataNodeRequest, RegisterDataNodeResponse>;
+  recordDataNodeHeartbeat: handleUnaryCall<RecordDataNodeHeartbeatRequest, RecordDataNodeHeartbeatResponse>;
 }
 
-export interface RegisterDataNodeClient extends Client {
+export interface DataNodeMembershipClient extends Client {
   registerDataNode(
     request: RegisterDataNodeRequest,
     callback: (error: ServiceError | null, response: RegisterDataNodeResponse) => void,
@@ -245,14 +397,29 @@ export interface RegisterDataNodeClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RegisterDataNodeResponse) => void,
   ): ClientUnaryCall;
+  recordDataNodeHeartbeat(
+    request: RecordDataNodeHeartbeatRequest,
+    callback: (error: ServiceError | null, response: RecordDataNodeHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  recordDataNodeHeartbeat(
+    request: RecordDataNodeHeartbeatRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordDataNodeHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  recordDataNodeHeartbeat(
+    request: RecordDataNodeHeartbeatRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordDataNodeHeartbeatResponse) => void,
+  ): ClientUnaryCall;
 }
 
-export const RegisterDataNodeClient = makeGenericClientConstructor(
-  RegisterDataNodeService,
-  "register.v1.RegisterDataNode",
+export const DataNodeMembershipClient = makeGenericClientConstructor(
+  DataNodeMembershipService,
+  "membership.v1.DataNodeMembership",
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): RegisterDataNodeClient;
-  service: typeof RegisterDataNodeService;
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): DataNodeMembershipClient;
+  service: typeof DataNodeMembershipService;
   serviceName: string;
 };
 

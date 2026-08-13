@@ -1,29 +1,28 @@
 import { credentials as grpcCredentials, Metadata } from '@grpc/grpc-js';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
+import type { CheckHealthDataNodeClientInput } from '@/modules/data-nodes/data-node.application';
+import type { DataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.domain';
+import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.mappers';
 import { DEFAULT_GRPC_DEADLINE_MS } from '@/transports/grpc/client/grpc-client.constants';
+import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
 import {
-  CheckHealthDataNodeClient as GrpcHealthClient,
-  CheckHealthDataNodeRequest,
-  type CheckHealthDataNodeResponse
-} from '@/gen/proto/health/v1/health';
-
-import type { CheckHealthDataNodeClientInput } from './data-node.application';
-import type { DataNodeHealthSnapshot } from './data-node.domain';
-import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from './data-node.mappers';
+  CheckDataNodeHealthRequest,
+  DataNodeStatusClient as GrpcStatusClient,
+  type CheckDataNodeHealthResponse
+} from '@/gen/proto/status/v1/status';
 
 /**/
 
 type DataNodeGrpcClientContract = {
-  checkHealthDataNode(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot>;
+  checkDataNodeHealth(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot>;
   close(): void;
 };
 
 /**/
 
 class DataNodeGrpcClient implements DataNodeGrpcClientContract {
-  private readonly clients = new Map<string, GrpcHealthClient>();
+  private readonly clients = new Map<string, GrpcStatusClient>();
 
   close(): void {
     for (const client of this.clients.values()) {
@@ -33,7 +32,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
     this.clients.clear();
   }
 
-  private getClient(input: CheckHealthDataNodeClientInput): GrpcHealthClient {
+  private getClient(input: CheckHealthDataNodeClientInput): GrpcStatusClient {
     const key = `${input.scheme}://${input.hostname}:${input.port}`;
 
     const existingClient = this.clients.get(key);
@@ -44,19 +43,19 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
 
     const credentials = input.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
 
-    const client = new GrpcHealthClient(`${input.hostname}:${input.port}`, credentials);
+    const client = new GrpcStatusClient(`${input.hostname}:${input.port}`, credentials);
 
     this.clients.set(key, client);
 
     return client;
   }
 
-  async checkHealthDataNode(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot> {
+  async checkDataNodeHealth(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot> {
     const client = this.getClient(input);
 
-    const response = await new Promise<CheckHealthDataNodeResponse>((resolve, reject) => {
-      client.checkHealthDataNode(
-        CheckHealthDataNodeRequest.create(),
+    const response = await new Promise<CheckDataNodeHealthResponse>((resolve, reject) => {
+      client.checkDataNodeHealth(
+        CheckDataNodeHealthRequest.create(),
         new Metadata(),
         {
           deadline: new Date(Date.now() + DEFAULT_GRPC_DEADLINE_MS)
@@ -73,7 +72,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
     });
 
     if (!response.health_snapshot) {
-      throw new GenericInternalServerError('Missing health snapshot in check health response');
+      throw new GenericInternalServerError('Missing health snapshot in check data node health response');
     }
 
     return mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(response.health_snapshot);

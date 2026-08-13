@@ -1,15 +1,13 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 
 import app from '@/app';
-import env from '@/env';
 import prisma from '@/database/prisma/prisma.client';
-
-import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
-import { HeartbeatService } from '@/gen/proto/heartbeat/v1/heartbeat';
-import { RegisterService } from '@/gen/proto/register/v1/register';
-import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
+import env from '@/env';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
+import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
 import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
+import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
+import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
 
 const grpcHost = '0.0.0.0';
 const grpcPort = Number(env.GRPC_PORT);
@@ -47,14 +45,8 @@ const startGrpcServer = async (): Promise<Server> => {
 
   registerGrpcServiceWithErrorHandling(
     grpcServer,
-    RegisterService,
-    dataNodeGrpcRoutes.registerDataNodeService,
-    grpcErrorHandlerOptions
-  );
-  registerGrpcServiceWithErrorHandling(
-    grpcServer,
-    HeartbeatService,
-    dataNodeGrpcRoutes.heartbeatDataNodeService,
+    DataNodeMembershipService,
+    dataNodeGrpcRoutes.dataNodeMembershipService,
     grpcErrorHandlerOptions
   );
 

@@ -1,5 +1,4 @@
-import type { HeartbeatDataNodeServer } from '@/gen/proto/heartbeat/v1/heartbeat';
-import type { RegisterDataNodeServer } from '@/gen/proto/register/v1/register';
+import type { DataNodeMembershipServer } from '@/gen/proto/membership/v1/membership';
 
 import type { DataNodeGrpcControllerContract } from './data-node.grpc-controller';
 
@@ -10,19 +9,16 @@ type DataNodeGrpcRoutesDependencies = {
 };
 
 type DataNodeGrpcRoutes = {
-  registerDataNodeService: RegisterDataNodeServer;
-  heartbeatDataNodeService: HeartbeatDataNodeServer;
+  dataNodeMembershipService: DataNodeMembershipServer;
 };
 
 /**/
 
 const createDataNodeGrpcRoutes = ({ controller }: DataNodeGrpcRoutesDependencies): DataNodeGrpcRoutes => {
   return {
-    registerDataNodeService: {
-      registerDataNode: (call, callback) => controller.registerDataNode(call, callback)
-    },
-    heartbeatDataNodeService: {
-      heartbeatDataNode: (call, callback) => controller.heartbeatDataNode(call, callback)
+    dataNodeMembershipService: {
+      registerDataNode: (call, callback) => controller.registerDataNode(call, callback),
+      recordDataNodeHeartbeat: (call, callback) => controller.recordDataNodeHeartbeat(call, callback)
     }
   };
 };

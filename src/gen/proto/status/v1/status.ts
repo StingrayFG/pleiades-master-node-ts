@@ -2,7 +2,7 @@
 // versions:
 //   protoc-gen-ts_proto  v2.12.0
 //   protoc               unknown
-// source: health/v1/health.proto
+// source: status/v1/status.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
@@ -19,7 +19,7 @@ import {
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
 
-export const protobufPackage = "health.v1";
+export const protobufPackage = "status.v1";
 
 export enum HealthSnapshotStatus {
   HEALTH_SNAPSHOT_STATUS_HEALTHY = 0,
@@ -63,10 +63,10 @@ export interface HealthSnapshot {
   message: string;
 }
 
-export interface CheckHealthDataNodeRequest {
+export interface CheckDataNodeHealthRequest {
 }
 
-export interface CheckHealthDataNodeResponse {
+export interface CheckDataNodeHealthResponse {
   health_snapshot: HealthSnapshot | undefined;
 }
 
@@ -233,19 +233,19 @@ export const HealthSnapshot: MessageFns<HealthSnapshot> = {
   },
 };
 
-function createBaseCheckHealthDataNodeRequest(): CheckHealthDataNodeRequest {
+function createBaseCheckDataNodeHealthRequest(): CheckDataNodeHealthRequest {
   return {};
 }
 
-export const CheckHealthDataNodeRequest: MessageFns<CheckHealthDataNodeRequest> = {
-  encode(_: CheckHealthDataNodeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CheckDataNodeHealthRequest: MessageFns<CheckDataNodeHealthRequest> = {
+  encode(_: CheckDataNodeHealthRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CheckHealthDataNodeRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): CheckDataNodeHealthRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCheckHealthDataNodeRequest();
+    const message = createBaseCheckDataNodeHealthRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -258,40 +258,40 @@ export const CheckHealthDataNodeRequest: MessageFns<CheckHealthDataNodeRequest> 
     return message;
   },
 
-  fromJSON(_: any): CheckHealthDataNodeRequest {
+  fromJSON(_: any): CheckDataNodeHealthRequest {
     return {};
   },
 
-  toJSON(_: CheckHealthDataNodeRequest): unknown {
+  toJSON(_: CheckDataNodeHealthRequest): unknown {
     const obj: any = {};
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CheckHealthDataNodeRequest>, I>>(base?: I): CheckHealthDataNodeRequest {
-    return CheckHealthDataNodeRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<CheckDataNodeHealthRequest>, I>>(base?: I): CheckDataNodeHealthRequest {
+    return CheckDataNodeHealthRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CheckHealthDataNodeRequest>, I>>(_: I): CheckHealthDataNodeRequest {
-    const message = createBaseCheckHealthDataNodeRequest();
+  fromPartial<I extends Exact<DeepPartial<CheckDataNodeHealthRequest>, I>>(_: I): CheckDataNodeHealthRequest {
+    const message = createBaseCheckDataNodeHealthRequest();
     return message;
   },
 };
 
-function createBaseCheckHealthDataNodeResponse(): CheckHealthDataNodeResponse {
+function createBaseCheckDataNodeHealthResponse(): CheckDataNodeHealthResponse {
   return { health_snapshot: undefined };
 }
 
-export const CheckHealthDataNodeResponse: MessageFns<CheckHealthDataNodeResponse> = {
-  encode(message: CheckHealthDataNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CheckDataNodeHealthResponse: MessageFns<CheckDataNodeHealthResponse> = {
+  encode(message: CheckDataNodeHealthResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.health_snapshot !== undefined) {
       HealthSnapshot.encode(message.health_snapshot, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CheckHealthDataNodeResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): CheckDataNodeHealthResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCheckHealthDataNodeResponse();
+    const message = createBaseCheckDataNodeHealthResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -312,7 +312,7 @@ export const CheckHealthDataNodeResponse: MessageFns<CheckHealthDataNodeResponse
     return message;
   },
 
-  fromJSON(object: any): CheckHealthDataNodeResponse {
+  fromJSON(object: any): CheckDataNodeHealthResponse {
     return {
       health_snapshot: isSet(object.healthSnapshot)
         ? HealthSnapshot.fromJSON(object.healthSnapshot)
@@ -322,7 +322,7 @@ export const CheckHealthDataNodeResponse: MessageFns<CheckHealthDataNodeResponse
     };
   },
 
-  toJSON(message: CheckHealthDataNodeResponse): unknown {
+  toJSON(message: CheckDataNodeHealthResponse): unknown {
     const obj: any = {};
     if (message.health_snapshot !== undefined) {
       obj.healthSnapshot = HealthSnapshot.toJSON(message.health_snapshot);
@@ -330,11 +330,11 @@ export const CheckHealthDataNodeResponse: MessageFns<CheckHealthDataNodeResponse
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CheckHealthDataNodeResponse>, I>>(base?: I): CheckHealthDataNodeResponse {
-    return CheckHealthDataNodeResponse.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<CheckDataNodeHealthResponse>, I>>(base?: I): CheckDataNodeHealthResponse {
+    return CheckDataNodeHealthResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CheckHealthDataNodeResponse>, I>>(object: I): CheckHealthDataNodeResponse {
-    const message = createBaseCheckHealthDataNodeResponse();
+  fromPartial<I extends Exact<DeepPartial<CheckDataNodeHealthResponse>, I>>(object: I): CheckDataNodeHealthResponse {
+    const message = createBaseCheckDataNodeHealthResponse();
     message.health_snapshot = (object.health_snapshot !== undefined && object.health_snapshot !== null)
       ? HealthSnapshot.fromPartial(object.health_snapshot)
       : undefined;
@@ -342,49 +342,49 @@ export const CheckHealthDataNodeResponse: MessageFns<CheckHealthDataNodeResponse
   },
 };
 
-export type CheckHealthDataNodeService = typeof CheckHealthDataNodeService;
-export const CheckHealthDataNodeService = {
-  checkHealthDataNode: {
-    path: "/health.v1.CheckHealthDataNode/CheckHealthDataNode" as const,
+export type DataNodeStatusService = typeof DataNodeStatusService;
+export const DataNodeStatusService = {
+  checkDataNodeHealth: {
+    path: "/status.v1.DataNodeStatus/CheckDataNodeHealth" as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: CheckHealthDataNodeRequest): Buffer =>
-      Buffer.from(CheckHealthDataNodeRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): CheckHealthDataNodeRequest => CheckHealthDataNodeRequest.decode(value),
-    responseSerialize: (value: CheckHealthDataNodeResponse): Buffer =>
-      Buffer.from(CheckHealthDataNodeResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): CheckHealthDataNodeResponse => CheckHealthDataNodeResponse.decode(value),
+    requestSerialize: (value: CheckDataNodeHealthRequest): Buffer =>
+      Buffer.from(CheckDataNodeHealthRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): CheckDataNodeHealthRequest => CheckDataNodeHealthRequest.decode(value),
+    responseSerialize: (value: CheckDataNodeHealthResponse): Buffer =>
+      Buffer.from(CheckDataNodeHealthResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): CheckDataNodeHealthResponse => CheckDataNodeHealthResponse.decode(value),
   },
 } as const;
 
-export interface CheckHealthDataNodeServer extends UntypedServiceImplementation {
-  checkHealthDataNode: handleUnaryCall<CheckHealthDataNodeRequest, CheckHealthDataNodeResponse>;
+export interface DataNodeStatusServer extends UntypedServiceImplementation {
+  checkDataNodeHealth: handleUnaryCall<CheckDataNodeHealthRequest, CheckDataNodeHealthResponse>;
 }
 
-export interface CheckHealthDataNodeClient extends Client {
-  checkHealthDataNode(
-    request: CheckHealthDataNodeRequest,
-    callback: (error: ServiceError | null, response: CheckHealthDataNodeResponse) => void,
+export interface DataNodeStatusClient extends Client {
+  checkDataNodeHealth(
+    request: CheckDataNodeHealthRequest,
+    callback: (error: ServiceError | null, response: CheckDataNodeHealthResponse) => void,
   ): ClientUnaryCall;
-  checkHealthDataNode(
-    request: CheckHealthDataNodeRequest,
+  checkDataNodeHealth(
+    request: CheckDataNodeHealthRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: CheckHealthDataNodeResponse) => void,
+    callback: (error: ServiceError | null, response: CheckDataNodeHealthResponse) => void,
   ): ClientUnaryCall;
-  checkHealthDataNode(
-    request: CheckHealthDataNodeRequest,
+  checkDataNodeHealth(
+    request: CheckDataNodeHealthRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: CheckHealthDataNodeResponse) => void,
+    callback: (error: ServiceError | null, response: CheckDataNodeHealthResponse) => void,
   ): ClientUnaryCall;
 }
 
-export const CheckHealthDataNodeClient = makeGenericClientConstructor(
-  CheckHealthDataNodeService,
-  "health.v1.CheckHealthDataNode",
+export const DataNodeStatusClient = makeGenericClientConstructor(
+  DataNodeStatusService,
+  "status.v1.DataNodeStatus",
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): CheckHealthDataNodeClient;
-  service: typeof CheckHealthDataNodeService;
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): DataNodeStatusClient;
+  service: typeof DataNodeStatusService;
   serviceName: string;
 };
 
