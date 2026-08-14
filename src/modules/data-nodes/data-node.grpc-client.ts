@@ -4,7 +4,7 @@ import { GenericInternalServerError } from '@/errors/application.errors';
 import type { CheckHealthDataNodeClientInput } from '@/modules/data-nodes/data-node.application';
 import type { DataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.domain';
 import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.mappers';
-import { DEFAULT_GRPC_DEADLINE_MS } from '@/transports/grpc/client/grpc-client.constants';
+import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
 import {
   CheckDataNodeHealthRequest,
@@ -57,9 +57,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
       client.checkDataNodeHealth(
         CheckDataNodeHealthRequest.create(),
         new Metadata(),
-        {
-          deadline: new Date(Date.now() + DEFAULT_GRPC_DEADLINE_MS)
-        },
+        createDefaultGrpcCallOptions(),
         (err, response) => {
           if (err) {
             reject(mapGrpcErrorToApplicationError(err));
