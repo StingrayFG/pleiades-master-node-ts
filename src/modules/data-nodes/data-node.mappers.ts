@@ -2,14 +2,8 @@ import type { DataNode as PrismaDataNode } from '@prisma/client';
 
 import { GenericMappingError } from '@/errors/application.errors';
 import { wrapMapping } from '@/mappers/mapping';
-import {
-  healthSnapshotStatusToJSON,
-  type HealthSnapshot as GrpcHealthSnapshot
-} from '@/gen/proto/status/v1/status';
-import type {
-  RecordDataNodeHeartbeatRequest,
-  RegisterDataNodeRequest
-} from '@/gen/proto/membership/v1/membership';
+import { healthSnapshotStatusToJSON, type HealthSnapshot as GrpcHealthSnapshot } from '@/gen/proto/status/v1/status';
+import type { RecordDataNodeHeartbeatRequest, RegisterDataNodeRequest } from '@/gen/proto/membership/v1/membership';
 
 import {
   heartbeatDataNodeInputSchema,
@@ -24,23 +18,6 @@ import {
   type DataNodeHealthSnapshot,
   type DataNodeHealthSnapshotStatus
 } from './data-node.domain';
-
-export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {
-  return wrapMapping('Failed to map Prisma data node to domain data node', () =>
-    dataNodeSchema.parse({
-      nodeId: dataNode.node_id,
-      hostname: dataNode.hostname,
-      port: dataNode.port,
-      scheme: dataNode.scheme,
-      state: dataNode.state,
-      storageTotalBytes: dataNode.storage_total_bytes,
-      storageFreeBytes: dataNode.storage_free_bytes,
-      lastHeartbeatAt: dataNode.last_heartbeat_at,
-      registeredAt: dataNode.registered_at,
-      updatedAt: dataNode.updated_at
-    })
-  );
-};
 
 export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
   status: GrpcHealthSnapshot['status']
@@ -115,4 +92,21 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
   });
+};
+
+export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {
+  return wrapMapping('Failed to map Prisma data node to domain data node', () =>
+    dataNodeSchema.parse({
+      nodeId: dataNode.node_id,
+      hostname: dataNode.hostname,
+      port: dataNode.port,
+      scheme: dataNode.scheme,
+      state: dataNode.state,
+      storageTotalBytes: dataNode.storage_total_bytes,
+      storageFreeBytes: dataNode.storage_free_bytes,
+      lastHeartbeatAt: dataNode.last_heartbeat_at,
+      registeredAt: dataNode.registered_at,
+      updatedAt: dataNode.updated_at
+    })
+  );
 };
