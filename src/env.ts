@@ -1,46 +1,70 @@
 const defaultEnv = {
   PORT: '4400',
   GRPC_PORT: '4410',
-  PLACEMENT_GROUP_COUNT: '1024'
+  PLACEMENT_GROUP_COUNT: '64',
+  REPLICATION_FACTOR: '3',
+  VERSION_BLOB_SIZE_LIMIT_BYTES: '10485760'
 } as const;
 
-let PORT = process.env.PORT?.trim();
-if (!PORT) {
-  PORT = defaultEnv.PORT;
-}
+const getEnvValue = (name: string, fallback?: string): string => {
+  const value = process.env[name]?.trim() || fallback;
 
-let GRPC_PORT = process.env.GRPC_PORT?.trim();
-if (!GRPC_PORT) {
-  GRPC_PORT = defaultEnv.GRPC_PORT;
-}
+  if (!value) {
+    throw new Error(`missing ${name}`);
+  }
 
-const CLIENT_URL = process.env.CLIENT_URL?.trim();
-if (!CLIENT_URL) {
-  throw new Error('missing CLIENT_URL');
-}
-const REDIS_URL = process.env.REDIS_URL?.trim();
-if (!REDIS_URL) {
-  throw new Error('missing REDIS_URL');
-}
-const DATABASE_URL = process.env.DATABASE_URL?.trim();
-if (!DATABASE_URL) {
-  throw new Error('missing DATABASE_URL');
-}
+  return value;
+};
 
-let PLACEMENT_GROUP_COUNT = process.env.PLACEMENT_GROUP_COUNT?.trim();
-if (!PLACEMENT_GROUP_COUNT) {
-  PLACEMENT_GROUP_COUNT = defaultEnv.PLACEMENT_GROUP_COUNT;
-}
+const parsePositiveInteger = (name: string, value: string): number => {
+  const parsedValue = Number(value);
 
-const JWT_TOKEN_SECRET = process.env.JWT_TOKEN_SECRET?.trim();
-if (!JWT_TOKEN_SECRET) {
-  throw new Error('missing JWT_TOKEN_SECRET');
-}
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(`invalid ${name}`);
+  }
+
+  return parsedValue;
+};
+
+const parsePort = (name: string, value: string): number => {
+  const port = parsePositiveInteger(name, value);
+
+  if (port > 65535) {
+    throw new Error(`invalid ${name}`);
+  }
+
+  return port;
+};
+
+const validateUrl = (name: string, value: string, allowedProtocols: readonly string[]): string => {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`invalid ${name}`);
+  }
+
+  if (!url.hostname || !allowedProtocols.includes(url.protocol)) {
+    throw new Error(`invalid ${name}`);
+  }
+
+  return value;
+};
+
+const PORT = parsePort('PORT', getEnvValue('PORT', defaultEnv.PORT));
+const GRPC_PORT = parsePort('GRPC_PORT', getEnvValue('GRPC_PORT', defaultEnv.GRPC_PORT));
+const REDIS_URL = validateUrl('REDIS_URL', getEnvValue('REDIS_URL'), ['redis:', 'rediss:']);
+const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
+const PLACEMENT_GROUP_COUNT = parsePositiveInteger(
+  'PLACEMENT_GROUP_COUNT',
+  getEnvValue('PLACEMENT_GROUP_COUNT', defaultEnv.PLACEMENT_GROUP_COUNT)
+);
+const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
 
 export const env = {
   PORT,
   GRPC_PORT,
-  CLIENT_URL,
   REDIS_URL,
   DATABASE_URL,
   PLACEMENT_GROUP_COUNT,

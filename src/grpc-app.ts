@@ -10,8 +10,7 @@ import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/g
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
 
 const grpcHost = '0.0.0.0';
-const grpcPort = Number(env.GRPC_PORT);
-const grpcAddress = `${grpcHost}:${grpcPort}`;
+const grpcAddress = `${grpcHost}:${env.GRPC_PORT}`;
 
 const stopGrpcServer = async (server: Server): Promise<void> => {
   await new Promise<void>((resolve, reject) => {

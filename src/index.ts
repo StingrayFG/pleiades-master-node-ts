@@ -4,13 +4,11 @@ import app from '@/app';
 
 import env from '@/env';
 
-const port = Number(env.PORT);
-
 void startGrpcApp();
 
 app.listen(
   {
-    port,
+    port: env.PORT,
     host: '0.0.0.0'
   },
   (err, address) => {
