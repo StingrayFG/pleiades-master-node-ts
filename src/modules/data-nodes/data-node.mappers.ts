@@ -12,9 +12,11 @@ import {
   type RegisterDataNodeInput
 } from './data-node.application';
 import {
+  dataNodeEndpointSchema,
   dataNodeHealthSnapshotSchema,
   dataNodeSchema,
   type DataNode,
+  type DataNodeEndpoint,
   type DataNodeHealthSnapshot,
   type DataNodeHealthSnapshotStatus
 } from './data-node.domain';
@@ -92,6 +94,16 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
   });
+};
+
+export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpoint => {
+  return wrapMapping('Failed to map data node to data node endpoint', () =>
+    dataNodeEndpointSchema.parse({
+      hostname: dataNode.hostname,
+      port: dataNode.port,
+      scheme: dataNode.scheme
+    })
+  );
 };
 
 export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {

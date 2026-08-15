@@ -2,18 +2,20 @@ import { GenericNotFoundError } from '@/errors/application.errors';
 
 import type {
   ApplyHeartbeatRepositoryInput,
-  CheckHealthDataNodeClientInput,
   HeartbeatDataNodeInput,
   RegisterDataNodeInput,
   UpsertDataNodeRepositoryInput
 } from './data-node.application';
-import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
 import { type DataNode, type DataNodeHealthSnapshot, type DataNodeId, resolveDataNodeState } from './data-node.domain';
+import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
+import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
 import type { DataNodeRepositoryContract } from './data-node.repository';
 
 /**/
 
 type DataNodeServiceContract = {
+  listActiveDataNodes(): Promise<DataNode[]>;
+  getDataNodeById(nodeId: DataNodeId): Promise<DataNode>;
   registerDataNode(input: RegisterDataNodeInput): Promise<DataNode>;
   recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode>;
   checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot>;
@@ -26,6 +28,20 @@ class DataNodeService implements DataNodeServiceContract {
     private readonly repository: DataNodeRepositoryContract,
     private readonly grpcClient: DataNodeGrpcClientContract
   ) {}
+
+  async listActiveDataNodes(): Promise<DataNode[]> {
+    return await this.repository.findAllActive();
+  }
+
+  async getDataNodeById(nodeId: DataNodeId): Promise<DataNode> {
+    const dataNode = await this.repository.findById(nodeId);
+
+    if (!dataNode) {
+      throw new GenericNotFoundError('Data node not found');
+    }
+
+    return dataNode;
+  }
 
   async registerDataNode(input: RegisterDataNodeInput): Promise<DataNode> {
     const state = resolveDataNodeState(input.healthSnapshot);
@@ -69,13 +85,9 @@ class DataNodeService implements DataNodeServiceContract {
       throw new GenericNotFoundError();
     }
 
-    const clientInput: CheckHealthDataNodeClientInput = {
-      hostname: dataNode.hostname,
-      port: dataNode.port,
-      scheme: dataNode.scheme
-    };
+    const dataNodeEndpoint = mapDataNodeToDataNodeEndpoint(dataNode);
 
-    return await this.grpcClient.checkDataNodeHealth(clientInput);
+    return await this.grpcClient.checkDataNodeHealth(dataNodeEndpoint);
   }
 }
 

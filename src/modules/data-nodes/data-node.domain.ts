@@ -18,6 +18,13 @@ export type DataNodeState = z.infer<typeof dataNodeStateSchema>;
 export const dataNodeSchemeSchema = z.enum(DATA_NODE_SCHEMES);
 export type DataNodeScheme = z.infer<typeof dataNodeSchemeSchema>;
 
+export const dataNodeEndpointSchema = z.object({
+  hostname: dataNodeHostnameSchema,
+  port: dataNodePortSchema,
+  scheme: dataNodeSchemeSchema
+});
+export type DataNodeEndpoint = z.infer<typeof dataNodeEndpointSchema>;
+
 export const dataNodeSchema = z.object({
   nodeId: dataNodeIdSchema,
   hostname: dataNodeHostnameSchema,

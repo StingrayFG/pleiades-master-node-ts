@@ -44,10 +44,3 @@ export const applyHeartbeatRepositoryInputSchema = z.object({
   lastHeartbeatAt: z.date()
 });
 export type ApplyHeartbeatRepositoryInput = z.infer<typeof applyHeartbeatRepositoryInputSchema>;
-
-export const checkHealthDataNodeInputSchema = z.object({
-  hostname: dataNodeHostnameSchema,
-  scheme: dataNodeSchemeSchema,
-  port: dataNodePortSchema
-});
-export type CheckHealthDataNodeClientInput = z.infer<typeof checkHealthDataNodeInputSchema>;

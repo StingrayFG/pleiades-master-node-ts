@@ -1,21 +1,21 @@
 import { credentials as grpcCredentials, Metadata } from '@grpc/grpc-js';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import type { CheckHealthDataNodeClientInput } from '@/modules/data-nodes/data-node.application';
-import type { DataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.domain';
-import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from '@/modules/data-nodes/data-node.mappers';
-import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
-import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
 import {
   CheckDataNodeHealthRequest,
   DataNodeStatusClient as GrpcStatusClient,
   type CheckDataNodeHealthResponse
 } from '@/gen/proto/status/v1/status';
+import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
+import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
+
+import type { DataNodeEndpoint, DataNodeHealthSnapshot } from './data-node.domain';
+import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from './data-node.mappers';
 
 /**/
 
 type DataNodeGrpcClientContract = {
-  checkDataNodeHealth(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot>;
+  checkDataNodeHealth(input: DataNodeEndpoint): Promise<DataNodeHealthSnapshot>;
   close(): void;
 };
 
@@ -32,8 +32,8 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
     this.clients.clear();
   }
 
-  private getClient(input: CheckHealthDataNodeClientInput): GrpcStatusClient {
-    const key = `${input.scheme}://${input.hostname}:${input.port}`;
+  private getClient(endpoint: DataNodeEndpoint): GrpcStatusClient {
+    const key = `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}`;
 
     const existingClient = this.clients.get(key);
 
@@ -41,16 +41,16 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
       return existingClient;
     }
 
-    const credentials = input.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
+    const credentials = endpoint.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
 
-    const client = new GrpcStatusClient(`${input.hostname}:${input.port}`, credentials);
+    const client = new GrpcStatusClient(`${endpoint.hostname}:${endpoint.port}`, credentials);
 
     this.clients.set(key, client);
 
     return client;
   }
 
-  async checkDataNodeHealth(input: CheckHealthDataNodeClientInput): Promise<DataNodeHealthSnapshot> {
+  async checkDataNodeHealth(input: DataNodeEndpoint): Promise<DataNodeHealthSnapshot> {
     const client = this.getClient(input);
 
     const response = await new Promise<CheckDataNodeHealthResponse>((resolve, reject) => {
