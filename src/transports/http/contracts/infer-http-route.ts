@@ -3,12 +3,15 @@ import type { z } from 'zod';
 type InferHttpRoute<
   T extends {
     params?: z.ZodType;
+    headers?: z.ZodType;
     querystring?: z.ZodType;
     body?: z.ZodType;
     response?: Record<number, z.ZodType>;
   }
 > = {
   Params: T extends { params: infer P extends z.ZodType } ? z.output<P> : unknown;
+
+  Headers: T extends { headers: infer H extends z.ZodType } ? z.output<H> : unknown;
 
   Querystring: T extends { querystring: infer Q extends z.ZodType } ? z.output<Q> : unknown;
 
