@@ -1,8 +1,9 @@
 import { Metadata, status, type ServerErrorResponse } from '@grpc/grpc-js';
 import { ZodError } from 'zod';
 
-import { ApplicationError } from '@/errors/application.errors';
-import { mapApplicationErrorToGrpcStatusCode } from '@/transports/grpc/mappers/error.mappers';
+import { LocalApplicationError } from '@/errors/application.errors';
+import { InternodeApplicationError } from '@/errors/internode.errors';
+import { mapLocalApplicationErrorToGrpcStatusCode } from '@/transports/grpc/mappers/error.mappers';
 
 /**/
 
@@ -16,22 +17,11 @@ type NormalizedGrpcError = {
 };
 
 type ClassifiedError =
-  | {
-      kind: 'application';
-      error: ApplicationError;
-    }
-  | {
-      kind: 'validation';
-      error: ZodError;
-    }
-  | {
-      kind: 'grpc';
-      error: NormalizedGrpcError;
-    }
-  | {
-      kind: 'internal';
-      error: unknown;
-    };
+  | { kind: 'application-local'; error: LocalApplicationError }
+  | { kind: 'application-internode'; error: InternodeApplicationError }
+  | { kind: 'validation'; error: ZodError }
+  | { kind: 'grpc'; error: NormalizedGrpcError }
+  | { kind: 'internal'; error: unknown };
 
 type ToGrpcServerErrorOptions = {
   onInternalError?: (error: unknown) => void;
@@ -40,8 +30,6 @@ type ToGrpcServerErrorOptions = {
 const INVALID_REQUEST_DETAILS = 'Invalid request';
 const INTERNAL_ERROR_DETAILS = 'Internal server error';
 const GRPC_ERROR_DETAILS = 'gRPC error';
-
-const PRIVATE_DETAILS_GRPC_ERROR_CODES = new Set<GrpcErrorCode>([status.UNKNOWN, status.INTERNAL, status.DATA_LOSS]);
 
 const ALLOWED_ERROR_METADATA_KEYS = new Set<string>();
 
@@ -66,10 +54,6 @@ const isGrpcErrorCode = (value: unknown): value is GrpcErrorCode => {
   return (
     typeof value === 'number' && Number.isInteger(value) && value >= status.CANCELLED && value <= status.UNAUTHENTICATED
   );
-};
-
-const hasPrivateGrpcErrorDetails = (code: GrpcErrorCode): boolean => {
-  return PRIVATE_DETAILS_GRPC_ERROR_CODES.has(code);
 };
 
 const normalizeErrorMetadata = (value: unknown): Metadata | undefined => {
@@ -117,22 +101,29 @@ const normalizeGrpcError = (error: unknown): NormalizedGrpcError | undefined => 
   };
 };
 
-const classifyError = (error: unknown): ClassifiedError => {
-  if (error instanceof ApplicationError) {
+const classifyError = (err: unknown): ClassifiedError => {
+  if (err instanceof LocalApplicationError) {
     return {
-      kind: 'application',
-      error
+      kind: 'application-local',
+      error: err
     };
   }
 
-  if (error instanceof ZodError) {
+  if (err instanceof InternodeApplicationError) {
+    return {
+      kind: 'application-internode',
+      error: err
+    };
+  }
+
+  if (err instanceof ZodError) {
     return {
       kind: 'validation',
-      error
+      error: err
     };
   }
 
-  const normalizedGrpcError = normalizeGrpcError(error);
+  const normalizedGrpcError = normalizeGrpcError(err);
 
   if (normalizedGrpcError) {
     return {
@@ -143,7 +134,7 @@ const classifyError = (error: unknown): ClassifiedError => {
 
   return {
     kind: 'internal',
-    error
+    error: err
   };
 };
 
@@ -153,17 +144,17 @@ const toGrpcServerError = (err: unknown, options: ToGrpcServerErrorOptions = {})
   const classifiedError = classifyError(err);
 
   switch (classifiedError.kind) {
-    case 'application': {
+    case 'application-local': {
       const applicationError = classifiedError.error;
-      const code = mapApplicationErrorToGrpcStatusCode(applicationError);
-
-      if (hasPrivateGrpcErrorDetails(code)) {
-        options.onInternalError?.(err);
-
-        return createGrpcServerError(code, INTERNAL_ERROR_DETAILS);
-      }
+      const code = mapLocalApplicationErrorToGrpcStatusCode(applicationError);
 
       return createGrpcServerError(code, applicationError.message);
+    }
+
+    case 'application-internode': {
+      options.onInternalError?.(err);
+
+      return createGrpcServerError(status.INTERNAL, INTERNAL_ERROR_DETAILS);
     }
 
     case 'validation':
@@ -171,12 +162,6 @@ const toGrpcServerError = (err: unknown, options: ToGrpcServerErrorOptions = {})
 
     case 'grpc': {
       const { code, details, metadata } = classifiedError.error;
-
-      if (hasPrivateGrpcErrorDetails(code)) {
-        options.onInternalError?.(err);
-
-        return createGrpcServerError(code, INTERNAL_ERROR_DETAILS, metadata);
-      }
 
       return createGrpcServerError(code, details, metadata);
     }

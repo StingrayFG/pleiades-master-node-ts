@@ -1,4 +1,4 @@
-import { ApplicationError, type ApplicationErrorCode } from '@/errors/application.errors';
+import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
 import {
   badRequestHttpErrorDefinition,
   conflictHttpErrorDefinition,
@@ -12,20 +12,15 @@ import {
 
 /**/
 
-const httpErrorDefinitionByApplicationErrorCode = {
+const httpErrorDefinitionByLocalApplicationErrorCode = {
   BAD_REQUEST: badRequestHttpErrorDefinition,
   UNAUTHORIZED: unauthorizedHttpErrorDefinition,
   FORBIDDEN: forbiddenHttpErrorDefinition,
   NOT_FOUND: notFoundHttpErrorDefinition,
   CONFLICT: conflictHttpErrorDefinition,
-  INTERNAL_SERVER_ERROR: internalServerErrorHttpErrorDefinition
-} satisfies Record<ApplicationErrorCode, KnownHttpErrorDefinition>;
-
-const mapApplicationErrorToHttpErrorDefinition = (error: ApplicationError): KnownHttpErrorDefinition => {
-  return httpErrorDefinitionByApplicationErrorCode[error.code];
-};
-
-/**/
+  INTERNAL_SERVER_ERROR: internalServerErrorHttpErrorDefinition,
+  MAPPING_ERROR: internalServerErrorHttpErrorDefinition
+} satisfies Record<LocalApplicationErrorCode, KnownHttpErrorDefinition>;
 
 const knownHttpErrorDefinitionByStatusCode = {
   400: badRequestHttpErrorDefinition,
@@ -39,10 +34,16 @@ const knownHttpErrorDefinitionByStatusCode = {
 const knownHttpErrorDefinitionLookup: Partial<Record<number, KnownHttpErrorDefinition>> =
   knownHttpErrorDefinitionByStatusCode;
 
+/**/
+
+const mapLocalApplicationErrorToHttpErrorDefinition = (error: LocalApplicationError): KnownHttpErrorDefinition => {
+  return httpErrorDefinitionByLocalApplicationErrorCode[error.code];
+};
+
 const mapStatusCodeToKnownHttpErrorDefinition = (statusCode: number): KnownHttpErrorDefinition | undefined => {
   return knownHttpErrorDefinitionLookup[statusCode];
 };
 
 /**/
 
-export { mapApplicationErrorToHttpErrorDefinition, mapStatusCodeToKnownHttpErrorDefinition };
+export { mapLocalApplicationErrorToHttpErrorDefinition, mapStatusCodeToKnownHttpErrorDefinition };

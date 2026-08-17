@@ -1,17 +1,6 @@
-export const ApplicationErrorCodes = {
-  BAD_REQUEST: 'BAD_REQUEST',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  FORBIDDEN: 'FORBIDDEN',
-  NOT_FOUND: 'NOT_FOUND',
-  CONFLICT: 'CONFLICT',
-  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR'
-} as const;
-
-export type ApplicationErrorCode = (typeof ApplicationErrorCodes)[keyof typeof ApplicationErrorCodes];
-
-export class ApplicationError extends Error {
+export abstract class ApplicationError<TCode extends string> extends Error {
   constructor(
-    public readonly code: ApplicationErrorCode,
+    public readonly code: TCode,
     message: string,
     options?: ErrorOptions
   ) {
@@ -19,46 +8,63 @@ export class ApplicationError extends Error {
     this.name = new.target.name;
   }
 }
+
 /**/
 
-export class GenericMappingError extends ApplicationError {
-  constructor(message = 'Mapping error', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.INTERNAL_SERVER_ERROR, message, options);
-  }
-}
+export const LocalApplicationErrorCodes = {
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  MAPPING_ERROR: 'MAPPING_ERROR'
+} as const;
 
-export class GenericBadRequestError extends ApplicationError {
+export type LocalApplicationErrorCode = (typeof LocalApplicationErrorCodes)[keyof typeof LocalApplicationErrorCodes];
+
+export abstract class LocalApplicationError extends ApplicationError<LocalApplicationErrorCode> {}
+
+/**/
+
+export class GenericBadRequestError extends LocalApplicationError {
   constructor(message = 'Bad request', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.BAD_REQUEST, message, options);
+    super(LocalApplicationErrorCodes.BAD_REQUEST, message, options);
   }
 }
 
-export class GenericUnauthorizedError extends ApplicationError {
+export class GenericUnauthorizedError extends LocalApplicationError {
   constructor(message = 'Unauthorized', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.UNAUTHORIZED, message, options);
+    super(LocalApplicationErrorCodes.UNAUTHORIZED, message, options);
   }
 }
 
-export class GenericForbiddenError extends ApplicationError {
+export class GenericForbiddenError extends LocalApplicationError {
   constructor(message = 'Forbidden', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.FORBIDDEN, message, options);
+    super(LocalApplicationErrorCodes.FORBIDDEN, message, options);
   }
 }
 
-export class GenericNotFoundError extends ApplicationError {
+export class GenericNotFoundError extends LocalApplicationError {
   constructor(message = 'Not found', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.NOT_FOUND, message, options);
+    super(LocalApplicationErrorCodes.NOT_FOUND, message, options);
   }
 }
 
-export class GenericConflictError extends ApplicationError {
+export class GenericConflictError extends LocalApplicationError {
   constructor(message = 'Conflict', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.CONFLICT, message, options);
+    super(LocalApplicationErrorCodes.CONFLICT, message, options);
   }
 }
 
-export class GenericInternalServerError extends ApplicationError {
+export class GenericInternalServerError extends LocalApplicationError {
   constructor(message = 'Internal server error', options?: ErrorOptions) {
-    super(ApplicationErrorCodes.INTERNAL_SERVER_ERROR, message, options);
+    super(LocalApplicationErrorCodes.INTERNAL_SERVER_ERROR, message, options);
+  }
+}
+
+export class GenericMappingError extends LocalApplicationError {
+  constructor(message = 'Mapping error', options?: ErrorOptions) {
+    super(LocalApplicationErrorCodes.MAPPING_ERROR, message, options);
   }
 }

@@ -1,73 +1,76 @@
 import { status } from '@grpc/grpc-js';
 
+import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
 import {
-  ApplicationError,
-  GenericBadRequestError,
-  GenericConflictError,
-  GenericForbiddenError,
-  GenericInternalServerError,
-  GenericNotFoundError,
-  GenericUnauthorizedError,
-  type ApplicationErrorCode
-} from '@/errors/application.errors';
+  InternodeAlreadyExistsError,
+  InternodeApplicationError,
+  InternodeDataLossError,
+  InternodeDeadlineExceededError,
+  InternodeFailedPreconditionError,
+  InternodeInternalError,
+  InternodeInvalidArgumentError,
+  InternodeNotFoundError,
+  InternodeResourceExhaustedError,
+  InternodeUnavailableError
+} from '@/errors/internode.errors';
 
 /**/
 
 type GrpcStatusCode = (typeof status)[keyof typeof status];
 type GrpcErrorCode = Exclude<GrpcStatusCode, typeof status.OK>;
 
-type ApplicationErrorFactory = (message: string) => ApplicationError;
+type InternodeApplicationErrorFactory = (message: string, options?: ErrorOptions) => InternodeApplicationError;
 
 /**/
 
-const grpcStatusCodeByApplicationErrorCode = {
+const grpcStatusCodeByLocalApplicationErrorCode = {
   BAD_REQUEST: status.INVALID_ARGUMENT,
   UNAUTHORIZED: status.UNAUTHENTICATED,
   FORBIDDEN: status.PERMISSION_DENIED,
   NOT_FOUND: status.NOT_FOUND,
-  CONFLICT: status.ALREADY_EXISTS,
-  INTERNAL_SERVER_ERROR: status.INTERNAL
-} as const satisfies Record<ApplicationErrorCode, GrpcErrorCode>;
+  CONFLICT: status.FAILED_PRECONDITION,
+  INTERNAL_SERVER_ERROR: status.INTERNAL,
+  MAPPING_ERROR: status.INTERNAL
+} as const satisfies Record<LocalApplicationErrorCode, GrpcErrorCode>;
 
-const applicationErrorFactoryByGrpcStatusCode = {
-  [status.INVALID_ARGUMENT]: (message) => new GenericBadRequestError(message),
-  [status.OUT_OF_RANGE]: (message) => new GenericBadRequestError(message),
-  [status.UNAUTHENTICATED]: (message) => new GenericUnauthorizedError(message),
-  [status.PERMISSION_DENIED]: (message) => new GenericForbiddenError(message),
-  [status.NOT_FOUND]: (message) => new GenericNotFoundError(message),
-  [status.ALREADY_EXISTS]: (message) => new GenericConflictError(message),
-  [status.ABORTED]: (message) => new GenericConflictError(message),
-
-  [status.CANCELLED]: () => new GenericInternalServerError('Internal server error'),
-  [status.UNKNOWN]: () => new GenericInternalServerError('Internal server error'),
-  [status.DEADLINE_EXCEEDED]: () => new GenericInternalServerError('Internal server error'),
-  [status.RESOURCE_EXHAUSTED]: () => new GenericInternalServerError('Internal server error'),
-  [status.FAILED_PRECONDITION]: () => new GenericInternalServerError('Internal server error'),
-  [status.UNIMPLEMENTED]: () => new GenericInternalServerError('Internal server error'),
-  [status.INTERNAL]: () => new GenericInternalServerError('Internal server error'),
-  [status.UNAVAILABLE]: () => new GenericInternalServerError('Internal server error'),
-  [status.DATA_LOSS]: () => new GenericInternalServerError('Internal server error')
-} satisfies Partial<Record<GrpcErrorCode, ApplicationErrorFactory>>;
+const internodeApplicationErrorFactoryByGrpcStatusCode = {
+  [status.CANCELLED]: (message, options) => new InternodeInternalError(message, options),
+  [status.UNKNOWN]: (message, options) => new InternodeInternalError(message, options),
+  [status.INVALID_ARGUMENT]: (message, options) => new InternodeInvalidArgumentError(message, options),
+  [status.DEADLINE_EXCEEDED]: (message, options) => new InternodeDeadlineExceededError(message, options),
+  [status.NOT_FOUND]: (message, options) => new InternodeNotFoundError(message, options),
+  [status.ALREADY_EXISTS]: (message, options) => new InternodeAlreadyExistsError(message, options),
+  [status.PERMISSION_DENIED]: (message, options) => new InternodeInternalError(message, options),
+  [status.RESOURCE_EXHAUSTED]: (message, options) => new InternodeResourceExhaustedError(message, options),
+  [status.FAILED_PRECONDITION]: (message, options) => new InternodeFailedPreconditionError(message, options),
+  [status.ABORTED]: (message, options) => new InternodeFailedPreconditionError(message, options),
+  [status.OUT_OF_RANGE]: (message, options) => new InternodeInvalidArgumentError(message, options),
+  [status.UNIMPLEMENTED]: (message, options) => new InternodeInternalError(message, options),
+  [status.INTERNAL]: (message, options) => new InternodeInternalError(message, options),
+  [status.UNAVAILABLE]: (message, options) => new InternodeUnavailableError(message, options),
+  [status.DATA_LOSS]: (message, options) => new InternodeDataLossError(message, options),
+  [status.UNAUTHENTICATED]: (message, options) => new InternodeInternalError(message, options)
+} satisfies Record<GrpcErrorCode, InternodeApplicationErrorFactory>;
 
 /**/
 
-const mapApplicationErrorToGrpcStatusCode = (error: ApplicationError): GrpcErrorCode =>
-  grpcStatusCodeByApplicationErrorCode[error.code];
+const mapLocalApplicationErrorToGrpcStatusCode = (error: LocalApplicationError): GrpcErrorCode =>
+  grpcStatusCodeByLocalApplicationErrorCode[error.code];
 
-const mapGrpcErrorToApplicationError = (error: unknown): ApplicationError | undefined => {
-  if (!error || typeof error !== 'object' || !('code' in error)) {
+const isGrpcErrorCode = (value: unknown): value is GrpcErrorCode => {
+  return (
+    typeof value === 'number' && Number.isInteger(value) && value >= status.CANCELLED && value <= status.UNAUTHENTICATED
+  );
+};
+
+const mapGrpcErrorToInternodeApplicationError = (error: unknown): InternodeApplicationError | undefined => {
+  if (!error || typeof error !== 'object') {
     return undefined;
   }
 
-  const code = error.code;
+  const code = 'code' in error ? error.code : undefined;
 
-  if (typeof code !== 'number') {
-    return undefined;
-  }
-
-  const factory = applicationErrorFactoryByGrpcStatusCode[code as keyof typeof applicationErrorFactoryByGrpcStatusCode];
-
-  if (!factory) {
+  if (!isGrpcErrorCode(code)) {
     return undefined;
   }
 
@@ -78,9 +81,11 @@ const mapGrpcErrorToApplicationError = (error: unknown): ApplicationError | unde
         ? error.message
         : 'gRPC request failed';
 
-  return factory(message);
+  return internodeApplicationErrorFactoryByGrpcStatusCode[code](message, {
+    cause: error
+  });
 };
 
 /**/
 
-export { mapApplicationErrorToGrpcStatusCode, mapGrpcErrorToApplicationError };
+export { mapLocalApplicationErrorToGrpcStatusCode, mapGrpcErrorToInternodeApplicationError };

@@ -7,7 +7,7 @@ import {
   type CheckDataNodeHealthResponse
 } from '@/gen/proto/status/v1/status';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
-import { mapGrpcErrorToApplicationError } from '@/transports/grpc/mappers/error.mappers';
+import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
 
 import type { DataNodeEndpoint, DataNodeHealthSnapshot } from './data-node.domain';
 import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from './data-node.mappers';
@@ -60,7 +60,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
         createDefaultGrpcCallOptions(),
         (err, response) => {
           if (err) {
-            reject(mapGrpcErrorToApplicationError(err));
+            reject(mapGrpcErrorToInternodeApplicationError(err));
             return;
           }
 

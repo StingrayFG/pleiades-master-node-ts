@@ -2,20 +2,21 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import fp from 'fastify-plugin';
 import type { OutgoingHttpHeaders } from 'node:http';
+import { ZodError } from 'zod';
 
-import { ApplicationError } from '@/errors/application.errors';
+import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
+import { InternodeApplicationError } from '@/errors/internode.errors';
 import {
-  mapApplicationErrorToHttpErrorDefinition,
+  mapLocalApplicationErrorToHttpErrorDefinition,
   mapStatusCodeToKnownHttpErrorDefinition
 } from '@/transports/http/mappers/error.mappers';
 import {
   badRequestHttpErrorDefinition,
-  HttpErrorResponsePayload,
   internalServerErrorHttpErrorDefinition,
   notFoundHttpErrorDefinition,
+  type HttpErrorResponsePayload,
   type KnownHttpErrorDefinition
 } from '@/transports/http/schemas/error.schemas';
-import { ZodError } from 'zod';
 
 /**/
 
@@ -28,7 +29,8 @@ type NormalizedUnknownError = {
 };
 
 type ClassifiedError =
-  | { kind: 'application'; error: ApplicationError }
+  | { kind: 'application-local'; error: LocalApplicationError }
+  | { kind: 'application-internode'; error: InternodeApplicationError }
   | { kind: 'validation'; error: UnknownError }
   | { kind: 'client'; error: NormalizedUnknownError }
   | { kind: 'internal'; error: UnknownError };
@@ -37,6 +39,11 @@ const INVALID_REQUEST_MESSAGE = 'Invalid request';
 const ROUTE_NOT_FOUND_MESSAGE = 'Route not found';
 const INTERNAL_SERVER_ERROR_MESSAGE = 'Internal server error';
 const HTTP_ERROR_MESSAGE = 'HTTP error';
+
+const localApplicationErrorMessageOverrideByCode: Partial<Record<LocalApplicationErrorCode, string>> = {
+  INTERNAL_SERVER_ERROR: INTERNAL_SERVER_ERROR_MESSAGE,
+  MAPPING_ERROR: INTERNAL_SERVER_ERROR_MESSAGE
+};
 
 const ALLOWED_ERROR_HEADERS = new Set(['www-authenticate', 'retry-after', 'allow']);
 
@@ -132,9 +139,16 @@ const normalizeUnknownError = (err: unknown): NormalizedUnknownError | undefined
 };
 
 const classifyError = (err: unknown): ClassifiedError => {
-  if (err instanceof ApplicationError) {
+  if (err instanceof LocalApplicationError) {
     return {
-      kind: 'application',
+      kind: 'application-local',
+      error: err
+    };
+  }
+
+  if (err instanceof InternodeApplicationError) {
+    return {
+      kind: 'application-internode',
       error: err
     };
   }
@@ -161,6 +175,10 @@ const classifyError = (err: unknown): ClassifiedError => {
   };
 };
 
+const resolveLocalApplicationErrorMessage = (error: LocalApplicationError): string => {
+  return localApplicationErrorMessageOverrideByCode[error.code] ?? error.message;
+};
+
 /**/
 
 const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
@@ -172,18 +190,32 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
     const classifiedError = classifyError(err);
 
     switch (classifiedError.kind) {
-      case 'application': {
+      case 'application-local': {
         const error = classifiedError.error;
 
-        const definition = mapApplicationErrorToHttpErrorDefinition(error);
+        const definition = mapLocalApplicationErrorToHttpErrorDefinition(error);
 
         if (definition.statusCode >= 500) {
           req.log.error(err);
         }
 
-        const message = definition.statusCode >= 500 ? INTERNAL_SERVER_ERROR_MESSAGE : error.message;
+        return sendKnownHttpErrorResponseByDefinition(
+          req,
+          reply,
+          definition,
+          resolveLocalApplicationErrorMessage(error)
+        );
+      }
 
-        return sendKnownHttpErrorResponseByDefinition(req, reply, definition, message);
+      case 'application-internode': {
+        req.log.error(err);
+
+        return sendKnownHttpErrorResponseByDefinition(
+          req,
+          reply,
+          internalServerErrorHttpErrorDefinition,
+          INTERNAL_SERVER_ERROR_MESSAGE
+        );
       }
 
       case 'validation':
@@ -215,7 +247,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
         );
       }
 
-      case 'internal':
+      case 'internal': {
         req.log.error(err);
 
         return sendKnownHttpErrorResponseByDefinition(
@@ -224,6 +256,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
           internalServerErrorHttpErrorDefinition,
           INTERNAL_SERVER_ERROR_MESSAGE
         );
+      }
     }
   });
 };
