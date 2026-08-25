@@ -1,6 +1,6 @@
 import type { Bucket as PrismaBucket } from '@prisma/client';
 
-import { wrapMapping } from '@/mappers/mapping';
+import { wrapMapping } from '@/common/mappers/mapping';
 
 import { bucketSchema, type Bucket } from './bucket.domain';
 import type { BucketResponse, BucketsResponse } from './bucket.http-contracts';

@@ -1,7 +1,8 @@
 import type { DataNode as PrismaDataNode } from '@prisma/client';
 
 import { GenericMappingError } from '@/errors/application.errors';
-import { wrapMapping } from '@/mappers/mapping';
+import { parseByteCount } from '@/common/parsers/parsers';
+import { wrapMapping } from '@/common/mappers/mapping';
 import { healthSnapshotStatusToJSON, type HealthSnapshot as GrpcHealthSnapshot } from '@/gen/proto/status/v1/status';
 import type { RecordDataNodeHeartbeatRequest, RegisterDataNodeRequest } from '@/gen/proto/membership/v1/membership';
 
@@ -38,14 +39,6 @@ export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
         throw new GenericMappingError('Invalid health snapshot status');
     }
   });
-};
-
-const parseByteCount = (value: string): bigint => {
-  if (!/^\d+$/.test(value)) {
-    throw new GenericMappingError('Invalid bytes value');
-  }
-
-  return BigInt(value);
 };
 
 export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
