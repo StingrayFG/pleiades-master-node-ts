@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package blob.v1;
+
+option go_package = "app/internal/gen/blob/v1;blobv1";
+
+import "buf/validate/validate.proto";
+
+enum BlobState {
+  BLOB_STATE_PENDING = 0;
+  BLOB_STATE_TEMP = 1;
+  BLOB_STATE_COMMITTED = 2;
+  BLOB_STATE_DELETING = 3;
+  BLOB_STATE_CORRUPT = 4;
+  BLOB_STATE_MISSING = 5;
+}
+
+message BlobErrorDetails {
+  string blob_id = 1;
+  BlobState state = 2;
+}
+
+service Blob {
+  rpc HeadBlob(HeadBlobRequest) returns (HeadBlobResponse);
+  rpc GetBlob(GetBlobRequest) returns (GetBlobResponse);
+  rpc PutBlob(PutBlobRequest) returns (PutBlobResponse);
+  rpc ReplicateBlob(ReplicateBlobRequest) returns (ReplicateBlobResponse);
+  rpc DeleteBlob(DeleteBlobRequest) returns (DeleteBlobResponse);
+}
+
+message HeadBlobRequest {
+  string blob_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message HeadBlobResponse {
+  string blob_id = 1;
+  int64 size_bytes = 2;
+  string checksum_algorithm = 3;
+  string checksum_value = 4;
+}
+
+message GetBlobRequest {
+  string blob_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetBlobResponse {
+  string blob_id = 1;
+  int64 size_bytes = 2;
+  string checksum_algorithm = 3;
+  string checksum_value = 4;
+  bytes bytes = 6;
+}
+
+message PutBlobRequest {
+  string blob_id = 1 [(buf.validate.field).string.uuid = true];
+  int64 size_bytes = 2 [(buf.validate.field).int64.gte = 0];
+  string checksum_algorithm = 3 [(buf.validate.field).string.const = "sha256"];
+  string checksum_value = 4 [(buf.validate.field).string.min_len = 1];
+  bytes bytes = 5;
+}
+
+message PutBlobResponse {
+  string blob_id = 1;
+  int64 size_bytes = 2;
+  string checksum_algorithm = 3;
+  string checksum_value = 4;
+}
+
+message ReplicateBlobRequest {
+  string job_id = 1 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.pattern = "^[a-zA-Z0-9._-]+$"
+  ];
+  string source_node_url = 2 [(buf.validate.field).string.uri = true];
+  string blob_id = 3 [(buf.validate.field).string.uuid = true];
+  int64 expected_size = 4 [(buf.validate.field).int64.gt = 0];
+  string checksum_algorithm = 5 [(buf.validate.field).string.const = "sha256"];
+  string checksum_value = 6 [(buf.validate.field).string.min_len = 1];
+}
+
+message ReplicateBlobResponse {
+  string job_id = 1;
+  string blob_id = 2;
+  int64 size_bytes = 3;
+  string checksum_algorithm = 4;
+  string checksum_value = 5;
+}
+
+message DeleteBlobRequest {
+  string blob_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteBlobResponse {
+  string blob_id = 1;
+}

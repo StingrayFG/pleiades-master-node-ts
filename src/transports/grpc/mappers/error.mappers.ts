@@ -1,9 +1,10 @@
-import { status } from '@grpc/grpc-js';
+import { Metadata, status } from '@grpc/grpc-js';
 
+import { BlobErrorDetails, BlobState } from '@/gen/proto/blob/v1/blob';
 import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
 import {
-  InternodeAlreadyExistsError,
   InternodeApplicationError,
+  InternodeAlreadyExistsError,
   InternodeDataLossError,
   InternodeDeadlineExceededError,
   InternodeFailedPreconditionError,
@@ -13,15 +14,23 @@ import {
   InternodeResourceExhaustedError,
   InternodeUnavailableError
 } from '@/errors/internode.errors';
+import type { DataNodeBlobState } from '@/modules/blobs/blob.domain';
+import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
 
-/**/
+/* constants and types*/
+
+const BLOB_ERROR_DETAILS_METADATA_KEY = 'blob-error-details-bin';
 
 type GrpcStatusCode = (typeof status)[keyof typeof status];
 type GrpcErrorCode = Exclude<GrpcStatusCode, typeof status.OK>;
 
-type InternodeApplicationErrorFactory = (message: string, options?: ErrorOptions) => InternodeApplicationError;
+type KnownBlobState = Exclude<BlobState, BlobState.UNRECOGNIZED>;
 
-/**/
+type InternodeApplicationErrorFactory = (
+  ...args: [message: string, details?: InternodeBlobErrorDetails, options?: ErrorOptions]
+) => InternodeApplicationError;
+
+/* maps */
 
 const grpcStatusCodeByLocalApplicationErrorCode = {
   BAD_REQUEST: status.INVALID_ARGUMENT,
@@ -34,33 +43,44 @@ const grpcStatusCodeByLocalApplicationErrorCode = {
 } as const satisfies Record<LocalApplicationErrorCode, GrpcErrorCode>;
 
 const internodeApplicationErrorFactoryByGrpcStatusCode = {
-  [status.CANCELLED]: (message, options) => new InternodeInternalError(message, options),
-  [status.UNKNOWN]: (message, options) => new InternodeInternalError(message, options),
-  [status.INVALID_ARGUMENT]: (message, options) => new InternodeInvalidArgumentError(message, options),
-  [status.DEADLINE_EXCEEDED]: (message, options) => new InternodeDeadlineExceededError(message, options),
-  [status.NOT_FOUND]: (message, options) => new InternodeNotFoundError(message, options),
-  [status.ALREADY_EXISTS]: (message, options) => new InternodeAlreadyExistsError(message, options),
-  [status.PERMISSION_DENIED]: (message, options) => new InternodeInternalError(message, options),
-  [status.RESOURCE_EXHAUSTED]: (message, options) => new InternodeResourceExhaustedError(message, options),
-  [status.FAILED_PRECONDITION]: (message, options) => new InternodeFailedPreconditionError(message, options),
-  [status.ABORTED]: (message, options) => new InternodeFailedPreconditionError(message, options),
-  [status.OUT_OF_RANGE]: (message, options) => new InternodeInvalidArgumentError(message, options),
-  [status.UNIMPLEMENTED]: (message, options) => new InternodeInternalError(message, options),
-  [status.INTERNAL]: (message, options) => new InternodeInternalError(message, options),
-  [status.UNAVAILABLE]: (message, options) => new InternodeUnavailableError(message, options),
-  [status.DATA_LOSS]: (message, options) => new InternodeDataLossError(message, options),
-  [status.UNAUTHENTICATED]: (message, options) => new InternodeInternalError(message, options)
+  [status.CANCELLED]: (message, _details, options) => new InternodeInternalError(message, options),
+  [status.UNKNOWN]: (message, _details, options) => new InternodeInternalError(message, options),
+  [status.INVALID_ARGUMENT]: (...args) => new InternodeInvalidArgumentError(...args),
+  [status.DEADLINE_EXCEEDED]: (message, _details, options) =>
+    new InternodeDeadlineExceededError(message, options),
+  [status.NOT_FOUND]: (...args) => new InternodeNotFoundError(...args),
+  [status.ALREADY_EXISTS]: (...args) => new InternodeAlreadyExistsError(...args),
+  [status.PERMISSION_DENIED]: (message, _details, options) => new InternodeInternalError(message, options),
+  [status.RESOURCE_EXHAUSTED]: (...args) => new InternodeResourceExhaustedError(...args),
+  [status.FAILED_PRECONDITION]: (...args) => new InternodeFailedPreconditionError(...args),
+  [status.ABORTED]: (...args) => new InternodeFailedPreconditionError(...args),
+  [status.OUT_OF_RANGE]: (...args) => new InternodeInvalidArgumentError(...args),
+  [status.UNIMPLEMENTED]: (message, _details, options) => new InternodeInternalError(message, options),
+  [status.INTERNAL]: (message, _details, options) => new InternodeInternalError(message, options),
+  [status.UNAVAILABLE]: (message, _details, options) => new InternodeUnavailableError(message, options),
+  [status.DATA_LOSS]: (...args) => new InternodeDataLossError(...args),
+  [status.UNAUTHENTICATED]: (message, _details, options) => new InternodeInternalError(message, options)
 } satisfies Record<GrpcErrorCode, InternodeApplicationErrorFactory>;
 
-/**/
+const dataNodeBlobStateByProtoState = {
+  [BlobState.BLOB_STATE_PENDING]: 'pending',
+  [BlobState.BLOB_STATE_TEMP]: 'temp',
+  [BlobState.BLOB_STATE_COMMITTED]: 'committed',
+  [BlobState.BLOB_STATE_DELETING]: 'deleting',
+  [BlobState.BLOB_STATE_CORRUPT]: 'corrupt',
+  [BlobState.BLOB_STATE_MISSING]: 'missing'
+} as const satisfies Record<KnownBlobState, DataNodeBlobState>;
 
-const mapLocalApplicationErrorToGrpcStatusCode = (error: LocalApplicationError): GrpcErrorCode =>
-  grpcStatusCodeByLocalApplicationErrorCode[error.code];
+/* mappers */
 
 const isGrpcErrorCode = (value: unknown): value is GrpcErrorCode => {
   return (
     typeof value === 'number' && Number.isInteger(value) && value >= status.CANCELLED && value <= status.UNAUTHENTICATED
   );
+};
+
+const mapLocalApplicationErrorToGrpcStatusCode = (error: LocalApplicationError): GrpcErrorCode => {
+  return grpcStatusCodeByLocalApplicationErrorCode[error.code];
 };
 
 const mapGrpcErrorToInternodeApplicationError = (error: unknown): InternodeApplicationError | undefined => {
@@ -81,11 +101,64 @@ const mapGrpcErrorToInternodeApplicationError = (error: unknown): InternodeAppli
         ? error.message
         : 'gRPC request failed';
 
-  return internodeApplicationErrorFactoryByGrpcStatusCode[code](message, {
+  const blobErrorDetails = extractBlobErrorDetails(error);
+
+  return internodeApplicationErrorFactoryByGrpcStatusCode[code](message, blobErrorDetails, {
     cause: error
   });
 };
 
-/**/
+const extractBlobErrorDetails = (error: unknown): InternodeBlobErrorDetails | undefined => {
+  const details = decodeBlobErrorDetails(error);
 
-export { mapLocalApplicationErrorToGrpcStatusCode, mapGrpcErrorToInternodeApplicationError };
+  if (!details) {
+    return undefined;
+  }
+
+  if (!details?.blob_id) {
+    return undefined;
+  }
+
+  if (details.state === BlobState.UNRECOGNIZED) {
+    return undefined;
+  }
+
+  const blobState = dataNodeBlobStateByProtoState[details.state];
+
+  if (!blobState) {
+    return undefined;
+  }
+
+  return {
+    blobId: details.blob_id,
+    blobState
+  };
+};
+
+const decodeBlobErrorDetails = (error: unknown): BlobErrorDetails | undefined => {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+
+  const metadata = 'metadata' in error && error.metadata instanceof Metadata ? error.metadata : undefined;
+
+  if (!metadata) {
+    return undefined;
+  }
+
+  const value = metadata.get(BLOB_ERROR_DETAILS_METADATA_KEY)[0];
+
+  if (!Buffer.isBuffer(value)) {
+    return undefined;
+  }
+
+  try {
+    return BlobErrorDetails.decode(value);
+  } catch {
+    return undefined;
+  }
+};
+
+/* exports */
+
+export { isGrpcErrorCode, mapLocalApplicationErrorToGrpcStatusCode, mapGrpcErrorToInternodeApplicationError };
