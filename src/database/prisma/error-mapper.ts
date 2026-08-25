@@ -4,15 +4,15 @@ import {
   GenericConflictError,
   GenericInternalServerError,
   GenericNotFoundError,
-  type ApplicationError
+  type LocalApplicationError
 } from '@/errors/application.errors';
 
 /**/
 
-type ApplicationErrorFactory = (message: string, cause: unknown) => ApplicationError;
+type LocalApplicationErrorFactory = (message: string, cause: unknown) => LocalApplicationError;
 
 type PrismaErrorDescriptor = {
-  createError: ApplicationErrorFactory;
+  createError: LocalApplicationErrorFactory;
   message: string;
 };
 
@@ -58,7 +58,7 @@ type PrismaErrorDescriptorName = keyof typeof defaultPrismaErrorDescriptors;
 /**/
 
 type PrismaErrorOverride = {
-  createError?: ApplicationErrorFactory;
+  createError?: LocalApplicationErrorFactory;
   message?: string;
 };
 
@@ -82,11 +82,11 @@ const descriptorNameByPrismaErrorConstructor = new Map<unknown, PrismaErrorDescr
 
 /**/
 
-const createPrismaApplicationError = (
+const createPrismaLocalApplicationError = (
   err: unknown,
   name: PrismaErrorDescriptorName,
   override?: PrismaErrorOverride
-): ApplicationError => {
+): LocalApplicationError => {
   const descriptor = defaultPrismaErrorDescriptors[name];
 
   const createError = override?.createError ?? descriptor.createError;
@@ -99,11 +99,11 @@ const createPrismaApplicationError = (
 const mapPrismaError = (
   err: unknown,
   { errors = {} }: PrismaErrorMapperOverrides = {}
-): ApplicationError | undefined => {
+): LocalApplicationError | undefined => {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     const name = descriptorNameByPrismaErrorCode.get(err.code) ?? 'knownRequestFallbackError';
 
-    return createPrismaApplicationError(err, name, errors[name]);
+    return createPrismaLocalApplicationError(err, name, errors[name]);
   }
 
   if (!err || typeof err !== 'object') {
@@ -118,7 +118,7 @@ const mapPrismaError = (
     return undefined;
   }
 
-  return createPrismaApplicationError(err, name, errors[name]);
+  return createPrismaLocalApplicationError(err, name, errors[name]);
 };
 
 export { mapPrismaError };
