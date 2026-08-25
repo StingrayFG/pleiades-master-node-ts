@@ -9,14 +9,14 @@ import type {
 
 import { toGrpcServerError, type ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
 
-/**/
+/* types */
 
 type UnaryGrpcHandler = (
   call: ServerUnaryCall<unknown, unknown>,
   callback: sendUnaryData<unknown>
 ) => void | Promise<void>;
 
-/**/
+/* handler wrapping */
 
 const wrapUnaryGrpcHandler = (handler: UnaryGrpcHandler, options: ToGrpcServerErrorOptions): UntypedHandleCall => {
   return ((call: ServerUnaryCall<unknown, unknown>, callback: sendUnaryData<unknown>) => {
@@ -73,7 +73,7 @@ const resolveUnaryGrpcHandler = (
   return handler.bind(implementation) as UnaryGrpcHandler;
 };
 
-/**/
+/* service wrapping */
 
 const wrapGrpcServiceImplementation = (
   service: ServiceDefinition,
@@ -99,7 +99,7 @@ const wrapGrpcServiceImplementation = (
   return wrappedImplementation;
 };
 
-/**/
+/* service registration */
 
 const registerGrpcServiceWithErrorHandling = (
   server: Server,
@@ -110,6 +110,6 @@ const registerGrpcServiceWithErrorHandling = (
   server.addService(service, wrapGrpcServiceImplementation(service, implementation, options));
 };
 
-/**/
+/* exports */
 
 export { registerGrpcServiceWithErrorHandling };

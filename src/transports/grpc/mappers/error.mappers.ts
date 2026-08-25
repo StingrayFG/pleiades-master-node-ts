@@ -17,9 +17,7 @@ import {
 import type { DataNodeBlobState } from '@/modules/blobs/blob.domain';
 import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
 
-/* constants and types*/
-
-const BLOB_ERROR_DETAILS_METADATA_KEY = 'blob-error-details-bin';
+/* types and constants */
 
 type GrpcStatusCode = (typeof status)[keyof typeof status];
 type GrpcErrorCode = Exclude<GrpcStatusCode, typeof status.OK>;
@@ -29,6 +27,8 @@ type KnownBlobState = Exclude<BlobState, BlobState.UNRECOGNIZED>;
 type InternodeApplicationErrorFactory = (
   ...args: [message: string, details?: InternodeBlobErrorDetails, options?: ErrorOptions]
 ) => InternodeApplicationError;
+
+const BLOB_ERROR_DETAILS_METADATA_KEY = 'blob-error-details-bin';
 
 /* maps */
 
@@ -46,8 +46,7 @@ const internodeApplicationErrorFactoryByGrpcStatusCode = {
   [status.CANCELLED]: (message, _details, options) => new InternodeInternalError(message, options),
   [status.UNKNOWN]: (message, _details, options) => new InternodeInternalError(message, options),
   [status.INVALID_ARGUMENT]: (...args) => new InternodeInvalidArgumentError(...args),
-  [status.DEADLINE_EXCEEDED]: (message, _details, options) =>
-    new InternodeDeadlineExceededError(message, options),
+  [status.DEADLINE_EXCEEDED]: (message, _details, options) => new InternodeDeadlineExceededError(message, options),
   [status.NOT_FOUND]: (...args) => new InternodeNotFoundError(...args),
   [status.ALREADY_EXISTS]: (...args) => new InternodeAlreadyExistsError(...args),
   [status.PERMISSION_DENIED]: (message, _details, options) => new InternodeInternalError(message, options),

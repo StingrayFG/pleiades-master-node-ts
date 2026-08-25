@@ -5,7 +5,7 @@ import { LocalApplicationError } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 import { mapLocalApplicationErrorToGrpcStatusCode } from '@/transports/grpc/mappers/error.mappers';
 
-/**/
+/* types and constants */
 
 type GrpcStatusCode = (typeof status)[keyof typeof status];
 type GrpcErrorCode = Exclude<GrpcStatusCode, typeof status.OK>;
@@ -33,7 +33,7 @@ const GRPC_ERROR_DETAILS = 'gRPC error';
 
 const ALLOWED_ERROR_METADATA_KEYS = new Set<string>();
 
-/**/
+/* response helpers */
 
 const createGrpcServerError = (code: GrpcErrorCode, details: string, metadata?: Metadata): ServerErrorResponse => {
   const error = new Error(details) as ServerErrorResponse;
@@ -48,7 +48,7 @@ const createGrpcServerError = (code: GrpcErrorCode, details: string, metadata?: 
   return error;
 };
 
-/**/
+/* normalization helpers */
 
 const isGrpcErrorCode = (value: unknown): value is GrpcErrorCode => {
   return (
@@ -138,7 +138,7 @@ const classifyError = (err: unknown): ClassifiedError => {
   };
 };
 
-/**/
+/* handler */
 
 const toGrpcServerError = (err: unknown, options: ToGrpcServerErrorOptions = {}): ServerErrorResponse => {
   const classifiedError = classifyError(err);
@@ -173,7 +173,7 @@ const toGrpcServerError = (err: unknown, options: ToGrpcServerErrorOptions = {})
   }
 };
 
-/**/
+/* exports */
 
 export { toGrpcServerError };
 export type { ToGrpcServerErrorOptions };

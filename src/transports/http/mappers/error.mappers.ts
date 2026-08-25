@@ -10,7 +10,7 @@ import {
   type KnownHttpErrorDefinition
 } from '@/transports/http/schemas/error.schemas';
 
-/**/
+/* maps */
 
 const httpErrorDefinitionByLocalApplicationErrorCode = {
   BAD_REQUEST: badRequestHttpErrorDefinition,
@@ -34,7 +34,7 @@ const knownHttpErrorDefinitionByStatusCode = {
 const knownHttpErrorDefinitionLookup: Partial<Record<number, KnownHttpErrorDefinition>> =
   knownHttpErrorDefinitionByStatusCode;
 
-/**/
+/* mappers */
 
 const mapLocalApplicationErrorToHttpErrorDefinition = (error: LocalApplicationError): KnownHttpErrorDefinition => {
   return httpErrorDefinitionByLocalApplicationErrorCode[error.code];
@@ -44,6 +44,6 @@ const mapStatusCodeToKnownHttpErrorDefinition = (statusCode: number): KnownHttpE
   return knownHttpErrorDefinitionLookup[statusCode];
 };
 
-/**/
+/* exports */
 
 export { mapLocalApplicationErrorToHttpErrorDefinition, mapStatusCodeToKnownHttpErrorDefinition };

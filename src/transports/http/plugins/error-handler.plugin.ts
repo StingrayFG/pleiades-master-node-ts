@@ -18,7 +18,7 @@ import {
   type KnownHttpErrorDefinition
 } from '@/transports/http/schemas/error.schemas';
 
-/**/
+/* types and constants */
 
 type UnknownError = unknown;
 
@@ -47,7 +47,7 @@ const localApplicationErrorMessageOverrideByCode: Partial<Record<LocalApplicatio
 
 const ALLOWED_ERROR_HEADERS = new Set(['www-authenticate', 'retry-after', 'allow']);
 
-/**/
+/* response helpers */
 
 const sendHttpErrorResponseByPayload = (
   req: FastifyRequest,
@@ -87,7 +87,7 @@ const sendKnownHttpErrorResponseByDefinition = (
   );
 };
 
-/**/
+/* normalization helpers */
 
 const normalizeErrorHeaders = (value: unknown): OutgoingHttpHeaders | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -179,7 +179,7 @@ const resolveLocalApplicationErrorMessage = (error: LocalApplicationError): stri
   return localApplicationErrorMessageOverrideByCode[error.code] ?? error.message;
 };
 
-/**/
+/* handler */
 
 const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.setNotFoundHandler((req, reply) => {
@@ -260,5 +260,7 @@ const errorHandlerPlugin: FastifyPluginAsync = async (fastify) => {
     }
   });
 };
+
+/* exports */
 
 export default fp(errorHandlerPlugin);

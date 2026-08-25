@@ -1,7 +1,9 @@
 import type { z } from 'zod';
 
+/**/
+
 type InferHttpRoute<
-  T extends {
+  TRoute extends {
     params?: z.ZodType;
     headers?: z.ZodType;
     querystring?: z.ZodType;
@@ -9,21 +11,25 @@ type InferHttpRoute<
     response?: Record<number, z.ZodType>;
   }
 > = {
-  Params: T extends { params: infer P extends z.ZodType } ? z.output<P> : unknown;
+  Params: TRoute extends { params: infer TParamsSchema extends z.ZodType } ? z.output<TParamsSchema> : unknown;
 
-  Headers: T extends { headers: infer H extends z.ZodType } ? z.output<H> : unknown;
+  Headers: TRoute extends { headers: infer THeadersSchema extends z.ZodType } ? z.output<THeadersSchema> : unknown;
 
-  Querystring: T extends { querystring: infer Q extends z.ZodType } ? z.output<Q> : unknown;
+  Querystring: TRoute extends { querystring: infer TQuerystringSchema extends z.ZodType }
+    ? z.output<TQuerystringSchema>
+    : unknown;
 
-  Body: T extends { body: infer B extends z.ZodType } ? z.output<B> : unknown;
+  Body: TRoute extends { body: infer TBodySchema extends z.ZodType } ? z.output<TBodySchema> : unknown;
 
-  Reply: T extends {
-    response: infer R extends Record<number, z.ZodType>;
+  Reply: TRoute extends {
+    response: infer TResponseSchemas extends Record<number, z.ZodType>;
   }
     ? {
-        [K in keyof R]: z.output<R[K]>;
+        [TStatusCode in keyof TResponseSchemas]: z.output<TResponseSchemas[TStatusCode]>;
       }
     : unknown;
 };
+
+/**/
 
 export type { InferHttpRoute };
