@@ -4,6 +4,7 @@ import { BlobService } from './blob.service';
 /* contract */
 
 type BlobModule = {
+  grpcClient: BlobGrpcClient;
   service: BlobService;
 };
 
@@ -15,6 +16,7 @@ const createBlobModule = (): BlobModule => {
   const service = new BlobService(grpcClient);
 
   return {
+    grpcClient,
     service
   };
 };
