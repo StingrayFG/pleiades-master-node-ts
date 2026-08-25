@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import fp from 'fastify-plugin';
+import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import type { OutgoingHttpHeaders } from 'node:http';
 import { ZodError } from 'zod';
 

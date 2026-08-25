@@ -1,6 +1,5 @@
 import { Metadata, status } from '@grpc/grpc-js';
 
-import { BlobErrorDetails, BlobState } from '@/gen/proto/blob/v1/blob';
 import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
 import {
   InternodeApplicationError,
@@ -14,6 +13,8 @@ import {
   InternodeResourceExhaustedError,
   InternodeUnavailableError
 } from '@/errors/internode.errors';
+import { BlobErrorDetails, BlobState } from '@/gen/proto/blob/v1/blob';
+
 import type { DataNodeBlobState } from '@/modules/blobs/blob.domain';
 import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
 

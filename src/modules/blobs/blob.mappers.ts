@@ -1,3 +1,4 @@
+import { wrapMapping } from '@/common/mappers/mapping';
 import { parseByteCount } from '@/common/parsers/parsers';
 import {
   GetBlobRequest,
@@ -7,7 +8,6 @@ import {
   type HeadBlobResponse,
   type PutBlobResponse
 } from '@/gen/proto/blob/v1/blob';
-import { wrapMapping } from '@/common/mappers/mapping';
 
 import type { GetBlobClientInput, HeadBlobClientInput, PutBlobClientInput } from './blob.application';
 import {

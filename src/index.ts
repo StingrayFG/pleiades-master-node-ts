@@ -1,8 +1,6 @@
-import { startGrpcApp } from '@/grpc-app';
-
 import app from '@/app';
-
 import env from '@/env';
+import { startGrpcApp } from '@/grpc-app';
 
 void startGrpcApp();
 

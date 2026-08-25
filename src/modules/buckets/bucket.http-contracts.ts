@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
+import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
 import {
   BadRequestHttpErrorResponseSchema,
   InternalServerErrorHttpErrorResponseSchema,
   NotFoundHttpErrorResponseSchema,
   UnauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
-import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
 
 import { bucketNameSchema, bucketStateSchema } from './bucket.domain';
 

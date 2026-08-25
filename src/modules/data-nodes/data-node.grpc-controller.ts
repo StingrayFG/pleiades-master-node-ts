@@ -1,12 +1,12 @@
 import type { sendUnaryData, ServerUnaryCall } from '@grpc/grpc-js';
 
+import { GenericBadRequestError, GenericMappingError } from '@/errors/application.errors';
 import type {
   RecordDataNodeHeartbeatRequest,
   RecordDataNodeHeartbeatResponse,
   RegisterDataNodeRequest,
   RegisterDataNodeResponse
 } from '@/gen/proto/membership/v1/membership';
-import { GenericBadRequestError, GenericMappingError } from '@/errors/application.errors';
 
 import type { HeartbeatDataNodeInput, RegisterDataNodeInput } from './data-node.application';
 import {

@@ -1,13 +1,12 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 
-import app from '@/app';
-import prisma from '@/database/prisma/prisma.client';
+import app, { dataNodeModule } from '@/app';
 import env from '@/env';
-import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
-import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
+import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
 import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
 import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
-import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
+
+import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
 
 const grpcHost = '0.0.0.0';
 const grpcAddress = `${grpcHost}:${env.GRPC_PORT}`;
@@ -26,22 +25,17 @@ const stopGrpcServer = async (server: Server): Promise<void> => {
 };
 
 const startGrpcServer = async (): Promise<Server> => {
-  const dataNodeModule = createDataNodeModule({
-    prisma
-  });
-
-  const dataNodeGrpcRoutes = createDataNodeGrpcRoutes({
-    controller: dataNodeModule.controller
-  });
-
-  const grpcServer = new Server();
-
   const grpcErrorHandlerOptions: ToGrpcServerErrorOptions = {
     onInternalError: (error) => {
       app.log.error(error);
     }
   };
 
+  const grpcServer = new Server();
+
+  const dataNodeGrpcRoutes = createDataNodeGrpcRoutes({
+    controller: dataNodeModule.controller
+  });
   registerGrpcServiceWithErrorHandling(
     grpcServer,
     DataNodeMembershipService,
