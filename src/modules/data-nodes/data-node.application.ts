@@ -9,6 +9,8 @@ import {
   dataNodeStateSchema
 } from './data-node.domain';
 
+/* schemas */
+
 export const registerDataNodeInputSchema = z.object({
   nodeId: dataNodeIdSchema,
   hostname: dataNodeHostnameSchema,
@@ -16,7 +18,6 @@ export const registerDataNodeInputSchema = z.object({
   scheme: dataNodeSchemeSchema,
   healthSnapshot: dataNodeHealthSnapshotSchema
 });
-export type RegisterDataNodeInput = z.infer<typeof registerDataNodeInputSchema>;
 
 export const upsertDataNodeRepositoryInputSchema = z.object({
   nodeId: dataNodeIdSchema,
@@ -28,13 +29,11 @@ export const upsertDataNodeRepositoryInputSchema = z.object({
   storageFreeBytes: z.bigint().nonnegative(),
   lastHeartbeatAt: z.date()
 });
-export type UpsertDataNodeRepositoryInput = z.infer<typeof upsertDataNodeRepositoryInputSchema>;
 
 export const heartbeatDataNodeInputSchema = z.object({
   nodeId: dataNodeIdSchema,
   healthSnapshot: dataNodeHealthSnapshotSchema
 });
-export type HeartbeatDataNodeInput = z.infer<typeof heartbeatDataNodeInputSchema>;
 
 export const applyHeartbeatRepositoryInputSchema = z.object({
   nodeId: dataNodeIdSchema,
@@ -43,4 +42,10 @@ export const applyHeartbeatRepositoryInputSchema = z.object({
   storageFreeBytes: z.bigint().nonnegative(),
   lastHeartbeatAt: z.date()
 });
+
+/* types */
+
+export type RegisterDataNodeInput = z.infer<typeof registerDataNodeInputSchema>;
+export type UpsertDataNodeRepositoryInput = z.infer<typeof upsertDataNodeRepositoryInputSchema>;
+export type HeartbeatDataNodeInput = z.infer<typeof heartbeatDataNodeInputSchema>;
 export type ApplyHeartbeatRepositoryInput = z.infer<typeof applyHeartbeatRepositoryInputSchema>;
