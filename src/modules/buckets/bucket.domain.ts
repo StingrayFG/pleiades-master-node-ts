@@ -1,19 +1,18 @@
 import { z } from 'zod';
 
+/* field schemas */
+
 export const BUCKET_STATES = ['active', 'deleting', 'disabled'] as const;
 
 export const bucketIdSchema = z.uuid();
-export type BucketId = z.infer<typeof bucketIdSchema>;
-
 export const bucketNameSchema = z
   .string()
   .min(3)
   .max(63)
   .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])$/);
-export type BucketName = z.infer<typeof bucketNameSchema>;
-
 export const bucketStateSchema = z.enum(BUCKET_STATES);
-export type BucketState = z.infer<typeof bucketStateSchema>;
+
+/* object schemas */
 
 export const bucketSchema = z.object({
   id: bucketIdSchema,
@@ -22,4 +21,11 @@ export const bucketSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date()
 });
+
+/* types */
+
+export type BucketId = z.infer<typeof bucketIdSchema>;
+export type BucketName = z.infer<typeof bucketNameSchema>;
+export type BucketState = z.infer<typeof bucketStateSchema>;
+
 export type Bucket = z.infer<typeof bucketSchema>;

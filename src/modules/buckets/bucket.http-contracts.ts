@@ -10,10 +10,11 @@ import {
 
 import { bucketNameSchema, bucketStateSchema } from './bucket.domain';
 
+/* schemas */
+
 export const bucketNameParamsSchema = z.object({
   bucketName: bucketNameSchema
 });
-export type BucketNameParams = z.infer<typeof bucketNameParamsSchema>;
 
 export const bucketResponseSchema = z.object({
   name: bucketNameSchema,
@@ -21,10 +22,8 @@ export const bucketResponseSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 });
-export type BucketResponse = z.infer<typeof bucketResponseSchema>;
 
 export const bucketsResponseSchema = z.array(bucketResponseSchema);
-export type BucketsResponse = z.infer<typeof bucketsResponseSchema>;
 
 export const listBucketsHttpSchema = {
   response: {
@@ -33,7 +32,6 @@ export const listBucketsHttpSchema = {
     500: InternalServerErrorHttpErrorResponseSchema
   }
 };
-export type ListBucketsHttpRoute = InferHttpRoute<typeof listBucketsHttpSchema>;
 
 export const getBucketHttpSchema = {
   params: bucketNameParamsSchema,
@@ -45,7 +43,6 @@ export const getBucketHttpSchema = {
     500: InternalServerErrorHttpErrorResponseSchema
   }
 };
-export type GetBucketHttpRoute = InferHttpRoute<typeof getBucketHttpSchema>;
 
 export const putBucketHttpSchema = {
   params: bucketNameParamsSchema,
@@ -57,7 +54,6 @@ export const putBucketHttpSchema = {
     500: InternalServerErrorHttpErrorResponseSchema
   }
 };
-export type PutBucketHttpRoute = InferHttpRoute<typeof putBucketHttpSchema>;
 
 export const deleteBucketHttpSchema = {
   params: bucketNameParamsSchema,
@@ -69,4 +65,14 @@ export const deleteBucketHttpSchema = {
     500: InternalServerErrorHttpErrorResponseSchema
   }
 };
+
+/* types */
+
+export type BucketNameParams = z.infer<typeof bucketNameParamsSchema>;
+export type BucketResponse = z.infer<typeof bucketResponseSchema>;
+export type BucketsResponse = z.infer<typeof bucketsResponseSchema>;
+
+export type ListBucketsHttpRoute = InferHttpRoute<typeof listBucketsHttpSchema>;
+export type GetBucketHttpRoute = InferHttpRoute<typeof getBucketHttpSchema>;
+export type PutBucketHttpRoute = InferHttpRoute<typeof putBucketHttpSchema>;
 export type DeleteBucketHttpRoute = InferHttpRoute<typeof deleteBucketHttpSchema>;
