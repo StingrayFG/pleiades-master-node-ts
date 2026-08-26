@@ -8,7 +8,6 @@ import type { BucketRepositoryContract } from './bucket.repository';
 
 type BucketServiceContract = {
   listBuckets(): Promise<Bucket[]>;
-  findBucketByName(name: BucketName): Promise<Bucket | null>;
   getBucketByName(name: BucketName): Promise<Bucket>;
   ensureBucketExists(name: BucketName): Promise<EnsureBucketExistsResult>;
   deleteBucket(name: BucketName): Promise<Bucket>;
@@ -23,12 +22,6 @@ class BucketService implements BucketServiceContract {
     const buckets = await this.repository.findAll();
 
     return buckets;
-  }
-
-  async findBucketByName(name: BucketName): Promise<Bucket | null> {
-    const bucket = await this.repository.findByName(name);
-
-    return bucket;
   }
 
   async getBucketByName(name: BucketName): Promise<Bucket> {
