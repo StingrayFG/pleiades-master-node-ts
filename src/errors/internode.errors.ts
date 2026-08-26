@@ -38,48 +38,50 @@ export abstract class InternodeApplicationError<
   }
 }
 
+export type InternodeErrorDetails = InternodeBlobErrorDetails;
+
 /* validation errors */
 
-export class InternodeInvalidArgumentError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Invalid argument', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeInvalidArgumentError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Invalid argument', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.INVALID_ARGUMENT, message, details, options);
   }
 }
 
 /* resource errors */
 
-export class InternodeNotFoundError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Not found', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeNotFoundError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Not found', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.NOT_FOUND, message, details, options);
   }
 }
 
-export class InternodeAlreadyExistsError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Already exists', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeAlreadyExistsError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Already exists', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.ALREADY_EXISTS, message, details, options);
   }
 }
 
 /* state errors */
 
-export class InternodeFailedPreconditionError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Failed precondition', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeFailedPreconditionError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Failed precondition', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.FAILED_PRECONDITION, message, details, options);
   }
 }
 
 /* integrity errors */
 
-export class InternodeDataLossError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Data loss', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeDataLossError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Data loss', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.DATA_LOSS, message, details, options);
   }
 }
 
 /* capacity errors */
 
-export class InternodeResourceExhaustedError extends InternodeApplicationError<InternodeBlobErrorDetails> {
-  constructor(message = 'Resource exhausted', details?: InternodeBlobErrorDetails, options?: ErrorOptions) {
+export class InternodeResourceExhaustedError extends InternodeApplicationError<InternodeErrorDetails> {
+  constructor(message = 'Resource exhausted', details?: InternodeErrorDetails, options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.RESOURCE_EXHAUSTED, message, details, options);
   }
 }
