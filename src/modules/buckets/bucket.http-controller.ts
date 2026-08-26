@@ -44,11 +44,11 @@ class BucketController implements BucketHttpControllerContract {
   async putBucket(req: FastifyRequest<PutBucketHttpRoute>, reply: FastifyReply<PutBucketHttpRoute>): Promise<void> {
     const { bucketName } = req.params;
 
-    const { bucket, created } = await this.service.ensureBucketExists(bucketName);
+    const result = await this.service.ensureBucketExists(bucketName);
 
-    const res = mapDomainBucketToHttpBucketResponse(bucket);
+    const res = mapDomainBucketToHttpBucketResponse(result.bucket);
 
-    if (created) {
+    if (result.status === 'created') {
       reply.code(201).send(res);
       return;
     }

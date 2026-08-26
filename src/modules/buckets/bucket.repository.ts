@@ -77,13 +77,13 @@ class BucketRepository implements BucketRepositoryContract {
 
       return {
         bucket: existingBucket,
-        created: false
+        status: 'existing'
       };
     }
 
     return {
       bucket: mapPrismaBucketToDomainBucket(bucket),
-      created: true
+      status: 'created'
     };
   }
 

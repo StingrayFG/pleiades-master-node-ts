@@ -42,9 +42,9 @@ class BucketService implements BucketServiceContract {
   }
 
   async ensureBucketExists(bucketName: BucketName): Promise<EnsureBucketExistsResult> {
-    const bucket = await this.repository.findOrCreate(bucketName);
+    const result = await this.repository.findOrCreate(bucketName);
 
-    return bucket;
+    return result;
   }
 
   async deleteBucket(bucketName: BucketName): Promise<Bucket> {
