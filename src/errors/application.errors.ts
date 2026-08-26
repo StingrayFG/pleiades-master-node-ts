@@ -25,6 +25,8 @@ export const LocalApplicationErrorCodes = {
   MAPPING_ERROR: 'MAPPING_ERROR'
 } as const;
 
+/* base error */
+
 export type LocalApplicationErrorCode = (typeof LocalApplicationErrorCodes)[keyof typeof LocalApplicationErrorCodes];
 
 export abstract class LocalApplicationError extends ApplicationError<LocalApplicationErrorCode> {}

@@ -22,6 +22,8 @@ export const InternodeApplicationErrorCodes = {
   INTERNAL: 'INTERNAL'
 } as const;
 
+/* base error */
+
 export type InternodeApplicationErrorCode =
   (typeof InternodeApplicationErrorCodes)[keyof typeof InternodeApplicationErrorCodes];
 
