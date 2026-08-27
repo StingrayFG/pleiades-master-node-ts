@@ -15,7 +15,7 @@ import {
 } from './data-node.mappers';
 import type { DataNodeServiceContract } from './data-node.service';
 
-/**/
+/* contract */
 
 type DataNodeGrpcControllerContract = {
   registerDataNode(
@@ -28,7 +28,7 @@ type DataNodeGrpcControllerContract = {
   ): Promise<void>;
 };
 
-/**/
+/* controller */
 
 class DataNodeGrpcController implements DataNodeGrpcControllerContract {
   constructor(private readonly service: DataNodeServiceContract) {}
@@ -76,7 +76,7 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
   }
 }
 
-/**/
+/* exports */
 
 export { DataNodeGrpcController };
 

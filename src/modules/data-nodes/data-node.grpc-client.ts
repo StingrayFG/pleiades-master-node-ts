@@ -12,14 +12,14 @@ import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappe
 import type { DataNodeEndpoint, DataNodeHealthSnapshot } from './data-node.domain';
 import { mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot } from './data-node.mappers';
 
-/**/
+/* contract */
 
 type DataNodeGrpcClientContract = {
   checkDataNodeHealth(input: DataNodeEndpoint): Promise<DataNodeHealthSnapshot>;
   close(): void;
 };
 
-/**/
+/* client */
 
 class DataNodeGrpcClient implements DataNodeGrpcClientContract {
   private readonly clients = new Map<string, GrpcStatusClient>();
@@ -77,7 +77,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
   }
 }
 
-/**/
+/* exports */
 
 export { DataNodeGrpcClient };
 

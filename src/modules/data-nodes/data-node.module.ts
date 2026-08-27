@@ -5,7 +5,7 @@ import { DataNodeGrpcController } from './data-node.grpc-controller';
 import { DataNodeRepository } from './data-node.repository';
 import { DataNodeService } from './data-node.service';
 
-/**/
+/* contract */
 
 type DataNodeModuleDependencies = {
   prisma: PrismaClient;
@@ -18,7 +18,7 @@ type DataNodeModule = {
   controller: DataNodeGrpcController;
 };
 
-/**/
+/* module */
 
 const createDataNodeModule = ({ prisma }: DataNodeModuleDependencies): DataNodeModule => {
   const repository = new DataNodeRepository(prisma);
@@ -37,7 +37,7 @@ const createDataNodeModule = ({ prisma }: DataNodeModuleDependencies): DataNodeM
   };
 };
 
-/**/
+/* exports */
 
 export { createDataNodeModule };
 

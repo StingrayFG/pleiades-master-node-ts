@@ -6,7 +6,7 @@ import type { ApplyHeartbeatRepositoryInput, UpsertDataNodeRepositoryInput } fro
 import type { DataNode, DataNodeId } from './data-node.domain';
 import { mapPrismaDataNodeToDomainDataNode } from './data-node.mappers';
 
-/**/
+/* contract */
 
 type DataNodeRepositoryContract = {
   findById(nodeId: DataNodeId): Promise<DataNode | null>;
@@ -14,7 +14,7 @@ type DataNodeRepositoryContract = {
   applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<DataNode>;
 };
 
-/**/
+/* repository */
 
 const errorMap: PrismaErrorMapperOverrides = {};
 
@@ -99,7 +99,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
   }
 }
 
-/**/
+/* exports */
 
 export { DataNodeRepository };
 

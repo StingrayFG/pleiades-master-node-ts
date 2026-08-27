@@ -11,7 +11,7 @@ import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
 import type { DataNodeRepositoryContract } from './data-node.repository';
 
-/**/
+/* contract */
 
 type DataNodeServiceContract = {
   listActiveDataNodes(): Promise<DataNode[]>;
@@ -21,7 +21,7 @@ type DataNodeServiceContract = {
   checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot>;
 };
 
-/**/
+/* service */
 
 class DataNodeService implements DataNodeServiceContract {
   constructor(
@@ -93,7 +93,7 @@ class DataNodeService implements DataNodeServiceContract {
   }
 }
 
-/**/
+/* exports */
 
 export { DataNodeService };
 

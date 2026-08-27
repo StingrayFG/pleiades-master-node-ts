@@ -2,7 +2,7 @@ import type { DataNodeMembershipServer } from '@/gen/proto/membership/v1/members
 
 import type { DataNodeGrpcControllerContract } from './data-node.grpc-controller';
 
-/**/
+/* contract */
 
 type DataNodeGrpcRoutesDependencies = {
   controller: DataNodeGrpcControllerContract;
@@ -12,7 +12,7 @@ type DataNodeGrpcRoutes = {
   dataNodeMembershipService: DataNodeMembershipServer;
 };
 
-/**/
+/* routes */
 
 const createDataNodeGrpcRoutes = ({ controller }: DataNodeGrpcRoutesDependencies): DataNodeGrpcRoutes => {
   return {
@@ -23,7 +23,7 @@ const createDataNodeGrpcRoutes = ({ controller }: DataNodeGrpcRoutesDependencies
   };
 };
 
-/**/
+/* exports */
 
 export { createDataNodeGrpcRoutes };
 

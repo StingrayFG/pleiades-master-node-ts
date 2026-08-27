@@ -22,6 +22,8 @@ import {
   type DataNodeHealthSnapshotStatus
 } from './data-node.domain';
 
+/* grpc -> domain */
+
 export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
   status: GrpcHealthSnapshot['status']
 ): DataNodeHealthSnapshotStatus => {
@@ -56,6 +58,8 @@ export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
   );
 };
 
+/* grpc -> application */
+
 export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
   request: RecordDataNodeHeartbeatRequest
 ): HeartbeatDataNodeInput => {
@@ -89,6 +93,8 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
   });
 };
 
+/* domain */
+
 export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpoint => {
   return wrapMapping('Failed to map data node to data node endpoint', () =>
     dataNodeEndpointSchema.parse({
@@ -98,6 +104,8 @@ export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpo
     })
   );
 };
+
+/* prisma -> domain */
 
 export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {
   return wrapMapping('Failed to map Prisma data node to domain data node', () =>
