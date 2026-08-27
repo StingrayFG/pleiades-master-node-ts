@@ -30,7 +30,9 @@ class DataNodeService implements DataNodeServiceContract {
   ) {}
 
   async listActiveDataNodes(): Promise<DataNode[]> {
-    return await this.repository.findAllActive();
+    const dataNodes = await this.repository.findAllActive();
+
+    return dataNodes;
   }
 
   async getDataNodeById(nodeId: DataNodeId): Promise<DataNode> {
@@ -63,9 +65,9 @@ class DataNodeService implements DataNodeServiceContract {
   }
 
   async recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode> {
-    const now = new Date();
-
     const state = resolveDataNodeState(input.healthSnapshot);
+
+    const now = new Date();
 
     const repositoryInput: ApplyHeartbeatRepositoryInput = {
       nodeId: input.nodeId,
