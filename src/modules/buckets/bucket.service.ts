@@ -4,7 +4,7 @@ import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
 import type { BucketRepositoryContract } from './bucket.repository';
 
-/**/
+/* contract */
 
 type BucketServiceContract = {
   listBuckets(): Promise<Bucket[]>;
@@ -13,7 +13,7 @@ type BucketServiceContract = {
   deleteBucket(name: BucketName): Promise<Bucket>;
 };
 
-/**/
+/* service */
 
 class BucketService implements BucketServiceContract {
   constructor(private readonly repository: BucketRepositoryContract) {}
@@ -47,7 +47,7 @@ class BucketService implements BucketServiceContract {
   }
 }
 
-/**/
+/* exports */
 
 export { BucketService };
 

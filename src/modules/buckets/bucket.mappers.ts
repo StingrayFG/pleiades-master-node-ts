@@ -5,6 +5,8 @@ import { wrapMapping } from '@/common/mappers/mapping';
 import { bucketSchema, type Bucket } from './bucket.domain';
 import type { BucketResponse, BucketsResponse } from './bucket.http-contracts';
 
+/* domain -> http */
+
 export const mapDomainBucketToHttpBucketResponse = (bucket: Bucket): BucketResponse => {
   return wrapMapping('Failed to map domain bucket to HTTP bucket', () => {
     return {
@@ -21,6 +23,8 @@ export const mapDomainBucketsToHttpBucketsResponse = (buckets: Bucket[]): Bucket
     return buckets.map((bucket) => mapDomainBucketToHttpBucketResponse(bucket));
   });
 };
+
+/* prisma -> domain */
 
 export const mapPrismaBucketToDomainBucket = (bucket: PrismaBucket): Bucket => {
   return wrapMapping('Failed to map Prisma bucket to domain bucket', () => {

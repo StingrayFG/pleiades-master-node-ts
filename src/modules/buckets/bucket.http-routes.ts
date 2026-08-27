@@ -13,13 +13,13 @@ import {
 } from './bucket.http-contracts';
 import type { BucketHttpControllerContract } from './bucket.http-controller';
 
-/**/
+/* contract */
 
 type BucketHttpRoutesDependencies = {
   controller: BucketHttpControllerContract;
 };
 
-/**/
+/* routes */
 
 const createBucketHttpRoutes = ({ controller }: BucketHttpRoutesDependencies): FastifyPluginAsync => {
   return async (app) => {
@@ -60,5 +60,7 @@ const createBucketHttpRoutes = ({ controller }: BucketHttpRoutesDependencies): F
     );
   };
 };
+
+/* exports */
 
 export { createBucketHttpRoutes };

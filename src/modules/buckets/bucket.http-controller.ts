@@ -9,7 +9,7 @@ import type {
 import { mapDomainBucketToHttpBucketResponse, mapDomainBucketsToHttpBucketsResponse } from './bucket.mappers';
 import type { BucketServiceContract } from './bucket.service';
 
-/**/
+/* contract */
 
 type BucketHttpControllerContract = {
   listBuckets(reply: FastifyReply<ListBucketsHttpRoute>): Promise<void>;
@@ -18,7 +18,7 @@ type BucketHttpControllerContract = {
   deleteBucket(req: FastifyRequest<DeleteBucketHttpRoute>, reply: FastifyReply<DeleteBucketHttpRoute>): Promise<void>;
 };
 
-/**/
+/* controller */
 
 class BucketController implements BucketHttpControllerContract {
   constructor(private readonly service: BucketServiceContract) {}
@@ -69,6 +69,8 @@ class BucketController implements BucketHttpControllerContract {
     reply.code(200).send(res);
   }
 }
+
+/* exports */
 
 export { BucketController };
 

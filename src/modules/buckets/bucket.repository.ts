@@ -7,7 +7,7 @@ import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
 import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 
-/**/
+/* contract */
 
 type BucketRepositoryContract = {
   findAll(): Promise<Bucket[]>;
@@ -16,7 +16,7 @@ type BucketRepositoryContract = {
   delete(name: BucketName): Promise<Bucket>;
 };
 
-/**/
+/* repository */
 
 const errorMap: PrismaErrorMapperOverrides = {};
 
@@ -104,7 +104,7 @@ class BucketRepository implements BucketRepositoryContract {
   }
 }
 
-/**/
+/* exports */
 
 export { BucketRepository };
 

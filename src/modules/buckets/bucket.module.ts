@@ -4,7 +4,7 @@ import { BucketController } from './bucket.http-controller';
 import { BucketRepository } from './bucket.repository';
 import { BucketService } from './bucket.service';
 
-/**/
+/* contract */
 
 type BucketModuleDependencies = {
   prisma: PrismaClient;
@@ -16,7 +16,7 @@ type BucketModule = {
   controller: BucketController;
 };
 
-/**/
+/* module */
 
 const createBucketModule = ({ prisma }: BucketModuleDependencies): BucketModule => {
   const repository = new BucketRepository(prisma);
@@ -32,7 +32,7 @@ const createBucketModule = ({ prisma }: BucketModuleDependencies): BucketModule 
   };
 };
 
-/**/
+/* exports */
 
 export { createBucketModule };
 
