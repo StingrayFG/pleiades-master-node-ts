@@ -17,7 +17,7 @@ import {
   type BlobMetadataWithBytes
 } from './blob.domain';
 
-/* grpc -> service mappers */
+/* grpc -> domain mappers */
 
 export const mapGrpcHeadBlobResponseToDomainBlobMetadata = (response: HeadBlobResponse): BlobMetadata => {
   return wrapMapping('Failed to map gRPC head blob response to domain blob metadata', () =>
