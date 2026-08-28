@@ -12,7 +12,7 @@ import {
 /* schemas */
 
 export const registerDataNodeInputSchema = z.object({
-  nodeId: dataNodeIdSchema,
+  id: dataNodeIdSchema,
   hostname: dataNodeHostnameSchema,
   port: dataNodePortSchema,
   scheme: dataNodeSchemeSchema,
@@ -20,7 +20,7 @@ export const registerDataNodeInputSchema = z.object({
 });
 
 export const upsertDataNodeRepositoryInputSchema = z.object({
-  nodeId: dataNodeIdSchema,
+  id: dataNodeIdSchema,
   hostname: dataNodeHostnameSchema,
   port: dataNodePortSchema,
   scheme: dataNodeSchemeSchema,
@@ -31,12 +31,12 @@ export const upsertDataNodeRepositoryInputSchema = z.object({
 });
 
 export const heartbeatDataNodeInputSchema = z.object({
-  nodeId: dataNodeIdSchema,
+  id: dataNodeIdSchema,
   healthSnapshot: dataNodeHealthSnapshotSchema
 });
 
 export const applyHeartbeatRepositoryInputSchema = z.object({
-  nodeId: dataNodeIdSchema,
+  id: dataNodeIdSchema,
   state: dataNodeStateSchema,
   storageTotalBytes: z.bigint().nonnegative(),
   storageFreeBytes: z.bigint().nonnegative(),

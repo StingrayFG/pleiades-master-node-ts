@@ -15,10 +15,10 @@ import type { DataNodeRepositoryContract } from './data-node.repository';
 
 type DataNodeServiceContract = {
   listActiveDataNodes(): Promise<DataNode[]>;
-  getDataNodeById(nodeId: DataNodeId): Promise<DataNode>;
+  getDataNodeById(id: DataNodeId): Promise<DataNode>;
   registerDataNode(input: RegisterDataNodeInput): Promise<DataNode>;
   recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode>;
-  checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot>;
+  checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot>;
 };
 
 /* service */
@@ -35,8 +35,8 @@ class DataNodeService implements DataNodeServiceContract {
     return dataNodes;
   }
 
-  async getDataNodeById(nodeId: DataNodeId): Promise<DataNode> {
-    const dataNode = await this.repository.findById(nodeId);
+  async getDataNodeById(id: DataNodeId): Promise<DataNode> {
+    const dataNode = await this.repository.findById(id);
 
     if (!dataNode) {
       throw new GenericNotFoundError('Data node not found');
@@ -51,7 +51,7 @@ class DataNodeService implements DataNodeServiceContract {
     const now = new Date();
 
     const repositoryInput: UpsertDataNodeRepositoryInput = {
-      nodeId: input.nodeId,
+      id: input.id,
       hostname: input.hostname,
       port: input.port,
       scheme: input.scheme,
@@ -70,7 +70,7 @@ class DataNodeService implements DataNodeServiceContract {
     const now = new Date();
 
     const repositoryInput: ApplyHeartbeatRepositoryInput = {
-      nodeId: input.nodeId,
+      id: input.id,
       state: state,
       storageTotalBytes: input.healthSnapshot.storageTotalBytes,
       storageFreeBytes: input.healthSnapshot.storageFreeBytes,
@@ -80,8 +80,8 @@ class DataNodeService implements DataNodeServiceContract {
     return await this.repository.applyHeartbeat(repositoryInput);
   }
 
-  async checkDataNodeHealth(nodeId: DataNodeId): Promise<DataNodeHealthSnapshot> {
-    const dataNode = await this.repository.findById(nodeId);
+  async checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot> {
+    const dataNode = await this.repository.findById(id);
 
     if (!dataNode) {
       throw new GenericNotFoundError();

@@ -69,7 +69,7 @@ export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
     }
 
     return heartbeatDataNodeInputSchema.parse({
-      nodeId: request.node_id,
+      id: request.node_id,
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
   });
@@ -84,7 +84,7 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
     }
 
     return registerDataNodeInputSchema.parse({
-      nodeId: request.node_id,
+      id: request.node_id,
       hostname: request.hostname,
       scheme: request.scheme,
       port: request.port,
@@ -110,7 +110,7 @@ export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpo
 export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {
   return wrapMapping('Failed to map Prisma data node to domain data node', () =>
     dataNodeSchema.parse({
-      nodeId: dataNode.node_id,
+      id: dataNode.node_id,
       hostname: dataNode.hostname,
       port: dataNode.port,
       scheme: dataNode.scheme,

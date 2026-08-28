@@ -9,7 +9,7 @@ import { mapPrismaDataNodeToDomainDataNode } from './data-node.mappers';
 /* contract */
 
 type DataNodeRepositoryContract = {
-  findById(nodeId: DataNodeId): Promise<DataNode | null>;
+  findById(id: DataNodeId): Promise<DataNode | null>;
   upsert(input: UpsertDataNodeRepositoryInput): Promise<DataNode>;
   applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<DataNode>;
 };
@@ -21,13 +21,13 @@ const errorMap: PrismaErrorMapperOverrides = {};
 class DataNodeRepository implements DataNodeRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findById(nodeId: DataNodeId): Promise<DataNode | null> {
+  async findById(id: DataNodeId): Promise<DataNode | null> {
     let dataNode;
 
     try {
       dataNode = await this.prisma.dataNode.findUnique({
         where: {
-          node_id: nodeId
+          node_id: id
         }
       });
     } catch (err) {
@@ -47,7 +47,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     try {
       dataNode = await this.prisma.dataNode.upsert({
         where: {
-          node_id: input.nodeId
+          node_id: input.id
         },
         update: {
           hostname: input.hostname,
@@ -59,7 +59,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           last_heartbeat_at: input.lastHeartbeatAt
         },
         create: {
-          node_id: input.nodeId,
+          node_id: input.id,
           hostname: input.hostname,
           port: input.port,
           scheme: input.scheme,
@@ -82,7 +82,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     try {
       dataNode = await this.prisma.dataNode.update({
         where: {
-          node_id: input.nodeId
+          node_id: input.id
         },
         data: {
           state: input.state,

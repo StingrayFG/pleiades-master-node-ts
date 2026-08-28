@@ -23,7 +23,7 @@ export const dataNodeEndpointSchema = z.object({
 });
 
 export const dataNodeSchema = z.object({
-  nodeId: dataNodeIdSchema,
+  id: dataNodeIdSchema,
   hostname: dataNodeHostnameSchema,
   port: dataNodePortSchema,
   scheme: dataNodeSchemeSchema,
