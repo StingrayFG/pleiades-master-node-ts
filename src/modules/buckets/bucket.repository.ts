@@ -61,7 +61,8 @@ class BucketRepository implements BucketRepositoryContract {
     try {
       bucket = await this.prisma.bucket.create({
         data: {
-          name: bucketName
+          name: bucketName,
+          state: 'active'
         }
       });
     } catch (err) {
