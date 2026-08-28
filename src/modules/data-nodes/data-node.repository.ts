@@ -9,6 +9,7 @@ import { mapPrismaDataNodeToDomainDataNode } from './data-node.mappers';
 /* contract */
 
 type DataNodeRepositoryContract = {
+  findAllActive(): Promise<DataNode[]>;
   findById(id: DataNodeId): Promise<DataNode | null>;
   upsert(input: UpsertDataNodeRepositoryInput): Promise<DataNode>;
   applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<DataNode>;
@@ -20,6 +21,22 @@ const errorMap: PrismaErrorMapperOverrides = {};
 
 class DataNodeRepository implements DataNodeRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async findAllActive(): Promise<DataNode[]> {
+    let dataNodes;
+
+    try {
+      dataNodes = await this.prisma.dataNode.findMany({
+        where: {
+          state: 'active'
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return dataNodes.map(mapPrismaDataNodeToDomainDataNode);
+  }
 
   async findById(id: DataNodeId): Promise<DataNode | null> {
     let dataNode;
