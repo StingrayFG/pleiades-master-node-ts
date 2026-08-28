@@ -15,19 +15,22 @@ enum DataNodeState {
 }
 
 model DataNode {
-  node_id             String                  @id
+  node_id             String        @id
   hostname            String
-  port                Int                     
-  scheme              String                  @default("grpcs")
-  state               DataNodeState           @default(joining)
-
+  port                Int
+  scheme              String        @default("grpcs")
+  state               DataNodeState @default(joining)
   storage_total_bytes BigInt
   storage_free_bytes  BigInt
 
-  last_heartbeat_at   DateTime?
-  registered_at       DateTime                @default(now())
-  updated_at          DateTime                @updatedAt
+  last_heartbeat_at DateTime?
+  registered_at     DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
 
+  object_version_part_replicas ObjectVersionPartReplica[]
+
+  @@index([state])
+  @@index([last_heartbeat_at])
   @@map("data_nodes")
 }
 
@@ -38,10 +41,101 @@ enum BucketState {
 }
 
 model Bucket {
-  id                String                  @id @default(uuid())
-  name              String                  @unique
-  state             BucketState             @default(active)
-  created_at        DateTime                @default(now())
-  updated_at        DateTime                @updatedAt
+  id    String      @id @default(uuid())
+  name  String      @unique
+  state BucketState @default(active)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  objects Object[]
+
   @@map("buckets")
+}
+
+model Object {
+  id                     String @id @default(uuid())
+  key                    String
+  current_version        Int?
+  last_allocated_version Int    @default(0)
+
+  bucket_id String
+  bucket    Bucket          @relation(fields: [bucket_id], references: [id])
+  versions  ObjectVersion[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([bucket_id, key])
+  @@map("objects")
+}
+
+enum ObjectVersionState {
+  pending
+  committed
+  deleting
+}
+
+model ObjectVersion {
+  object_id        String
+  version          Int
+  state            ObjectVersionState @default(pending)
+  total_size_bytes BigInt
+  content_type     String
+
+  object Object              @relation(fields: [object_id], references: [id])
+  parts  ObjectVersionPart[]
+
+  committed_at DateTime?
+  created_at   DateTime  @default(now())
+
+  @@id([object_id, version])
+  @@map("object_versions")
+}
+
+model ObjectVersionPart {
+  object_id          String
+  version            Int
+  part_number        Int
+  
+  blob_id            String @id @default(uuid())
+  placement_group    Int
+  size_bytes         BigInt
+  checksum_algorithm String
+  checksum_value     String
+
+  object_version ObjectVersion              @relation(fields: [object_id, version], references: [object_id, version])
+  replicas       ObjectVersionPartReplica[]
+
+  created_at DateTime @default(now())
+
+  @@unique([object_id, version, part_number])
+  @@map("version_blobs")
+}
+
+enum ObjectVersionPartReplicaState {
+  pending
+  committed
+  deleting
+  corrupt
+  missing
+
+  @@map("BlobReplicaState")
+}
+
+model ObjectVersionPartReplica {
+  blob_id      String
+  data_node_id String
+  state        ObjectVersionPartReplicaState @default(pending)
+
+  object_version_part ObjectVersionPart @relation(fields: [blob_id], references: [blob_id])
+  data_node           DataNode          @relation(fields: [data_node_id], references: [node_id])
+
+  last_verified_at DateTime?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@id([blob_id, data_node_id])
+  @@index([data_node_id, state])
+  @@map("blob_replicas")
 }
