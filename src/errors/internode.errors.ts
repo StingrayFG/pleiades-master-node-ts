@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ApplicationError } from './application.errors';
 
 import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
@@ -39,6 +40,10 @@ export abstract class InternodeApplicationError<
     super(code, message, options);
   }
 }
+
+export const internodeApplicationErrorSchema = z.custom<InternodeApplicationError>(
+  (value) => value instanceof InternodeApplicationError
+);
 
 export type InternodeErrorDetails = InternodeBlobErrorDetails;
 
