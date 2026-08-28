@@ -49,21 +49,6 @@ export const dataNodeHealthSnapshotSchema = z
     path: ['storageFreeBytes']
   });
 
-/* policies */
-
-export const resolveDataNodeState = (healthSnapshot: DataNodeHealthSnapshot): DataNodeState => {
-  if (!healthSnapshot.databaseOk || !healthSnapshot.storageOk) {
-    return 'failed';
-  }
-  if (healthSnapshot.status === 'healthy') {
-    return 'active';
-  }
-  if (healthSnapshot.status === 'degraded') {
-    return 'failed';
-  }
-  return 'failed';
-};
-
 /* types */
 
 export type DataNodeId = z.infer<typeof dataNodeIdSchema>;
