@@ -1,12 +1,10 @@
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
-import fastifyRedis from '@fastify/redis';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
 import prisma from '@/database/prisma/prisma.client';
 import env from '@/env';
-import redis from '@/instances/redis';
 import authMiddlewares from '@/middlewares/authMiddlewares';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
@@ -40,8 +38,6 @@ app.register(cors, {
 app.register(fastifyJwt, {
   secret: env.JWT_TOKEN_SECRET
 });
-
-app.register(fastifyRedis, { client: redis });
 
 app.register(authMiddlewares);
 app.register(errorHandlerPlugin);
