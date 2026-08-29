@@ -28,7 +28,7 @@ class BucketController implements BucketHttpControllerContract {
 
     const res = mapDomainBucketsToHttpBucketsResponse(buckets);
 
-    reply.code(200).send(res);
+    await reply.code(200).send(res);
   }
 
   async getBucket(req: FastifyRequest<GetBucketHttpRoute>, reply: FastifyReply<GetBucketHttpRoute>): Promise<void> {
@@ -38,7 +38,7 @@ class BucketController implements BucketHttpControllerContract {
 
     const res = mapDomainBucketToHttpBucketResponse(bucket);
 
-    reply.code(200).send(res);
+    await reply.code(200).send(res);
   }
 
   async putBucket(req: FastifyRequest<PutBucketHttpRoute>, reply: FastifyReply<PutBucketHttpRoute>): Promise<void> {
@@ -49,11 +49,11 @@ class BucketController implements BucketHttpControllerContract {
     const res = mapDomainBucketToHttpBucketResponse(bucketResolution.bucket);
 
     if (bucketResolution.status === 'created') {
-      reply.code(201).send(res);
+      await reply.code(201).send(res);
       return;
     }
 
-    reply.code(200).send(res);
+    await reply.code(200).send(res);
   }
 
   async deleteBucket(
@@ -66,7 +66,7 @@ class BucketController implements BucketHttpControllerContract {
 
     const res = mapDomainBucketToHttpBucketResponse(bucket);
 
-    reply.code(200).send(res);
+    await reply.code(200).send(res);
   }
 }
 
