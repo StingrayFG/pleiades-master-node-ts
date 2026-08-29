@@ -6,9 +6,9 @@ import type { BucketServiceContract } from '@/modules/buckets/bucket.service';
 import type {
   CreatePartsInput,
   ListPartsByObjectVersionInput
-} from '@/modules/object-version-part/object-version-part.application';
-import type { Part } from '@/modules/object-version-part/object-version-part.domain';
-import type { ObjectVersionPartServiceContract } from '@/modules/object-version-part/object-version-part.service';
+} from '@/modules/object-version-parts/object-version-part.application';
+import type { Part } from '@/modules/object-version-parts/object-version-part.domain';
+import type { ObjectVersionPartServiceContract } from '@/modules/object-version-parts/object-version-part.service';
 
 import type {
   CommitObjectVersionRepositoryInput,

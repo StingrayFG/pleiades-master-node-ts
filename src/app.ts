@@ -13,7 +13,7 @@ import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
-import { createObjectVersionPartModule } from '@/modules/object-version-part/object-version-part.module';
+import { createObjectVersionPartModule } from '@/modules/object-version-parts/object-version-part.module';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 import { createObjectModule } from '@/modules/objects/object.module';
 

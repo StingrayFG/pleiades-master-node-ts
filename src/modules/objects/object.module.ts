@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
 import type { BucketServiceContract } from '@/modules/buckets/bucket.service';
-import type { ObjectVersionPartServiceContract } from '@/modules/object-version-part/object-version-part.service';
+import type { ObjectVersionPartServiceContract } from '@/modules/object-version-parts/object-version-part.service';
 
 import { ObjectController } from './object.http-controller';
 import { ObjectRepository } from './object.repository';

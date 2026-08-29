@@ -1,6 +1,6 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 
-import type { Part } from '@/modules/object-version-part/object-version-part.domain';
+import type { Part } from '@/modules/object-version-parts/object-version-part.domain';
 
 import type { ObjectVersion } from './object.domain';
 
