@@ -4,7 +4,7 @@ import { dataNodeEndpointSchema } from '@/modules/data-nodes/data-node.domain';
 
 import { blobIdSchema, blobMetadataWithBytesSchema } from './blob.domain';
 
-/* schemas */
+/* service schemas */
 
 export const getBlobMetadataInputSchema = z.object({
   blobId: blobIdSchema,
@@ -20,6 +20,8 @@ export const ensureBlobExistsInputSchema = z.object({
   blob: blobMetadataWithBytesSchema,
   dataNodeEndpoint: dataNodeEndpointSchema
 });
+
+/* client schemas */
 
 export const headBlobClientInputSchema = z.object({
   blobId: blobIdSchema,
