@@ -9,6 +9,7 @@ import {
 } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
+import type { EnsureBlobExistsInput, GetBlobInput } from '@/modules/blobs/blob.application';
 import { BLOB_CHECKSUM_ALGORITHM, type BlobId, type BlobMetadataWithBytes } from '@/modules/blobs/blob.domain';
 import { calculateBlobChecksum } from '@/modules/blobs/blob.processors';
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
@@ -18,9 +19,10 @@ import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.ser
 
 import type {
   CreatePartInput,
-  CreateReplicaBlobResult,
   CreatePartResult,
   CreatePartsInput,
+  CreatePartWithReplicasRepositoryInput,
+  CreateReplicaBlobResult,
   GetReplicaBlobResult,
   ListPartsByObjectVersionInput,
   UpdateReplicaStatesRepositoryInput
@@ -100,7 +102,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         storageFreeBytes: remainingStorageByDataNodeId.get(dataNode.id) ?? dataNode.storageFreeBytes
       }));
 
-      const result = await this.createPart({
+      const createPartInput: CreatePartInput = {
         part: {
           objectId: input.objectId,
           version: input.version,
@@ -108,9 +110,11 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
           bytes: partBytes
         },
         availableDataNodes
-      });
+      };
 
-      for (const dataNode of result.responsibleDataNodes) {
+      const createPartResult = await this.createPart(createPartInput);
+
+      for (const dataNode of createPartResult.responsibleDataNodes) {
         const remainingStorage = remainingStorageByDataNodeId.get(dataNode.id);
 
         if (remainingStorage !== undefined) {
@@ -118,7 +122,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         }
       }
 
-      parts.push(result.part);
+      parts.push(createPartResult.part);
 
       partNumber += 1;
     }
@@ -169,10 +173,12 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async getReplicaBlob(part: Part, dataNode: DataNode): Promise<GetReplicaBlobResult> {
     try {
-      const blob = await this.blobService.getBlob({
+      const getBlobInput: GetBlobInput = {
         blobId: part.blobId,
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
-      });
+      };
+
+      const blob = await this.blobService.getBlob(getBlobInput);
 
       verifyPartBlob(part, blob);
 
@@ -196,24 +202,26 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async updateReplicaStateFromGetReplicaBlobResult(
     blobId: BlobId,
-    result: GetReplicaBlobResult
+    getReplicaBlobResult: GetReplicaBlobResult
   ): Promise<void> {
-    if (result.status === 'fulfilled') {
+    if (getReplicaBlobResult.status === 'fulfilled') {
       return;
     }
 
-    const state = resolveFailedGetPartReplicaState(result.reason);
+    const state = resolveFailedGetPartReplicaState(getReplicaBlobResult.reason);
     if (state === null) {
       return;
     }
 
-    await this.repository.updatePartReplicaStates([
+    const updateStatesInput: UpdateReplicaStatesRepositoryInput = [
       {
         blobId,
-        dataNodeId: result.dataNodeId,
+        dataNodeId: getReplicaBlobResult.dataNodeId,
         state
       }
-    ]);
+    ];
+
+    await this.repository.updatePartReplicaStates(updateStatesInput);
   }
 
   /* create helpers */
@@ -233,7 +241,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
     const responsibleDataNodes = selectResponsibleDataNodes(placementGroup, env.REPLICATION_FACTOR, candidateDataNodes);
 
-    const part = await this.repository.createPartWithReplicas({
+    const createPartRepositoryInput: CreatePartWithReplicasRepositoryInput = {
       part: {
         objectId: partInput.objectId,
         version: partInput.version,
@@ -246,18 +254,19 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         checksumValue
       },
       replicaDataNodeIds: responsibleDataNodes.map((dataNode) => dataNode.id)
-    });
+    };
 
-    await this.createPartReplicas(
-      {
-        blobId,
-        sizeBytes,
-        checksumAlgorithm: BLOB_CHECKSUM_ALGORITHM,
-        checksumValue,
-        bytes: partInput.bytes
-      },
-      responsibleDataNodes
-    );
+    const part = await this.repository.createPartWithReplicas(createPartRepositoryInput);
+
+    const blob: BlobMetadataWithBytes = {
+      blobId,
+      sizeBytes,
+      checksumAlgorithm: BLOB_CHECKSUM_ALGORITHM,
+      checksumValue,
+      bytes: partInput.bytes
+    };
+
+    await this.createPartReplicas(blob, responsibleDataNodes);
 
     return {
       part,
@@ -301,10 +310,12 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async createReplicaBlob(blob: BlobMetadataWithBytes, dataNode: DataNode): Promise<CreateReplicaBlobResult> {
     try {
-      await this.blobService.ensureBlobExists({
-        dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode),
-        blob
-      });
+      const ensureBlobExistsInput: EnsureBlobExistsInput = {
+        blob,
+        dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
+      };
+
+      await this.blobService.ensureBlobExists(ensureBlobExistsInput);
 
       return {
         dataNodeId: dataNode.id,
@@ -325,25 +336,28 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async updateReplicaStatesFromCreateReplicaBlobResults(
     blobId: BlobId,
-    results: readonly CreateReplicaBlobResult[]
+    createReplicaBlobResults: readonly CreateReplicaBlobResult[]
   ): Promise<void> {
-    const replicaStateUpdates: UpdateReplicaStatesRepositoryInput = [];
+    const updateStatesInput: UpdateReplicaStatesRepositoryInput = [];
 
-    for (const result of results) {
-      const state = result.status === 'fulfilled' ? 'committed' : resolveFailedCreatePartReplicaState(result.reason);
+    for (const createReplicaBlobResult of createReplicaBlobResults) {
+      const state =
+        createReplicaBlobResult.status === 'fulfilled'
+          ? 'committed'
+          : resolveFailedCreatePartReplicaState(createReplicaBlobResult.reason);
       if (state === 'pending') {
         continue;
       }
 
-      replicaStateUpdates.push({
+      updateStatesInput.push({
         blobId,
-        dataNodeId: result.dataNodeId,
+        dataNodeId: createReplicaBlobResult.dataNodeId,
         state
       });
     }
 
-    if (replicaStateUpdates.length > 0) {
-      await this.repository.updatePartReplicaStates(replicaStateUpdates);
+    if (updateStatesInput.length > 0) {
+      await this.repository.updatePartReplicaStates(updateStatesInput);
     }
   }
 }

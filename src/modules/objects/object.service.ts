@@ -98,14 +98,14 @@ class ObjectService implements ObjectServiceContract {
       throw new GenericConflictError('Bucket is not active');
     }
 
-    const repositoryInput: UpsertObjectAndCreateVersionRepositoryInput = {
+    const upsertObjectInput: UpsertObjectAndCreateVersionRepositoryInput = {
       bucketId: bucket.id,
       objectKey: input.objectKey,
       totalSizeBytes: input.totalSizeBytes,
       contentType: input.contentType
     };
 
-    const objectVersionAllocation = await this.objectRepository.upsertObjectAndCreateVersion(repositoryInput);
+    const objectVersionAllocation = await this.objectRepository.upsertObjectAndCreateVersion(upsertObjectInput);
 
     const createPartsInput: CreatePartsInput = {
       objectId: objectVersionAllocation.object.id,

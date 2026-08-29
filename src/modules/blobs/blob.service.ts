@@ -24,12 +24,12 @@ class BlobService implements BlobServiceContract {
   constructor(private readonly grpcClient: BlobGrpcClientContract) {}
 
   async getBlobMetadata(input: GetBlobMetadataInput): Promise<BlobMetadata> {
-    const clientInput: HeadBlobClientInput = {
+    const headBlobClientInput: HeadBlobClientInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    const blob = await this.grpcClient.headBlob(clientInput);
+    const blob = await this.grpcClient.headBlob(headBlobClientInput);
 
     verifyGetBlobMetadataResult(input, blob);
 
@@ -37,12 +37,12 @@ class BlobService implements BlobServiceContract {
   }
 
   async getBlob(input: GetBlobInput): Promise<BlobMetadataWithBytes> {
-    const clientInput: GetBlobClientInput = {
+    const getBlobClientInput: GetBlobClientInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    const blob = await this.grpcClient.getBlob(clientInput);
+    const blob = await this.grpcClient.getBlob(getBlobClientInput);
 
     verifyGetBlobResult(input, blob);
 
@@ -50,12 +50,12 @@ class BlobService implements BlobServiceContract {
   }
 
   async ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata> {
-    const clientInput: PutBlobClientInput = {
+    const putBlobClientInput: PutBlobClientInput = {
       blob: input.blob,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    const blob = await this.grpcClient.putBlob(clientInput);
+    const blob = await this.grpcClient.putBlob(putBlobClientInput);
 
     verifyEnsureBlobExistsResult(input, blob);
 
