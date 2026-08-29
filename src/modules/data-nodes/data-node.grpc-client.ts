@@ -1,4 +1,4 @@
-import { credentials as grpcCredentials, Metadata } from '@grpc/grpc-js';
+import { credentials as grpcCredentials } from '@grpc/grpc-js';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
 import {
@@ -6,6 +6,7 @@ import {
   DataNodeStatusClient as GrpcStatusClient,
   type CheckDataNodeHealthResponse
 } from '@/gen/proto/status/v1/status';
+import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
 
@@ -56,7 +57,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
     const response = await new Promise<CheckDataNodeHealthResponse>((resolve, reject) => {
       client.checkDataNodeHealth(
         CheckDataNodeHealthRequest.create(),
-        new Metadata(),
+        createAuthenticatedGrpcMetadata(),
         createDefaultGrpcCallOptions(),
         (err, response) => {
           if (err) {

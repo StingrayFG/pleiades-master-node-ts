@@ -1,4 +1,4 @@
-import { credentials as grpcCredentials, Metadata } from '@grpc/grpc-js';
+import { credentials as grpcCredentials } from '@grpc/grpc-js';
 
 import {
   BlobClient as GrpcBlobClient,
@@ -7,16 +7,13 @@ import {
   type PutBlobResponse
 } from '@/gen/proto/blob/v1/blob';
 import { GRPC_BLOB_MESSAGE_SIZE_LIMIT_BYTES } from '@/transports/grpc/client/grpc-client.constants';
+import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
 
 import type { DataNodeEndpoint } from '@/modules/data-nodes/data-node.domain';
 
-import type {
-  GetBlobClientInput,
-  HeadBlobClientInput,
-  PutBlobClientInput
-} from './blob.application';
+import type { GetBlobClientInput, HeadBlobClientInput, PutBlobClientInput } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import {
   mapGetBlobClientInputToGrpcGetBlobRequest,
@@ -57,7 +54,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     const request = mapHeadBlobClientInputToGrpcHeadBlobRequest(input);
 
     const response = await new Promise<HeadBlobResponse>((resolve, reject) => {
-      client.headBlob(request, new Metadata(), createDefaultGrpcCallOptions(), (err, response) => {
+      client.headBlob(request, createAuthenticatedGrpcMetadata(), createDefaultGrpcCallOptions(), (err, response) => {
         if (err) {
           reject(mapGrpcErrorToInternodeApplicationError(err));
           return;
@@ -76,7 +73,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     const request = mapGetBlobClientInputToGrpcGetBlobRequest(input);
 
     const response = await new Promise<GetBlobResponse>((resolve, reject) => {
-      client.getBlob(request, new Metadata(), createDefaultGrpcCallOptions(), (err, response) => {
+      client.getBlob(request, createAuthenticatedGrpcMetadata(), createDefaultGrpcCallOptions(), (err, response) => {
         if (err) {
           reject(mapGrpcErrorToInternodeApplicationError(err));
           return;
@@ -95,7 +92,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     const request = mapPutBlobClientInputToGrpcPutBlobRequest(input);
 
     const response = await new Promise<PutBlobResponse>((resolve, reject) => {
-      client.putBlob(request, new Metadata(), createDefaultGrpcCallOptions(), (err, response) => {
+      client.putBlob(request, createAuthenticatedGrpcMetadata(), createDefaultGrpcCallOptions(), (err, response) => {
         if (err) {
           reject(mapGrpcErrorToInternodeApplicationError(err));
           return;
