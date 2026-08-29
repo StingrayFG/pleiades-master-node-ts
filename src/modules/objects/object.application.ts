@@ -45,16 +45,6 @@ export const createObjectResultSchema = z.object({
 
 /* repository schemas */
 
-export const commitObjectVersionRepositoryInputSchema = z.object({
-  objectId: objectIdSchema,
-  version: objectVersionNumberSchema
-});
-
-export const commitObjectVersionRepositoryResultSchema = z.object({
-  object: objectSchema,
-  objectVersion: objectVersionSchema
-});
-
 export const upsertObjectAndCreateVersionRepositoryInputSchema = z.object({
   bucketId: bucketIdSchema,
   objectKey: objectKeySchema,
@@ -67,6 +57,16 @@ export const upsertObjectAndCreateVersionRepositoryResultSchema = z.object({
   objectVersion: objectVersionSchema
 });
 
+export const commitObjectVersionRepositoryInputSchema = z.object({
+  objectId: objectIdSchema,
+  version: objectVersionNumberSchema
+});
+
+export const commitObjectVersionRepositoryResultSchema = z.object({
+  object: objectSchema,
+  objectVersion: objectVersionSchema
+});
+
 /* types */
 
 export type GetObjectMetadataInput = z.infer<typeof getObjectMetadataInputSchema>;
@@ -75,11 +75,11 @@ export type GetObjectResult = z.infer<typeof getObjectResultSchema>;
 export type CreateObjectInput = z.infer<typeof createObjectInputSchema>;
 export type CreateObjectResult = z.infer<typeof createObjectResultSchema>;
 
-export type CommitObjectVersionRepositoryInput = z.infer<typeof commitObjectVersionRepositoryInputSchema>;
-export type CommitObjectVersionRepositoryResult = z.infer<typeof commitObjectVersionRepositoryResultSchema>;
 export type UpsertObjectAndCreateVersionRepositoryInput = z.infer<
   typeof upsertObjectAndCreateVersionRepositoryInputSchema
 >;
 export type UpsertObjectAndCreateVersionRepositoryResult = z.infer<
   typeof upsertObjectAndCreateVersionRepositoryResultSchema
 >;
+export type CommitObjectVersionRepositoryInput = z.infer<typeof commitObjectVersionRepositoryInputSchema>;
+export type CommitObjectVersionRepositoryResult = z.infer<typeof commitObjectVersionRepositoryResultSchema>;

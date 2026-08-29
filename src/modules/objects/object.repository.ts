@@ -19,10 +19,10 @@ type ObjectRepositoryContract = {
   findObjectById(id: ObjectId): Promise<Object | null>;
   findObjectByKey(bucketId: BucketId, key: ObjectKey): Promise<Object | null>;
   findObjectVersion(objectId: ObjectId, version: ObjectVersionNumber): Promise<ObjectVersion | null>;
-  commitObjectVersion(input: CommitObjectVersionRepositoryInput): Promise<CommitObjectVersionRepositoryResult>;
   upsertObjectAndCreateVersion(
     input: UpsertObjectAndCreateVersionRepositoryInput
   ): Promise<UpsertObjectAndCreateVersionRepositoryResult>;
+  commitObjectVersion(input: CommitObjectVersionRepositoryInput): Promise<CommitObjectVersionRepositoryResult>;
 };
 
 /* repository */
@@ -105,6 +105,57 @@ class ObjectRepository implements ObjectRepositoryContract {
     return objectVersion ? mapPrismaObjectVersionToDomainObjectVersion(objectVersion) : null;
   }
 
+  async upsertObjectAndCreateVersion(
+    input: UpsertObjectAndCreateVersionRepositoryInput
+  ): Promise<UpsertObjectAndCreateVersionRepositoryResult> {
+    let objectVersionAllocation;
+
+    try {
+      objectVersionAllocation = await this.prisma.$transaction(async (tx) => {
+        const object = await tx.object.upsert({
+          where: {
+            bucket_id_key: {
+              bucket_id: input.bucketId,
+              key: input.objectKey
+            }
+          },
+          create: {
+            key: input.objectKey,
+            last_allocated_version: 1,
+            bucket_id: input.bucketId
+          },
+          update: {
+            last_allocated_version: {
+              increment: 1
+            }
+          }
+        });
+
+        const objectVersion = await tx.objectVersion.create({
+          data: {
+            object_id: object.id,
+            version: object.last_allocated_version,
+            state: 'pending',
+            total_size_bytes: input.totalSizeBytes,
+            content_type: input.contentType
+          }
+        });
+
+        return {
+          object,
+          objectVersion
+        };
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return {
+      object: mapPrismaObjectToDomainObject(objectVersionAllocation.object),
+      objectVersion: mapPrismaObjectVersionToDomainObjectVersion(objectVersionAllocation.objectVersion)
+    };
+  }
+
   async commitObjectVersion(input: CommitObjectVersionRepositoryInput): Promise<CommitObjectVersionRepositoryResult> {
     let objectVersionCommit;
 
@@ -161,57 +212,6 @@ class ObjectRepository implements ObjectRepositoryContract {
     return {
       object: mapPrismaObjectToDomainObject(objectVersionCommit.object),
       objectVersion: mapPrismaObjectVersionToDomainObjectVersion(objectVersionCommit.objectVersion)
-    };
-  }
-
-  async upsertObjectAndCreateVersion(
-    input: UpsertObjectAndCreateVersionRepositoryInput
-  ): Promise<UpsertObjectAndCreateVersionRepositoryResult> {
-    let objectVersionAllocation;
-
-    try {
-      objectVersionAllocation = await this.prisma.$transaction(async (tx) => {
-        const object = await tx.object.upsert({
-          where: {
-            bucket_id_key: {
-              bucket_id: input.bucketId,
-              key: input.objectKey
-            }
-          },
-          create: {
-            key: input.objectKey,
-            last_allocated_version: 1,
-            bucket_id: input.bucketId
-          },
-          update: {
-            last_allocated_version: {
-              increment: 1
-            }
-          }
-        });
-
-        const objectVersion = await tx.objectVersion.create({
-          data: {
-            object_id: object.id,
-            version: object.last_allocated_version,
-            state: 'pending',
-            total_size_bytes: input.totalSizeBytes,
-            content_type: input.contentType
-          }
-        });
-
-        return {
-          object,
-          objectVersion
-        };
-      });
-    } catch (err) {
-      throw mapPrismaError(err, errorMap) ?? err;
-    }
-
-    return {
-      object: mapPrismaObjectToDomainObject(objectVersionAllocation.object),
-      objectVersion: mapPrismaObjectVersionToDomainObjectVersion(objectVersionAllocation.objectVersion)
     };
   }
 }
