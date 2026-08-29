@@ -114,7 +114,7 @@ class ObjectService implements ObjectServiceContract {
       data: input.data
     };
 
-    const parts = await this.objectVersionPartService.createPartsFromData(createPartsInput);
+    await this.objectVersionPartService.createPartsFromData(createPartsInput);
 
     const commitObjectVersionInput: CommitObjectVersionRepositoryInput = {
       objectId: objectVersionAllocation.object.id,
@@ -125,8 +125,7 @@ class ObjectService implements ObjectServiceContract {
 
     return {
       object: objectVersionCommit.object,
-      objectVersion: objectVersionCommit.objectVersion,
-      parts
+      objectVersion: objectVersionCommit.objectVersion
     };
   }
 

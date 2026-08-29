@@ -2,7 +2,6 @@ import { Readable } from 'node:stream';
 import { z } from 'zod';
 
 import { bucketIdSchema, bucketNameSchema } from '@/modules/buckets/bucket.domain';
-import { partSchema } from '@/modules/object-version-part/object-version-part.domain';
 
 import {
   objectIdSchema,
@@ -41,8 +40,7 @@ export const createObjectInputSchema = z.object({
 
 export const createObjectResultSchema = z.object({
   object: objectSchema,
-  objectVersion: objectVersionSchema,
-  parts: z.array(partSchema)
+  objectVersion: objectVersionSchema
 });
 
 /* repository schemas */

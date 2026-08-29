@@ -76,7 +76,9 @@ class ObjectController implements ObjectHttpControllerContract {
       data
     };
 
-    await this.service.createObject(serviceInput);
+    const objectCreation = await this.service.createObject(serviceInput);
+
+    reply.header('x-object-version', String(objectCreation.objectVersion.version));
 
     await reply.code(204).send(undefined);
   }
