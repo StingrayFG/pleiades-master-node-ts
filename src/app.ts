@@ -19,13 +19,18 @@ import { createObjectVersionPartModule } from '@/modules/object-version-part/obj
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 import { createObjectModule } from '@/modules/objects/object.module';
 
-/**/
+/* app */
 
 const app = Fastify({
   logger: {
     level: process.env.LOG_LEVEL || 'info'
   }
 });
+
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
+
+/* plugins */
 
 app.register(cors, {
   origin: '*',
@@ -38,20 +43,33 @@ app.register(fastifyJwt, {
 
 app.register(fastifyRedis, { client: redis });
 
-app.addHook('onClose', async () => {
-  await prisma.$disconnect();
+app.register(authMiddlewares);
+app.register(errorHandlerPlugin);
+
+/* modules */
+
+const bucketModule = createBucketModule({ prisma });
+
+const dataNodeModule = createDataNodeModule({ prisma });
+
+const blobModule = createBlobModule();
+
+const objectVersionPartModule = createObjectVersionPartModule({
+  prisma,
+  dataNodeService: dataNodeModule.service,
+  blobService: blobModule.service
 });
 
-app.setValidatorCompiler(validatorCompiler);
-app.setSerializerCompiler(serializerCompiler);
+const objectModule = createObjectModule({
+  prisma,
+  bucketService: bucketModule.service,
+  objectVersionPartService: objectVersionPartModule.service
+});
 
-/**/
+/* routes */
 
 app.register(indexRoute);
 
-const bucketModule = createBucketModule({
-  prisma
-});
 app.register(
   createBucketHttpRoutes({
     controller: bucketModule.controller
@@ -61,18 +79,6 @@ app.register(
   }
 );
 
-const dataNodeModule = createDataNodeModule({ prisma });
-const blobModule = createBlobModule();
-const objectVersionPartModule = createObjectVersionPartModule({
-  prisma,
-  dataNodeService: dataNodeModule.service,
-  blobService: blobModule.service
-});
-const objectModule = createObjectModule({
-  prisma,
-  bucketService: bucketModule.service,
-  objectVersionPartService: objectVersionPartModule.service
-});
 app.register(
   createObjectHttpRoutes({
     controller: objectModule.controller
@@ -82,16 +88,16 @@ app.register(
   }
 );
 
+/* lifecycle */
+
 app.addHook('onClose', async () => {
   dataNodeModule.grpcClient.close();
   blobModule.grpcClient.close();
+
+  await prisma.$disconnect();
 });
 
-app.register(authMiddlewares);
-app.register(errorHandlerPlugin);
-
-/**/
+/* exports */
 
 export { dataNodeModule };
-
 export default app;
