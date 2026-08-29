@@ -79,5 +79,4 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
 /* exports */
 
 export { DataNodeGrpcController };
-
 export type { DataNodeGrpcControllerContract };

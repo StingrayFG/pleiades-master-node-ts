@@ -108,5 +108,4 @@ class BucketRepository implements BucketRepositoryContract {
 /* exports */
 
 export { BucketRepository };
-
 export type { BucketRepositoryContract };

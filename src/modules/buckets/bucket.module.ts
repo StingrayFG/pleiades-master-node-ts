@@ -35,5 +35,4 @@ const createBucketModule = ({ prisma }: BucketModuleDependencies): BucketModule 
 /* exports */
 
 export { createBucketModule };
-
 export type { BucketModule, BucketModuleDependencies };

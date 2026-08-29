@@ -73,5 +73,4 @@ class BucketController implements BucketHttpControllerContract {
 /* exports */
 
 export { BucketController };
-
 export type { BucketHttpControllerContract };

@@ -80,5 +80,4 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
 /* exports */
 
 export { DataNodeGrpcClient };
-
 export type { DataNodeGrpcClientContract };

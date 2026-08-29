@@ -40,5 +40,4 @@ const createDataNodeModule = ({ prisma }: DataNodeModuleDependencies): DataNodeM
 /* exports */
 
 export { createDataNodeModule };
-
 export type { DataNodeModule, DataNodeModuleDependencies };

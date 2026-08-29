@@ -119,5 +119,4 @@ class DataNodeRepository implements DataNodeRepositoryContract {
 /* exports */
 
 export { DataNodeRepository };
-
 export type { DataNodeRepositoryContract };

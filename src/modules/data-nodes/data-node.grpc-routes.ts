@@ -26,5 +26,4 @@ const createDataNodeGrpcRoutes = ({ controller }: DataNodeGrpcRoutesDependencies
 /* exports */
 
 export { createDataNodeGrpcRoutes };
-
 export type { DataNodeGrpcRoutes, DataNodeGrpcRoutesDependencies };

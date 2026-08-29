@@ -50,5 +50,4 @@ class BucketService implements BucketServiceContract {
 /* exports */
 
 export { BucketService };
-
 export type { BucketServiceContract };

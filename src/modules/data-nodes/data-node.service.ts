@@ -97,5 +97,4 @@ class DataNodeService implements DataNodeServiceContract {
 /* exports */
 
 export { DataNodeService };
-
 export type { DataNodeServiceContract };
