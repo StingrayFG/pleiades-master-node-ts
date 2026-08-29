@@ -70,6 +70,7 @@ const objectVersionPartModule = createObjectVersionPartModule({
 });
 const objectModule = createObjectModule({
   prisma,
+  bucketService: bucketModule.service,
   objectVersionPartService: objectVersionPartModule.service
 });
 app.register(

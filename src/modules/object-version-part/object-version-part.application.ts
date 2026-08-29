@@ -2,6 +2,8 @@ import { Buffer } from 'node:buffer';
 import { Readable } from 'node:stream';
 import { z } from 'zod';
 
+import { internodeApplicationErrorSchema } from '@/errors/internode.errors';
+
 import {
   blobChecksumAlgorithmSchema,
   blobChecksumValueSchema,
@@ -17,9 +19,13 @@ import {
 } from '@/modules/objects/object.domain';
 
 import { partKeySchema, partReplicaStateSchema, partSchema, placementGroupSchema } from './object-version-part.domain';
-import { internodeApplicationErrorSchema } from '@/errors/internode.errors';
 
 /* service schemas */
+
+export const listPartsByObjectVersionInputSchema = z.object({
+  objectId: objectIdSchema,
+  version: objectVersionNumberSchema
+});
 
 export const getReplicaBlobResultSchema = z.discriminatedUnion('status', [
   z.object({
@@ -90,6 +96,7 @@ export const updateReplicaStatesRepositoryInputSchema = z
 
 /* types */
 
+export type ListPartsByObjectVersionInput = z.infer<typeof listPartsByObjectVersionInputSchema>;
 export type GetReplicaBlobResult = z.infer<typeof getReplicaBlobResultSchema>;
 export type CreatePartsInput = z.infer<typeof createPartsInputSchema>;
 export type CreatePartInput = z.infer<typeof createPartInputSchema>;

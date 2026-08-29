@@ -1,0 +1,27 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
+
+import type { Part } from '@/modules/object-version-part/object-version-part.domain';
+
+import type { ObjectVersion } from './object.domain';
+
+/* verifiers */
+
+export const verifyObjectVersionParts = (objectVersion: ObjectVersion, parts: readonly Part[]): void => {
+  let totalSizeBytes = 0n;
+
+  for (const [index, part] of parts.entries()) {
+    if (
+      part.objectId !== objectVersion.objectId ||
+      part.version !== objectVersion.version ||
+      part.partNumber !== index + 1
+    ) {
+      throw new GenericInternalServerError('Current object version parts are inconsistent');
+    }
+
+    totalSizeBytes += part.sizeBytes;
+  }
+
+  if (totalSizeBytes !== objectVersion.totalSizeBytes) {
+    throw new GenericInternalServerError('Current object version parts are inconsistent');
+  }
+};

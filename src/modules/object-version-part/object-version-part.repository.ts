@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 
 import type { BlobId } from '@/modules/blobs/blob.domain';
+import type { ObjectId, ObjectVersionNumber } from '@/modules/objects/object.domain';
 
 import type {
   CreatePartWithReplicasRepositoryInput,
@@ -14,6 +15,7 @@ import { mapPrismaPartReplicaToDomainPartReplica, mapPrismaPartToDomainPart } fr
 /* contract */
 
 type ObjectVersionPartRepositoryContract = {
+  listPartsByObjectVersion(objectId: ObjectId, version: ObjectVersionNumber): Promise<Part[]>;
   listCommittedPartReplicasByBlobId(blobId: BlobId): Promise<PartReplica[]>;
   findPartByBlobId(blobId: BlobId): Promise<Part | null>;
   createPartWithReplicas(input: CreatePartWithReplicasRepositoryInput): Promise<Part>;
@@ -26,6 +28,26 @@ const errorMap: PrismaErrorMapperOverrides = {};
 
 class ObjectVersionPartRepository implements ObjectVersionPartRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async listPartsByObjectVersion(objectId: ObjectId, version: ObjectVersionNumber): Promise<Part[]> {
+    let parts;
+
+    try {
+      parts = await this.prisma.objectVersionPart.findMany({
+        where: {
+          object_id: objectId,
+          version
+        },
+        orderBy: {
+          part_number: 'asc'
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return parts.map(mapPrismaPartToDomainPart);
+  }
 
   async listCommittedPartReplicasByBlobId(blobId: BlobId): Promise<PartReplica[]> {
     let partReplicas;

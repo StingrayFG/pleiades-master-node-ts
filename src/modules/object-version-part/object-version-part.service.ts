@@ -21,8 +21,9 @@ import type {
   CreateReplicaBlobResult,
   CreatePartResult,
   CreatePartsInput,
-  UpdateReplicaStatesRepositoryInput,
-  GetReplicaBlobResult
+  GetReplicaBlobResult,
+  ListPartsByObjectVersionInput,
+  UpdateReplicaStatesRepositoryInput
 } from './object-version-part.application';
 import type { Part, PartReplica } from './object-version-part.domain';
 import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.domain-policies';
@@ -37,6 +38,7 @@ import { verifyPartBlob } from './object-version-part.verifiers';
 /* contract */
 
 type ObjectVersionPartServiceContract = {
+  listPartsByObjectVersion(input: ListPartsByObjectVersionInput): Promise<Part[]>;
   getPartBlob(blobId: BlobId): Promise<BlobMetadataWithBytes>;
   createPartsFromData(input: CreatePartsInput): Promise<Part[]>;
 };
@@ -51,6 +53,12 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
   ) {}
 
   /* public */
+
+  async listPartsByObjectVersion(input: ListPartsByObjectVersionInput): Promise<Part[]> {
+    const parts = await this.repository.listPartsByObjectVersion(input.objectId, input.version);
+
+    return parts;
+  }
 
   async getPartBlob(blobId: BlobId): Promise<BlobMetadataWithBytes> {
     const part = await this.repository.findPartByBlobId(blobId);
