@@ -80,7 +80,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           hostname: input.hostname,
           port: input.port,
           scheme: input.scheme,
-          state: input.state,
+          state: 'joining',
           storage_total_bytes: input.storageTotalBytes,
           storage_free_bytes: input.storageFreeBytes,
           last_heartbeat_at: input.lastHeartbeatAt
