@@ -7,7 +7,7 @@ import {
   type LocalApplicationError
 } from '@/errors/application.errors';
 
-/**/
+/* descriptors */
 
 type LocalApplicationErrorFactory = (message: string, cause: unknown) => LocalApplicationError;
 
@@ -55,7 +55,7 @@ const defaultPrismaErrorDescriptors = {
 
 type PrismaErrorDescriptorName = keyof typeof defaultPrismaErrorDescriptors;
 
-/**/
+/* overrides */
 
 type PrismaErrorOverride = {
   createError?: LocalApplicationErrorFactory;
@@ -66,7 +66,7 @@ type PrismaErrorMapperOverrides = {
   errors?: Partial<Record<PrismaErrorDescriptorName, PrismaErrorOverride>>;
 };
 
-/**/
+/* descriptor maps */
 
 const descriptorNameByPrismaErrorCode = new Map<string, PrismaErrorDescriptorName>([
   ['P2002', 'uniqueConstraintViolation'],
@@ -80,7 +80,7 @@ const descriptorNameByPrismaErrorConstructor = new Map<unknown, PrismaErrorDescr
   [Prisma.PrismaClientUnknownRequestError, 'unknownRequestError']
 ]);
 
-/**/
+/* factory */
 
 const createPrismaLocalApplicationError = (
   err: unknown,
@@ -95,6 +95,8 @@ const createPrismaLocalApplicationError = (
 
   return createError(message, err);
 };
+
+/* mapper */
 
 const mapPrismaError = (
   err: unknown,
@@ -121,6 +123,7 @@ const mapPrismaError = (
   return createPrismaLocalApplicationError(err, name, errors[name]);
 };
 
-export { mapPrismaError };
+/* exports */
 
+export { mapPrismaError };
 export type { PrismaErrorMapperOverrides, PrismaErrorOverride };
