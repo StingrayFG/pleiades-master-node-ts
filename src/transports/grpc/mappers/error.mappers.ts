@@ -3,6 +3,7 @@ import { Metadata, status } from '@grpc/grpc-js';
 import { LocalApplicationError, type LocalApplicationErrorCode } from '@/errors/application.errors';
 import {
   InternodeApplicationError,
+  InternodeAbortedError,
   InternodeAlreadyExistsError,
   InternodeDataLossError,
   InternodeDeadlineExceededError,
@@ -38,9 +39,16 @@ const grpcStatusCodeByLocalApplicationErrorCode = {
   UNAUTHORIZED: status.UNAUTHENTICATED,
   FORBIDDEN: status.PERMISSION_DENIED,
   NOT_FOUND: status.NOT_FOUND,
+  ALREADY_EXISTS: status.ALREADY_EXISTS,
   CONFLICT: status.FAILED_PRECONDITION,
+  FAILED_PRECONDITION: status.FAILED_PRECONDITION,
+  DATA_LOSS: status.DATA_LOSS,
+  RESOURCE_EXHAUSTED: status.RESOURCE_EXHAUSTED,
+  UNAVAILABLE: status.UNAVAILABLE,
+  DEADLINE_EXCEEDED: status.DEADLINE_EXCEEDED,
+  ABORTED: status.ABORTED,
   INTERNAL_SERVER_ERROR: status.INTERNAL,
-  MAPPING_ERROR: status.INTERNAL
+  MAPPER_ERROR: status.INTERNAL
 } as const satisfies Record<LocalApplicationErrorCode, GrpcErrorCode>;
 
 const internodeApplicationErrorFactoryByGrpcStatusCode = {
@@ -53,7 +61,7 @@ const internodeApplicationErrorFactoryByGrpcStatusCode = {
   [status.PERMISSION_DENIED]: (message, _details, options) => new InternodeInternalError(message, options),
   [status.RESOURCE_EXHAUSTED]: (...args) => new InternodeResourceExhaustedError(...args),
   [status.FAILED_PRECONDITION]: (...args) => new InternodeFailedPreconditionError(...args),
-  [status.ABORTED]: (...args) => new InternodeFailedPreconditionError(...args),
+  [status.ABORTED]: (message, _details, options) => new InternodeAbortedError(message, options),
   [status.OUT_OF_RANGE]: (...args) => new InternodeInvalidArgumentError(...args),
   [status.UNIMPLEMENTED]: (message, _details, options) => new InternodeInternalError(message, options),
   [status.INTERNAL]: (message, _details, options) => new InternodeInternalError(message, options),

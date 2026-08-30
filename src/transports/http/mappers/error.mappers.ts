@@ -3,8 +3,12 @@ import {
   badRequestHttpErrorDefinition,
   conflictHttpErrorDefinition,
   forbiddenHttpErrorDefinition,
+  gatewayTimeoutHttpErrorDefinition,
   internalServerErrorHttpErrorDefinition,
   notFoundHttpErrorDefinition,
+  preconditionFailedHttpErrorDefinition,
+  serviceUnavailableHttpErrorDefinition,
+  tooManyRequestsHttpErrorDefinition,
   unauthorizedHttpErrorDefinition,
   type KnownHttpErrorStatusCode,
   type KnownHttpErrorDefinition
@@ -17,9 +21,16 @@ const httpErrorDefinitionByLocalApplicationErrorCode = {
   UNAUTHORIZED: unauthorizedHttpErrorDefinition,
   FORBIDDEN: forbiddenHttpErrorDefinition,
   NOT_FOUND: notFoundHttpErrorDefinition,
+  ALREADY_EXISTS: conflictHttpErrorDefinition,
   CONFLICT: conflictHttpErrorDefinition,
+  FAILED_PRECONDITION: preconditionFailedHttpErrorDefinition,
+  DATA_LOSS: internalServerErrorHttpErrorDefinition,
+  RESOURCE_EXHAUSTED: tooManyRequestsHttpErrorDefinition,
+  UNAVAILABLE: serviceUnavailableHttpErrorDefinition,
+  DEADLINE_EXCEEDED: gatewayTimeoutHttpErrorDefinition,
+  ABORTED: conflictHttpErrorDefinition,
   INTERNAL_SERVER_ERROR: internalServerErrorHttpErrorDefinition,
-  MAPPING_ERROR: internalServerErrorHttpErrorDefinition
+  MAPPER_ERROR: internalServerErrorHttpErrorDefinition
 } satisfies Record<LocalApplicationErrorCode, KnownHttpErrorDefinition>;
 
 const knownHttpErrorDefinitionByStatusCode = {
@@ -28,7 +39,11 @@ const knownHttpErrorDefinitionByStatusCode = {
   403: forbiddenHttpErrorDefinition,
   404: notFoundHttpErrorDefinition,
   409: conflictHttpErrorDefinition,
-  500: internalServerErrorHttpErrorDefinition
+  412: preconditionFailedHttpErrorDefinition,
+  429: tooManyRequestsHttpErrorDefinition,
+  500: internalServerErrorHttpErrorDefinition,
+  503: serviceUnavailableHttpErrorDefinition,
+  504: gatewayTimeoutHttpErrorDefinition
 } satisfies Record<KnownHttpErrorStatusCode, KnownHttpErrorDefinition>;
 
 const knownHttpErrorDefinitionLookup: Partial<Record<number, KnownHttpErrorDefinition>> =

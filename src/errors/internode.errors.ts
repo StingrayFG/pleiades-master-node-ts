@@ -6,20 +6,30 @@ import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
 /* error codes */
 
 export const InternodeApplicationErrorCodes = {
+  // validation
   INVALID_ARGUMENT: 'INVALID_ARGUMENT',
 
+  // resource
   NOT_FOUND: 'NOT_FOUND',
   ALREADY_EXISTS: 'ALREADY_EXISTS',
 
+  // state
   FAILED_PRECONDITION: 'FAILED_PRECONDITION',
 
+  // integrity
   DATA_LOSS: 'DATA_LOSS',
 
+  // capacity
   RESOURCE_EXHAUSTED: 'RESOURCE_EXHAUSTED',
 
+  // availability
   UNAVAILABLE: 'UNAVAILABLE',
   DEADLINE_EXCEEDED: 'DEADLINE_EXCEEDED',
 
+  // concurrency
+  ABORTED: 'ABORTED',
+
+  // internal
   INTERNAL: 'INTERNAL'
 } as const;
 
@@ -104,6 +114,14 @@ export class InternodeUnavailableError extends InternodeApplicationError {
 export class InternodeDeadlineExceededError extends InternodeApplicationError {
   constructor(message = 'Deadline exceeded', options?: ErrorOptions) {
     super(InternodeApplicationErrorCodes.DEADLINE_EXCEEDED, message, undefined, options);
+  }
+}
+
+/* concurrency errors */
+
+export class InternodeAbortedError extends InternodeApplicationError {
+  constructor(message = 'Aborted', options?: ErrorOptions) {
+    super(InternodeApplicationErrorCodes.ABORTED, message, undefined, options);
   }
 }
 

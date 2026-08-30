@@ -42,7 +42,7 @@ const HTTP_ERROR_MESSAGE = 'HTTP error';
 
 const localApplicationErrorMessageOverrideByCode: Partial<Record<LocalApplicationErrorCode, string>> = {
   INTERNAL_SERVER_ERROR: INTERNAL_SERVER_ERROR_MESSAGE,
-  MAPPING_ERROR: INTERNAL_SERVER_ERROR_MESSAGE
+  MAPPER_ERROR: INTERNAL_SERVER_ERROR_MESSAGE
 };
 
 const ALLOWED_ERROR_HEADERS = new Set(['www-authenticate', 'retry-after', 'allow']);
