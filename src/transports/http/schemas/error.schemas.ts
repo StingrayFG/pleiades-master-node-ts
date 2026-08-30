@@ -2,21 +2,21 @@ import { z } from 'zod';
 
 /* base schemas, types, and definition factory */
 
-export const HttpErrorResponsePayloadSchema = z.object({
+export const httpErrorResponsePayloadSchema = z.object({
   statusCode: z.number().int().min(400).max(599),
   code: z.string().min(1),
   message: z.string().min(1)
 });
 
-export const HttpErrorResponseSchema = HttpErrorResponsePayloadSchema.extend({
+export const httpErrorResponseSchema = httpErrorResponsePayloadSchema.extend({
   statusCode: z.number().int().min(400).max(599),
   code: z.string().min(1),
   message: z.string().min(1),
   requestId: z.string().min(1)
 });
 
-export type HttpErrorResponsePayload = z.infer<typeof HttpErrorResponsePayloadSchema>;
-export type HttpErrorResponse = z.infer<typeof HttpErrorResponseSchema>;
+export type HttpErrorResponsePayload = z.infer<typeof httpErrorResponsePayloadSchema>;
+export type HttpErrorResponse = z.infer<typeof httpErrorResponseSchema>;
 
 const createHttpErrorDefinition = <const TCode extends string, const TStatusCode extends number>(
   code: TCode,
@@ -25,7 +25,7 @@ const createHttpErrorDefinition = <const TCode extends string, const TStatusCode
   return {
     statusCode,
     code,
-    schema: HttpErrorResponseSchema.extend({
+    schema: httpErrorResponseSchema.extend({
       statusCode: z.literal(statusCode),
       code: z.literal(code)
     })
@@ -58,15 +58,15 @@ export type KnownHttpErrorStatusCode = KnownHttpErrorDefinition['statusCode'];
 
 /* response schemas and types */
 
-export const BadRequestHttpErrorResponseSchema = badRequestHttpErrorDefinition.schema;
-export const UnauthorizedHttpErrorResponseSchema = unauthorizedHttpErrorDefinition.schema;
-export const ForbiddenHttpErrorResponseSchema = forbiddenHttpErrorDefinition.schema;
-export const NotFoundHttpErrorResponseSchema = notFoundHttpErrorDefinition.schema;
-export const ConflictHttpErrorResponseSchema = conflictHttpErrorDefinition.schema;
-export const InternalServerErrorHttpErrorResponseSchema = internalServerErrorHttpErrorDefinition.schema;
-export const ServiceUnavailableHttpErrorResponseSchema = serviceUnavailableHttpErrorDefinition.schema;
-export const GatewayTimeoutHttpErrorResponseSchema = gatewayTimeoutHttpErrorDefinition.schema;
-export const InsufficientStorageHttpErrorResponseSchema = insufficientStorageHttpErrorDefinition.schema;
+export const badRequestHttpErrorResponseSchema = badRequestHttpErrorDefinition.schema;
+export const unauthorizedHttpErrorResponseSchema = unauthorizedHttpErrorDefinition.schema;
+export const forbiddenHttpErrorResponseSchema = forbiddenHttpErrorDefinition.schema;
+export const notFoundHttpErrorResponseSchema = notFoundHttpErrorDefinition.schema;
+export const conflictHttpErrorResponseSchema = conflictHttpErrorDefinition.schema;
+export const internalServerErrorHttpErrorResponseSchema = internalServerErrorHttpErrorDefinition.schema;
+export const serviceUnavailableHttpErrorResponseSchema = serviceUnavailableHttpErrorDefinition.schema;
+export const gatewayTimeoutHttpErrorResponseSchema = gatewayTimeoutHttpErrorDefinition.schema;
+export const insufficientStorageHttpErrorResponseSchema = insufficientStorageHttpErrorDefinition.schema;
 
 export type BadRequestHttpErrorResponse = z.infer<typeof badRequestHttpErrorDefinition.schema>;
 export type UnauthorizedHttpErrorResponse = z.infer<typeof unauthorizedHttpErrorDefinition.schema>;

@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
 import {
-  BadRequestHttpErrorResponseSchema,
-  ConflictHttpErrorResponseSchema,
-  InternalServerErrorHttpErrorResponseSchema,
-  NotFoundHttpErrorResponseSchema,
-  ServiceUnavailableHttpErrorResponseSchema,
-  UnauthorizedHttpErrorResponseSchema
+  badRequestHttpErrorResponseSchema,
+  conflictHttpErrorResponseSchema,
+  internalServerErrorHttpErrorResponseSchema,
+  notFoundHttpErrorResponseSchema,
+  serviceUnavailableHttpErrorResponseSchema,
+  unauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
 import { bucketNameSchema, bucketStateSchema } from './bucket.domain';
@@ -30,9 +30,9 @@ export const bucketsResponseSchema = z.array(bucketResponseSchema);
 export const listBucketsHttpSchema = {
   response: {
     200: bucketsResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    401: unauthorizedHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -40,11 +40,11 @@ export const getBucketHttpSchema = {
   params: bucketNameParamsSchema,
   response: {
     200: bucketResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    404: NotFoundHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    404: notFoundHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -53,11 +53,11 @@ export const putBucketHttpSchema = {
   response: {
     200: bucketResponseSchema,
     201: bucketResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -65,11 +65,11 @@ export const deleteBucketHttpSchema = {
   params: bucketNameParamsSchema,
   response: {
     200: bucketResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    404: NotFoundHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    404: notFoundHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 

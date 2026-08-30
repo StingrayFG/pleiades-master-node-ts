@@ -3,14 +3,14 @@ import { z } from 'zod';
 
 import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
 import {
-  BadRequestHttpErrorResponseSchema,
-  ConflictHttpErrorResponseSchema,
-  GatewayTimeoutHttpErrorResponseSchema,
-  InsufficientStorageHttpErrorResponseSchema,
-  InternalServerErrorHttpErrorResponseSchema,
-  NotFoundHttpErrorResponseSchema,
-  ServiceUnavailableHttpErrorResponseSchema,
-  UnauthorizedHttpErrorResponseSchema
+  badRequestHttpErrorResponseSchema,
+  conflictHttpErrorResponseSchema,
+  gatewayTimeoutHttpErrorResponseSchema,
+  insufficientStorageHttpErrorResponseSchema,
+  internalServerErrorHttpErrorResponseSchema,
+  notFoundHttpErrorResponseSchema,
+  serviceUnavailableHttpErrorResponseSchema,
+  unauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
 import { bucketNameSchema } from '@/modules/buckets/bucket.domain';
@@ -32,12 +32,12 @@ export const getObjectHttpSchema = {
   params: objectParamsSchema,
   response: {
     200: objectDataResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    404: NotFoundHttpErrorResponseSchema,
-    409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    404: notFoundHttpErrorResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -45,12 +45,12 @@ export const headObjectHttpSchema = {
   params: objectParamsSchema,
   response: {
     200: emptyResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    404: NotFoundHttpErrorResponseSchema,
-    409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    404: notFoundHttpErrorResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -68,14 +68,14 @@ export const putObjectHttpSchema = {
   headers: putObjectHeadersSchema,
   response: {
     204: emptyResponseSchema,
-    400: BadRequestHttpErrorResponseSchema,
-    401: UnauthorizedHttpErrorResponseSchema,
-    404: NotFoundHttpErrorResponseSchema,
-    409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema,
-    503: ServiceUnavailableHttpErrorResponseSchema,
-    504: GatewayTimeoutHttpErrorResponseSchema,
-    507: InsufficientStorageHttpErrorResponseSchema
+    400: badRequestHttpErrorResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
+    404: notFoundHttpErrorResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema,
+    504: gatewayTimeoutHttpErrorResponseSchema,
+    507: insufficientStorageHttpErrorResponseSchema
   }
 };
 
