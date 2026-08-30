@@ -41,8 +41,7 @@ const wrapUnaryGrpcHandler = (handler: UnaryGrpcHandler, options: ToGrpcServerEr
       completed = true;
 
       if (error) {
-        // Do not forward `trailer`: it would override the sanitized
-        // metadata attached by toGrpcServerError().
+        // do not forward trailer, since it would override the sanitized metadata attached by toGrpcServerError()
         callback(toGrpcServerError(error, options), null, undefined, flags);
 
         return;
