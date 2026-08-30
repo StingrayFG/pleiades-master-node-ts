@@ -1,9 +1,10 @@
 import { Prisma } from '@prisma/client';
 
 import {
-  GenericConflictError,
+  GenericAlreadyExistsError,
   GenericInternalServerError,
   GenericNotFoundError,
+  GenericUnavailableError,
   type LocalApplicationError
 } from '@/errors/application.errors';
 
@@ -18,7 +19,7 @@ type PrismaErrorDescriptor = {
 
 const defaultPrismaErrorDescriptors = {
   uniqueConstraintViolation: {
-    createError: (message, cause) => new GenericConflictError(message, { cause }),
+    createError: (message, cause) => new GenericAlreadyExistsError(message, { cause }),
     message: 'Unique constraint violation'
   },
 
@@ -33,7 +34,7 @@ const defaultPrismaErrorDescriptors = {
   },
 
   initializationError: {
-    createError: (message, cause) => new GenericInternalServerError(message, { cause }),
+    createError: (message, cause) => new GenericUnavailableError(message, { cause }),
     message: 'Initialization error'
   },
 
