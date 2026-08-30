@@ -19,7 +19,7 @@ class BucketService implements BucketServiceContract {
   constructor(private readonly repository: BucketRepositoryContract) {}
 
   async listBuckets(): Promise<Bucket[]> {
-    const buckets = await this.repository.findAll();
+    const buckets = await this.repository.listAll();
 
     return buckets;
   }

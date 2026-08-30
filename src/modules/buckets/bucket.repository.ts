@@ -10,7 +10,7 @@ import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 /* contract */
 
 type BucketRepositoryContract = {
-  findAll(): Promise<Bucket[]>;
+  listAll(): Promise<Bucket[]>;
   findByName(name: BucketName): Promise<Bucket | null>;
   findOrCreate(name: BucketName): Promise<EnsureBucketExistsResult>;
   delete(name: BucketName): Promise<Bucket>;
@@ -23,7 +23,7 @@ const errorMap: PrismaErrorMapperOverrides = {};
 class BucketRepository implements BucketRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAll(): Promise<Bucket[]> {
+  async listAll(): Promise<Bucket[]> {
     let buckets;
 
     try {
