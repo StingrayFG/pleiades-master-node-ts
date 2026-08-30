@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
+import { GenericAbortedError } from '@/errors/application.errors';
 
 import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
@@ -73,7 +74,7 @@ class BucketRepository implements BucketRepositoryContract {
       const existingBucket = await this.findByName(bucketName);
 
       if (!existingBucket) {
-        throw mapPrismaError(err, errorMap) ?? err;
+        throw new GenericAbortedError('Bucket resolution was aborted by a concurrent change', { cause: err });
       }
 
       return {
