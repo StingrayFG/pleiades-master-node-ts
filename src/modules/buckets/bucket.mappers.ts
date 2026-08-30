@@ -1,6 +1,6 @@
 import type { Bucket as PrismaBucket } from '@prisma/client';
 
-import { wrapMapping } from '@/common/mappers/mapping';
+import { withMapperError } from '@/common/mappers/mappers';
 
 import { bucketSchema, type Bucket } from './bucket.domain';
 import type { BucketResponse, BucketsResponse } from './bucket.http-contracts';
@@ -8,7 +8,7 @@ import type { BucketResponse, BucketsResponse } from './bucket.http-contracts';
 /* domain -> http */
 
 export const mapDomainBucketToHttpBucketResponse = (bucket: Bucket): BucketResponse => {
-  return wrapMapping('Failed to map domain bucket to HTTP bucket', () => {
+  return withMapperError('Failed to map domain bucket to HTTP bucket', () => {
     return {
       name: bucket.name,
       state: bucket.state,
@@ -19,7 +19,7 @@ export const mapDomainBucketToHttpBucketResponse = (bucket: Bucket): BucketRespo
 };
 
 export const mapDomainBucketsToHttpBucketsResponse = (buckets: Bucket[]): BucketsResponse => {
-  return wrapMapping('Failed to map domain buckets to HTTP buckets', () => {
+  return withMapperError('Failed to map domain buckets to HTTP buckets', () => {
     return buckets.map((bucket) => mapDomainBucketToHttpBucketResponse(bucket));
   });
 };
@@ -27,7 +27,7 @@ export const mapDomainBucketsToHttpBucketsResponse = (buckets: Bucket[]): Bucket
 /* prisma -> domain */
 
 export const mapPrismaBucketToDomainBucket = (bucket: PrismaBucket): Bucket => {
-  return wrapMapping('Failed to map Prisma bucket to domain bucket', () => {
+  return withMapperError('Failed to map Prisma bucket to domain bucket', () => {
     return bucketSchema.parse({
       id: bucket.id,
       name: bucket.name,

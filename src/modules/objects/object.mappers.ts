@@ -1,13 +1,13 @@
 import type { Object as PrismaObject, ObjectVersion as PrismaObjectVersion } from '@prisma/client';
 
-import { wrapMapping } from '@/common/mappers/mapping';
+import { withMapperError } from '@/common/mappers/mappers';
 
 import { objectSchema, objectVersionSchema, type Object, type ObjectVersion } from './object.domain';
 
 /* prisma -> domain */
 
 export const mapPrismaObjectToDomainObject = (object: PrismaObject): Object => {
-  return wrapMapping('Failed to map Prisma object to domain object', () =>
+  return withMapperError('Failed to map Prisma object to domain object', () =>
     objectSchema.parse({
       id: object.id,
       key: object.key,
@@ -21,7 +21,7 @@ export const mapPrismaObjectToDomainObject = (object: PrismaObject): Object => {
 };
 
 export const mapPrismaObjectVersionToDomainObjectVersion = (objectVersion: PrismaObjectVersion): ObjectVersion => {
-  return wrapMapping('Failed to map Prisma object version to domain object version', () =>
+  return withMapperError('Failed to map Prisma object version to domain object version', () =>
     objectVersionSchema.parse({
       objectId: objectVersion.object_id,
       version: objectVersion.version,

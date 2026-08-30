@@ -1,5 +1,4 @@
-import { wrapMapping } from '@/common/mappers/mapping';
-import { parseByteCount } from '@/common/parsers/parsers';
+import { parseByteCount, withMapperError } from '@/common/mappers/mappers';
 import {
   GetBlobRequest,
   HeadBlobRequest,
@@ -20,7 +19,7 @@ import {
 /* grpc -> domain mappers */
 
 export const mapGrpcHeadBlobResponseToDomainBlobMetadata = (response: HeadBlobResponse): BlobMetadata => {
-  return wrapMapping('Failed to map gRPC head blob response to domain blob metadata', () =>
+  return withMapperError('Failed to map gRPC head blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
       blobId: response.blob_id,
       sizeBytes: parseByteCount(response.size_bytes),
@@ -33,7 +32,7 @@ export const mapGrpcHeadBlobResponseToDomainBlobMetadata = (response: HeadBlobRe
 export const mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes = (
   response: GetBlobResponse
 ): BlobMetadataWithBytes => {
-  return wrapMapping('Failed to map gRPC get blob response to domain blob metadata with bytes', () =>
+  return withMapperError('Failed to map gRPC get blob response to domain blob metadata with bytes', () =>
     blobMetadataWithBytesSchema.parse({
       blobId: response.blob_id,
       sizeBytes: parseByteCount(response.size_bytes),
@@ -45,7 +44,7 @@ export const mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes = (
 };
 
 export const mapGrpcPutBlobResponseToDomainBlobMetadata = (response: PutBlobResponse): BlobMetadata => {
-  return wrapMapping('Failed to map gRPC put blob response to domain blob metadata', () =>
+  return withMapperError('Failed to map gRPC put blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
       blobId: response.blob_id,
       sizeBytes: parseByteCount(response.size_bytes),
@@ -58,7 +57,7 @@ export const mapGrpcPutBlobResponseToDomainBlobMetadata = (response: PutBlobResp
 /* client -> grpc mappers */
 
 export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: HeadBlobClientInput): HeadBlobRequest => {
-  return wrapMapping('Failed to map head blob gRPC client input to gRPC request', () =>
+  return withMapperError('Failed to map head blob gRPC client input to gRPC request', () =>
     HeadBlobRequest.create({
       blob_id: input.blobId
     })
@@ -66,7 +65,7 @@ export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: HeadBlobClien
 };
 
 export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: GetBlobClientInput): GetBlobRequest => {
-  return wrapMapping('Failed to map get blob gRPC client input to gRPC request', () =>
+  return withMapperError('Failed to map get blob gRPC client input to gRPC request', () =>
     GetBlobRequest.create({
       blob_id: input.blobId
     })
@@ -74,7 +73,7 @@ export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: GetBlobClientIn
 };
 
 export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: PutBlobClientInput): PutBlobRequest => {
-  return wrapMapping('Failed to map put blob gRPC client input to gRPC request', () =>
+  return withMapperError('Failed to map put blob gRPC client input to gRPC request', () =>
     PutBlobRequest.create({
       blob_id: input.blob.blobId,
       size_bytes: input.blob.sizeBytes.toString(),
