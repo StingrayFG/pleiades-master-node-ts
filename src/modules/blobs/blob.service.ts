@@ -8,7 +8,12 @@ import type {
 } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import type { BlobGrpcClientContract } from './blob.grpc-client';
-import { verifyGetBlobMetadataResult, verifyGetBlobResult, verifyEnsureBlobExistsResult } from './blob.verifiers';
+import {
+  verifyGetBlobMetadataResult,
+  verifyGetBlobResult,
+  verifyEnsureBlobExistsResult,
+  verifyEnsureBlobExistsInput
+} from './blob.verifiers';
 
 /* contract */
 
@@ -50,6 +55,8 @@ class BlobService implements BlobServiceContract {
   }
 
   async ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata> {
+    verifyEnsureBlobExistsInput(input);
+
     const putBlobClientInput: PutBlobClientInput = {
       blob: input.blob,
       dataNodeEndpoint: input.dataNodeEndpoint

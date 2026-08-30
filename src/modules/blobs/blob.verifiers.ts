@@ -1,3 +1,4 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
 import { InternodeDataLossError } from '@/errors/internode.errors';
 
 import type { EnsureBlobExistsInput, GetBlobInput, GetBlobMetadataInput } from './blob.application';
@@ -26,18 +27,25 @@ export const verifyGetBlobResult = (input: GetBlobInput, result: BlobMetadataWit
   }
 };
 
-export const verifyEnsureBlobExistsResult = (input: EnsureBlobExistsInput, result: BlobMetadata): void => {
+export const verifyEnsureBlobExistsInput = (input: EnsureBlobExistsInput): void => {
   const actualSizeBytes = BigInt(input.blob.bytes.length);
   const actualChecksumValue = calculateBlobChecksum(input.blob.bytes);
 
   if (
+    input.blob.sizeBytes !== actualSizeBytes ||
+    input.blob.checksumAlgorithm !== BLOB_CHECKSUM_ALGORITHM ||
+    input.blob.checksumValue !== actualChecksumValue
+  ) {
+    throw new GenericInternalServerError('Blob input metadata is inconsistent with blob data');
+  }
+};
+
+export const verifyEnsureBlobExistsResult = (input: EnsureBlobExistsInput, result: BlobMetadata): void => {
+  if (
     result.blobId !== input.blob.blobId ||
     result.sizeBytes !== input.blob.sizeBytes ||
-    result.sizeBytes !== actualSizeBytes ||
     result.checksumAlgorithm !== input.blob.checksumAlgorithm ||
-    result.checksumAlgorithm !== BLOB_CHECKSUM_ALGORITHM ||
-    result.checksumValue !== input.blob.checksumValue ||
-    result.checksumValue !== actualChecksumValue
+    result.checksumValue !== input.blob.checksumValue
   ) {
     throw new InternodeDataLossError('Data node returned inconsistent blob metadata');
   }
