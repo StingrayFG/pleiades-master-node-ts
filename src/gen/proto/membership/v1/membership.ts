@@ -31,10 +31,13 @@ export interface RegisterDataNodeRequest {
 }
 
 export interface RegisterDataNodeResponse {
+  session_id: string;
 }
 
 export interface RecordDataNodeHeartbeatRequest {
   node_id: string;
+  session_id: string;
+  heartbeat_sequence: string;
   health_snapshot: HealthSnapshot | undefined;
 }
 
@@ -176,11 +179,14 @@ export const RegisterDataNodeRequest: MessageFns<RegisterDataNodeRequest> = {
 };
 
 function createBaseRegisterDataNodeResponse(): RegisterDataNodeResponse {
-  return {};
+  return { session_id: "" };
 }
 
 export const RegisterDataNodeResponse: MessageFns<RegisterDataNodeResponse> = {
-  encode(_: RegisterDataNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(message: RegisterDataNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.session_id !== "") {
+      writer.uint32(10).string(message.session_id);
+    }
     return writer;
   },
 
@@ -191,6 +197,14 @@ export const RegisterDataNodeResponse: MessageFns<RegisterDataNodeResponse> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -200,26 +214,36 @@ export const RegisterDataNodeResponse: MessageFns<RegisterDataNodeResponse> = {
     return message;
   },
 
-  fromJSON(_: any): RegisterDataNodeResponse {
-    return {};
+  fromJSON(object: any): RegisterDataNodeResponse {
+    return {
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+    };
   },
 
-  toJSON(_: RegisterDataNodeResponse): unknown {
+  toJSON(message: RegisterDataNodeResponse): unknown {
     const obj: any = {};
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
     return obj;
   },
 
   create<I extends Exact<DeepPartial<RegisterDataNodeResponse>, I>>(base?: I): RegisterDataNodeResponse {
     return RegisterDataNodeResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RegisterDataNodeResponse>, I>>(_: I): RegisterDataNodeResponse {
+  fromPartial<I extends Exact<DeepPartial<RegisterDataNodeResponse>, I>>(object: I): RegisterDataNodeResponse {
     const message = createBaseRegisterDataNodeResponse();
+    message.session_id = object.session_id ?? "";
     return message;
   },
 };
 
 function createBaseRecordDataNodeHeartbeatRequest(): RecordDataNodeHeartbeatRequest {
-  return { node_id: "", health_snapshot: undefined };
+  return { node_id: "", session_id: "", heartbeat_sequence: "0", health_snapshot: undefined };
 }
 
 export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatRequest> = {
@@ -227,8 +251,14 @@ export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatR
     if (message.node_id !== "") {
       writer.uint32(10).string(message.node_id);
     }
+    if (message.session_id !== "") {
+      writer.uint32(18).string(message.session_id);
+    }
+    if (message.heartbeat_sequence !== "0") {
+      writer.uint32(24).uint64(message.heartbeat_sequence);
+    }
     if (message.health_snapshot !== undefined) {
-      HealthSnapshot.encode(message.health_snapshot, writer.uint32(18).fork()).join();
+      HealthSnapshot.encode(message.health_snapshot, writer.uint32(34).fork()).join();
     }
     return writer;
   },
@@ -253,6 +283,22 @@ export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatR
             break;
           }
 
+          message.session_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.heartbeat_sequence = reader.uint64().toString();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
           message.health_snapshot = HealthSnapshot.decode(reader, reader.uint32());
           continue;
         }
@@ -272,6 +318,16 @@ export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatR
         : isSet(object.node_id)
         ? globalThis.String(object.node_id)
         : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      heartbeat_sequence: isSet(object.heartbeatSequence)
+        ? globalThis.String(object.heartbeatSequence)
+        : isSet(object.heartbeat_sequence)
+        ? globalThis.String(object.heartbeat_sequence)
+        : "0",
       health_snapshot: isSet(object.healthSnapshot)
         ? HealthSnapshot.fromJSON(object.healthSnapshot)
         : isSet(object.health_snapshot)
@@ -284,6 +340,12 @@ export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatR
     const obj: any = {};
     if (message.node_id !== "") {
       obj.nodeId = message.node_id;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.heartbeat_sequence !== "0") {
+      obj.heartbeatSequence = message.heartbeat_sequence;
     }
     if (message.health_snapshot !== undefined) {
       obj.healthSnapshot = HealthSnapshot.toJSON(message.health_snapshot);
@@ -299,6 +361,8 @@ export const RecordDataNodeHeartbeatRequest: MessageFns<RecordDataNodeHeartbeatR
   ): RecordDataNodeHeartbeatRequest {
     const message = createBaseRecordDataNodeHeartbeatRequest();
     message.node_id = object.node_id ?? "";
+    message.session_id = object.session_id ?? "";
+    message.heartbeat_sequence = object.heartbeat_sequence ?? "0";
     message.health_snapshot = (object.health_snapshot !== undefined && object.health_snapshot !== null)
       ? HealthSnapshot.fromPartial(object.health_snapshot)
       : undefined;

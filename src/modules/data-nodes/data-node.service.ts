@@ -1,12 +1,14 @@
-import { GenericNotFoundError } from '@/errors/application.errors';
+import { randomUUID } from 'node:crypto';
+
+import { GenericConflictError, GenericInternalServerError, GenericNotFoundError } from '@/errors/application.errors';
 
 import type {
+  ApplyDataNodeRegistrationRepositoryInput,
   ApplyHeartbeatRepositoryInput,
   HeartbeatDataNodeInput,
-  RegisterDataNodeInput,
-  UpsertDataNodeRepositoryInput
+  RegisterDataNodeInput
 } from './data-node.application';
-import type { DataNode, DataNodeHealthSnapshot, DataNodeId } from './data-node.domain';
+import type { DataNode, DataNodeHealthSnapshot, DataNodeId, DataNodeSessionId } from './data-node.domain';
 import { resolveDataNodeState } from './data-node.domain-policies';
 import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
@@ -15,10 +17,10 @@ import type { DataNodeRepositoryContract } from './data-node.repository';
 /* contract */
 
 type DataNodeServiceContract = {
-  listActiveDataNodes(): Promise<DataNode[]>;
+  listAvailableDataNodes(): Promise<DataNode[]>;
   getDataNodeById(id: DataNodeId): Promise<DataNode>;
-  registerDataNode(input: RegisterDataNodeInput): Promise<DataNode>;
-  recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode>;
+  registerDataNode(input: RegisterDataNodeInput): Promise<DataNodeSessionId>;
+  applyDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<void>;
   checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot>;
 };
 
@@ -30,8 +32,8 @@ class DataNodeService implements DataNodeServiceContract {
     private readonly grpcClient: DataNodeGrpcClientContract
   ) {}
 
-  async listActiveDataNodes(): Promise<DataNode[]> {
-    const dataNodes = await this.repository.findAllActive();
+  async listAvailableDataNodes(): Promise<DataNode[]> {
+    const dataNodes = await this.repository.listAvailable();
 
     return dataNodes;
   }
@@ -46,39 +48,77 @@ class DataNodeService implements DataNodeServiceContract {
     return dataNode;
   }
 
-  async registerDataNode(input: RegisterDataNodeInput): Promise<DataNode> {
-    const state = resolveDataNodeState(input.healthSnapshot);
+  async registerDataNode(input: RegisterDataNodeInput): Promise<DataNodeSessionId> {
+    const sessionId = randomUUID();
 
     const now = new Date();
 
-    const repositoryInput: UpsertDataNodeRepositoryInput = {
-      id: input.id,
-      hostname: input.hostname,
-      port: input.port,
-      scheme: input.scheme,
-      state: state,
-      storageTotalBytes: input.healthSnapshot.storageTotalBytes,
-      storageFreeBytes: input.healthSnapshot.storageFreeBytes,
-      lastHeartbeatAt: now
-    };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const currentDataNode = await this.repository.findById(input.id);
 
-    return await this.repository.upsert(repositoryInput);
+      const state = 'joining';
+
+      const applyRegistrationInput: ApplyDataNodeRegistrationRepositoryInput = {
+        id: input.id,
+        endpoint: input.endpoint,
+
+        sessionId,
+        state,
+
+        storageTotalBytes: input.healthSnapshot.storageTotalBytes,
+        storageFreeBytes: input.healthSnapshot.storageFreeBytes,
+
+        lastContactAt: now,
+
+        expectedRevision: currentDataNode?.revision ?? null
+      };
+
+      const applyRegistrationResult = await this.repository.applyRegistration(applyRegistrationInput);
+
+      if (applyRegistrationResult) {
+        return sessionId;
+      }
+    }
+
+    throw new GenericInternalServerError('Failed to register data node due to concurrent updates');
   }
 
-  async recordDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<DataNode> {
+  async applyDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<void> {
     const state = resolveDataNodeState(input.healthSnapshot);
 
     const now = new Date();
 
-    const repositoryInput: ApplyHeartbeatRepositoryInput = {
+    const applyHeartbeatInput: ApplyHeartbeatRepositoryInput = {
       id: input.id,
-      state: state,
+
+      sessionId: input.sessionId,
+      heartbeatSequence: input.heartbeatSequence,
+      state,
+
       storageTotalBytes: input.healthSnapshot.storageTotalBytes,
       storageFreeBytes: input.healthSnapshot.storageFreeBytes,
+
+      lastContactAt: now,
       lastHeartbeatAt: now
     };
 
-    return await this.repository.applyHeartbeat(repositoryInput);
+    const applyHeartbeatResult = await this.repository.applyHeartbeat(applyHeartbeatInput);
+
+    if (applyHeartbeatResult) {
+      return;
+    }
+
+    const dataNode = await this.repository.findById(input.id);
+
+    if (!dataNode) {
+      throw new GenericNotFoundError('Data node not found');
+    }
+
+    if (dataNode.sessionId !== input.sessionId) {
+      throw new GenericConflictError('Data node session is no longer current');
+    }
+
+    return;
   }
 
   async checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot> {

@@ -87,7 +87,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
   async createPartsFromData(input: CreatePartsInput): Promise<Part[]> {
     const parts: Part[] = [];
 
-    const activeDataNodes = await this.dataNodeService.listActiveDataNodes();
+    const activeDataNodes = await this.dataNodeService.listAvailableDataNodes();
 
     const remainingStorageByDataNodeId = new Map<DataNodeId, bigint>(
       activeDataNodes.map((dataNode) => [dataNode.id, dataNode.storageFreeBytes])

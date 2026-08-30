@@ -1,6 +1,6 @@
 import type { sendUnaryData, ServerUnaryCall } from '@grpc/grpc-js';
 
-import { GenericBadRequestError, GenericMappingError } from '@/errors/application.errors';
+import { GenericBadRequestError, GenericMapperError } from '@/errors/application.errors';
 import type {
   RecordDataNodeHeartbeatRequest,
   RecordDataNodeHeartbeatResponse,
@@ -42,16 +42,18 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
     try {
       serviceInput = mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput(call.request);
     } catch (err) {
-      if (err instanceof GenericMappingError) {
+      if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid register data node request', { cause: err });
       }
 
       throw err;
     }
 
-    await this.service.registerDataNode(serviceInput);
+    const sessionId = await this.service.registerDataNode(serviceInput);
 
-    callback(null, {});
+    callback(null, {
+      session_id: sessionId
+    });
   }
 
   async recordDataNodeHeartbeat(
@@ -63,14 +65,14 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
     try {
       serviceInput = mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput(call.request);
     } catch (err) {
-      if (err instanceof GenericMappingError) {
+      if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid record data node heartbeat request', { cause: err });
       }
 
       throw err;
     }
 
-    await this.service.recordDataNodeHeartbeat(serviceInput);
+    await this.service.applyDataNodeHeartbeat(serviceInput);
 
     callback(null, {});
   }

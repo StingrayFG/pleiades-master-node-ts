@@ -20,11 +20,15 @@ message RegisterDataNodeRequest {
   status.v1.HealthSnapshot health_snapshot = 5;
 }
 
-message RegisterDataNodeResponse {}
+message RegisterDataNodeResponse {
+  string session_id = 1;
+}
 
 message RecordDataNodeHeartbeatRequest {
   string node_id = 1;
-  status.v1.HealthSnapshot health_snapshot = 2;
+  string session_id = 2;
+  uint64 heartbeat_sequence = 3;
+  status.v1.HealthSnapshot health_snapshot = 4;
 }
 
 message RecordDataNodeHeartbeatResponse {}

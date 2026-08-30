@@ -1,18 +1,27 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
 
-import type { ApplyHeartbeatRepositoryInput, UpsertDataNodeRepositoryInput } from './data-node.application';
+import type {
+  ApplyHeartbeatRepositoryInput,
+  ApplyDataNodeRegistrationRepositoryInput,
+  UpdateDataNodeStateRepositoryInput,
+  RecordDataNodeHealthCheckRepositoryInput
+} from './data-node.application';
 import type { DataNode, DataNodeId } from './data-node.domain';
 import { mapPrismaDataNodeToDomainDataNode } from './data-node.mappers';
 
 /* contract */
 
 type DataNodeRepositoryContract = {
-  findAllActive(): Promise<DataNode[]>;
+  listAll(): Promise<DataNode[]>;
+  listAvailable(): Promise<DataNode[]>;
   findById(id: DataNodeId): Promise<DataNode | null>;
-  upsert(input: UpsertDataNodeRepositoryInput): Promise<DataNode>;
-  applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<DataNode>;
+  applyRegistration(input: ApplyDataNodeRegistrationRepositoryInput): Promise<boolean>;
+  applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<boolean>;
+  applyHealthCheck(input: RecordDataNodeHealthCheckRepositoryInput): Promise<boolean>;
+  updateStateIfRevisionUnchanged(input: UpdateDataNodeStateRepositoryInput): Promise<boolean>;
 };
 
 /* repository */
@@ -22,13 +31,26 @@ const errorMap: PrismaErrorMapperOverrides = {};
 class DataNodeRepository implements DataNodeRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAllActive(): Promise<DataNode[]> {
+  async listAll(): Promise<DataNode[]> {
+    let dataNodes;
+
+    try {
+      dataNodes = await this.prisma.dataNode.findMany();
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return dataNodes.map(mapPrismaDataNodeToDomainDataNode);
+  }
+
+  async listAvailable(): Promise<DataNode[]> {
     let dataNodes;
 
     try {
       dataNodes = await this.prisma.dataNode.findMany({
         where: {
-          state: 'active'
+          state: 'active',
+          mode: 'serving'
         }
       });
     } catch (err) {
@@ -44,7 +66,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     try {
       dataNode = await this.prisma.dataNode.findUnique({
         where: {
-          node_id: id
+          id
         }
       });
     } catch (err) {
@@ -58,61 +80,158 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     return mapPrismaDataNodeToDomainDataNode(dataNode);
   }
 
-  async upsert(input: UpsertDataNodeRepositoryInput): Promise<DataNode> {
-    let dataNode;
+  async applyRegistration(input: ApplyDataNodeRegistrationRepositoryInput): Promise<boolean> {
+    if (input.expectedRevision === null) {
+      try {
+        await this.prisma.dataNode.create({
+          data: {
+            id: input.id,
+            hostname: input.endpoint.hostname,
+            port: input.endpoint.port,
+            scheme: input.endpoint.scheme,
+
+            session_id: input.sessionId,
+            last_heartbeat_sequence: 0n,
+            state: input.state,
+            mode: 'serving',
+
+            storage_total_bytes: input.storageTotalBytes,
+            storage_free_bytes: input.storageFreeBytes,
+
+            last_contact_at: input.lastContactAt,
+            last_heartbeat_at: null
+          }
+        });
+      } catch (err) {
+        if (isUniqueConstraintError(err)) {
+          return false;
+        }
+
+        throw mapPrismaError(err, errorMap) ?? err;
+      }
+
+      return true;
+    }
+
+    let registrationUpdateResult;
 
     try {
-      dataNode = await this.prisma.dataNode.upsert({
+      registrationUpdateResult = await this.prisma.dataNode.updateMany({
         where: {
-          node_id: input.id
+          id: input.id,
+
+          revision: input.expectedRevision
         },
-        update: {
-          hostname: input.hostname,
-          port: input.port,
-          scheme: input.scheme,
+        data: {
+          hostname: input.endpoint.hostname,
+          port: input.endpoint.port,
+          scheme: input.endpoint.scheme,
+
+          session_id: input.sessionId,
+          last_heartbeat_sequence: 0n,
           state: input.state,
+
           storage_total_bytes: input.storageTotalBytes,
           storage_free_bytes: input.storageFreeBytes,
-          last_heartbeat_at: input.lastHeartbeatAt
-        },
-        create: {
-          node_id: input.id,
-          hostname: input.hostname,
-          port: input.port,
-          scheme: input.scheme,
-          state: 'joining',
-          storage_total_bytes: input.storageTotalBytes,
-          storage_free_bytes: input.storageFreeBytes,
-          last_heartbeat_at: input.lastHeartbeatAt
+
+          last_contact_at: input.lastContactAt,
+          last_heartbeat_at: null,
+
+          revision: {
+            increment: 1
+          }
         }
       });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return mapPrismaDataNodeToDomainDataNode(dataNode);
+    return registrationUpdateResult.count === 1;
   }
 
-  async applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<DataNode> {
-    let dataNode;
+  async applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<boolean> {
+    let heartbeatUpdateResult;
 
     try {
-      dataNode = await this.prisma.dataNode.update({
+      heartbeatUpdateResult = await this.prisma.dataNode.updateMany({
         where: {
-          node_id: input.id
+          id: input.id,
+
+          session_id: input.sessionId,
+          last_heartbeat_sequence: {
+            lt: input.heartbeatSequence
+          }
         },
         data: {
           state: input.state,
+
           storage_total_bytes: input.storageTotalBytes,
           storage_free_bytes: input.storageFreeBytes,
-          last_heartbeat_at: input.lastHeartbeatAt
+
+          last_contact_at: input.lastContactAt,
+          last_heartbeat_at: input.lastHeartbeatAt,
+          last_heartbeat_sequence: input.heartbeatSequence,
+
+          revision: {
+            increment: 1
+          }
         }
       });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return mapPrismaDataNodeToDomainDataNode(dataNode);
+    return heartbeatUpdateResult.count === 1;
+  }
+
+  async applyHealthCheck(input: RecordDataNodeHealthCheckRepositoryInput): Promise<boolean> {
+    let healthCheckUpdateResult;
+
+    try {
+      healthCheckUpdateResult = await this.prisma.dataNode.updateMany({
+        where: {
+          id: input.id,
+
+          revision: input.expectedRevision
+        },
+        data: {
+          last_health_check_at: input.lastHealthCheckAt,
+
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return healthCheckUpdateResult.count === 1;
+  }
+
+  async updateStateIfRevisionUnchanged(input: UpdateDataNodeStateRepositoryInput): Promise<boolean> {
+    let stateUpdateResult;
+
+    try {
+      stateUpdateResult = await this.prisma.dataNode.updateMany({
+        where: {
+          id: input.id,
+
+          revision: input.expectedRevision
+        },
+        data: {
+          state: input.state,
+
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return stateUpdateResult.count === 1;
   }
 }
 

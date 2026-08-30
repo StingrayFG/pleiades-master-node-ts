@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { DataNodeGrpcClient } from './data-node.grpc-client';
 import { DataNodeGrpcController } from './data-node.grpc-controller';
+import { DataNodeLifecycleHandler } from './data-node.lifecycle-handler';
 import { DataNodeRepository } from './data-node.repository';
 import { DataNodeService } from './data-node.service';
 
@@ -15,6 +16,7 @@ type DataNodeModule = {
   repository: DataNodeRepository;
   grpcClient: DataNodeGrpcClient;
   service: DataNodeService;
+  lifecycleHandler: DataNodeLifecycleHandler;
   controller: DataNodeGrpcController;
 };
 
@@ -27,12 +29,15 @@ const createDataNodeModule = ({ prisma }: DataNodeModuleDependencies): DataNodeM
 
   const service = new DataNodeService(repository, grpcClient);
 
+  const lifecycleHandler = new DataNodeLifecycleHandler(repository, grpcClient);
+
   const controller = new DataNodeGrpcController(service);
 
   return {
     repository,
     grpcClient,
     service,
+    lifecycleHandler,
     controller
   };
 };

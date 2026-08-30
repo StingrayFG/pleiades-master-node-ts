@@ -9,6 +9,7 @@ import authMiddlewares from '@/middlewares/authMiddlewares';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
+import { createBackgroundModule } from '@/modules/background/background.module';
 import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
@@ -62,6 +63,11 @@ const objectModule = createObjectModule({
   objectVersionPartService: objectVersionPartModule.service
 });
 
+const backgroundModule = createBackgroundModule({
+  dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
+  logger: app.log
+});
+
 /* routes */
 
 app.register(indexRoute);
@@ -86,7 +92,15 @@ app.register(
 
 /* lifecycle */
 
+backgroundModule.dataNodeLifecycleWorker.start();
+backgroundModule.objectVersionPartLifecycleWorker.start();
+
 app.addHook('onClose', async () => {
+  await Promise.all([
+    backgroundModule.dataNodeLifecycleWorker.stop(),
+    backgroundModule.objectVersionPartLifecycleWorker.stop()
+  ]);
+
   dataNodeModule.grpcClient.close();
   blobModule.grpcClient.close();
 

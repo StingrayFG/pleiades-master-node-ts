@@ -1,8 +1,7 @@
 import type { DataNode as PrismaDataNode } from '@prisma/client';
 
-import { wrapMapping } from '@/common/mappers/mapping';
-import { parseByteCount } from '@/common/parsers/parsers';
-import { GenericMappingError } from '@/errors/application.errors';
+import { parseByteCount, withMapperError } from '@/common/mappers/mappers';
+import { GenericMapperError } from '@/errors/application.errors';
 import type { RecordDataNodeHeartbeatRequest, RegisterDataNodeRequest } from '@/gen/proto/membership/v1/membership';
 import { healthSnapshotStatusToJSON, type HealthSnapshot as GrpcHealthSnapshot } from '@/gen/proto/status/v1/status';
 
@@ -27,7 +26,7 @@ import {
 export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
   status: GrpcHealthSnapshot['status']
 ): DataNodeHealthSnapshotStatus => {
-  return wrapMapping('Failed to map gRPC health snapshot status to domain health snapshot status', () => {
+  return withMapperError('Failed to map gRPC health snapshot status to domain health snapshot status', () => {
     const grpcHealthSnapshotStatus = healthSnapshotStatusToJSON(status);
 
     switch (grpcHealthSnapshotStatus) {
@@ -38,7 +37,7 @@ export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
         return 'degraded';
 
       default:
-        throw new GenericMappingError('Invalid health snapshot status');
+        throw new GenericMapperError('Invalid health snapshot status');
     }
   });
 };
@@ -46,7 +45,7 @@ export const mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus = (
 export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
   healthSnapshot: GrpcHealthSnapshot
 ): DataNodeHealthSnapshot => {
-  return wrapMapping('Failed to map gRPC health snapshot to domain data node health snapshot', () =>
+  return withMapperError('Failed to map gRPC health snapshot to domain data node health snapshot', () =>
     dataNodeHealthSnapshotSchema.parse({
       status: mapGrpcHealthSnapshotStatusToDomainDataNodeHealthSnapshotStatus(healthSnapshot.status),
       databaseOk: healthSnapshot.database_ok,
@@ -63,13 +62,17 @@ export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
 export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
   request: RecordDataNodeHeartbeatRequest
 ): HeartbeatDataNodeInput => {
-  return wrapMapping('Failed to map gRPC record data node heartbeat request to heartbeat data node input', () => {
+  return withMapperError('Failed to map gRPC record data node heartbeat request to heartbeat data node input', () => {
     if (!request.health_snapshot) {
-      throw new GenericMappingError('Health snapshot is required');
+      throw new GenericMapperError('Health snapshot is required');
     }
 
     return heartbeatDataNodeInputSchema.parse({
       id: request.node_id,
+
+      sessionId: request.session_id,
+      heartbeatSequence: request.heartbeat_sequence,
+
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
   });
@@ -78,16 +81,19 @@ export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
 export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
   request: RegisterDataNodeRequest
 ): RegisterDataNodeInput => {
-  return wrapMapping('Failed to map gRPC register data node request to register data node input', () => {
+  return withMapperError('Failed to map gRPC register data node request to register data node input', () => {
     if (!request.health_snapshot) {
-      throw new GenericMappingError('Health snapshot is required');
+      throw new GenericMapperError('Health snapshot is required');
     }
 
     return registerDataNodeInputSchema.parse({
       id: request.node_id,
-      hostname: request.hostname,
-      scheme: request.scheme,
-      port: request.port,
+      endpoint: {
+        hostname: request.hostname,
+        port: request.port,
+        scheme: request.scheme
+      },
+
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
   });
@@ -96,7 +102,7 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
 /* domain */
 
 export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpoint => {
-  return wrapMapping('Failed to map data node to data node endpoint', () =>
+  return withMapperError('Failed to map data node to data node endpoint', () =>
     dataNodeEndpointSchema.parse({
       hostname: dataNode.hostname,
       port: dataNode.port,
@@ -108,18 +114,27 @@ export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpo
 /* prisma -> domain */
 
 export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): DataNode => {
-  return wrapMapping('Failed to map Prisma data node to domain data node', () =>
+  return withMapperError('Failed to map Prisma data node to domain data node', () =>
     dataNodeSchema.parse({
-      id: dataNode.node_id,
+      id: dataNode.id,
       hostname: dataNode.hostname,
       port: dataNode.port,
       scheme: dataNode.scheme,
+
+      sessionId: dataNode.session_id,
       state: dataNode.state,
+      mode: dataNode.mode,
+
       storageTotalBytes: dataNode.storage_total_bytes,
       storageFreeBytes: dataNode.storage_free_bytes,
+
+      lastContactAt: dataNode.last_contact_at,
       lastHeartbeatAt: dataNode.last_heartbeat_at,
+      lastHealthCheckAt: dataNode.last_health_check_at,
       registeredAt: dataNode.registered_at,
-      updatedAt: dataNode.updated_at
+      updatedAt: dataNode.updated_at,
+
+      revision: dataNode.revision
     })
   );
 };

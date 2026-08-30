@@ -1,51 +1,84 @@
 import { z } from 'zod';
 
 import {
+  dataNodeEndpointSchema,
   dataNodeHealthSnapshotSchema,
-  dataNodeHostnameSchema,
   dataNodeIdSchema,
-  dataNodePortSchema,
-  dataNodeSchemeSchema,
+  dataNodeSessionIdSchema,
   dataNodeStateSchema
 } from './data-node.domain';
 
-/* schemas */
+/* service schemas */
 
 export const registerDataNodeInputSchema = z.object({
   id: dataNodeIdSchema,
-  hostname: dataNodeHostnameSchema,
-  port: dataNodePortSchema,
-  scheme: dataNodeSchemeSchema,
-  healthSnapshot: dataNodeHealthSnapshotSchema
-});
+  endpoint: dataNodeEndpointSchema,
 
-export const upsertDataNodeRepositoryInputSchema = z.object({
-  id: dataNodeIdSchema,
-  hostname: dataNodeHostnameSchema,
-  port: dataNodePortSchema,
-  scheme: dataNodeSchemeSchema,
-  state: dataNodeStateSchema,
-  storageTotalBytes: z.bigint().nonnegative(),
-  storageFreeBytes: z.bigint().nonnegative(),
-  lastHeartbeatAt: z.date()
+  healthSnapshot: dataNodeHealthSnapshotSchema
 });
 
 export const heartbeatDataNodeInputSchema = z.object({
   id: dataNodeIdSchema,
+
+  sessionId: dataNodeSessionIdSchema,
+  heartbeatSequence: z.bigint().positive(),
+
   healthSnapshot: dataNodeHealthSnapshotSchema
+});
+
+/* repository schemas */
+
+export const applyDataNodeRegistrationRepositoryInputSchema = z.object({
+  id: dataNodeIdSchema,
+  endpoint: dataNodeEndpointSchema,
+
+  sessionId: dataNodeSessionIdSchema,
+  state: dataNodeStateSchema,
+
+  storageTotalBytes: z.bigint().nonnegative(),
+  storageFreeBytes: z.bigint().nonnegative(),
+
+  lastContactAt: z.date(),
+
+  expectedRevision: z.bigint().nonnegative().nullable()
 });
 
 export const applyHeartbeatRepositoryInputSchema = z.object({
   id: dataNodeIdSchema,
+
+  sessionId: dataNodeSessionIdSchema,
+  heartbeatSequence: z.bigint().positive(),
   state: dataNodeStateSchema,
+
   storageTotalBytes: z.bigint().nonnegative(),
   storageFreeBytes: z.bigint().nonnegative(),
+
+  lastContactAt: z.date(),
   lastHeartbeatAt: z.date()
+});
+
+export const recordDataNodeHealthCheckRepositoryInputSchema = z.object({
+  id: dataNodeIdSchema,
+
+  lastHealthCheckAt: z.date(),
+
+  expectedRevision: z.bigint().nonnegative()
+});
+
+export const updateDataNodeStateRepositoryInputSchema = z.object({
+  id: dataNodeIdSchema,
+
+  state: dataNodeStateSchema,
+
+  expectedRevision: z.bigint().nonnegative()
 });
 
 /* types */
 
 export type RegisterDataNodeInput = z.infer<typeof registerDataNodeInputSchema>;
-export type UpsertDataNodeRepositoryInput = z.infer<typeof upsertDataNodeRepositoryInputSchema>;
 export type HeartbeatDataNodeInput = z.infer<typeof heartbeatDataNodeInputSchema>;
+
+export type ApplyDataNodeRegistrationRepositoryInput = z.infer<typeof applyDataNodeRegistrationRepositoryInputSchema>;
 export type ApplyHeartbeatRepositoryInput = z.infer<typeof applyHeartbeatRepositoryInputSchema>;
+export type RecordDataNodeHealthCheckRepositoryInput = z.infer<typeof recordDataNodeHealthCheckRepositoryInputSchema>;
+export type UpdateDataNodeStateRepositoryInput = z.infer<typeof updateDataNodeStateRepositoryInputSchema>;
