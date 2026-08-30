@@ -4,11 +4,10 @@ import {
   conflictHttpErrorDefinition,
   forbiddenHttpErrorDefinition,
   gatewayTimeoutHttpErrorDefinition,
+  insufficientStorageHttpErrorDefinition,
   internalServerErrorHttpErrorDefinition,
   notFoundHttpErrorDefinition,
-  preconditionFailedHttpErrorDefinition,
   serviceUnavailableHttpErrorDefinition,
-  tooManyRequestsHttpErrorDefinition,
   unauthorizedHttpErrorDefinition,
   type KnownHttpErrorStatusCode,
   type KnownHttpErrorDefinition
@@ -23,9 +22,9 @@ const httpErrorDefinitionByLocalApplicationErrorCode = {
   NOT_FOUND: notFoundHttpErrorDefinition,
   ALREADY_EXISTS: conflictHttpErrorDefinition,
   CONFLICT: conflictHttpErrorDefinition,
-  FAILED_PRECONDITION: preconditionFailedHttpErrorDefinition,
+  FAILED_PRECONDITION: conflictHttpErrorDefinition,
   DATA_LOSS: internalServerErrorHttpErrorDefinition,
-  RESOURCE_EXHAUSTED: tooManyRequestsHttpErrorDefinition,
+  RESOURCE_EXHAUSTED: insufficientStorageHttpErrorDefinition,
   UNAVAILABLE: serviceUnavailableHttpErrorDefinition,
   DEADLINE_EXCEEDED: gatewayTimeoutHttpErrorDefinition,
   ABORTED: conflictHttpErrorDefinition,
@@ -39,11 +38,10 @@ const knownHttpErrorDefinitionByStatusCode = {
   403: forbiddenHttpErrorDefinition,
   404: notFoundHttpErrorDefinition,
   409: conflictHttpErrorDefinition,
-  412: preconditionFailedHttpErrorDefinition,
-  429: tooManyRequestsHttpErrorDefinition,
   500: internalServerErrorHttpErrorDefinition,
   503: serviceUnavailableHttpErrorDefinition,
-  504: gatewayTimeoutHttpErrorDefinition
+  504: gatewayTimeoutHttpErrorDefinition,
+  507: insufficientStorageHttpErrorDefinition
 } satisfies Record<KnownHttpErrorStatusCode, KnownHttpErrorDefinition>;
 
 const knownHttpErrorDefinitionLookup: Partial<Record<number, KnownHttpErrorDefinition>> =
