@@ -1,4 +1,4 @@
-import { GenericInternalServerError } from '@/errors/application.errors';
+import { GenericDataLossError } from '@/errors/application.errors';
 
 import type { Part } from '@/modules/object-version-parts/object-version-part.domain';
 
@@ -15,13 +15,13 @@ export const verifyObjectVersionParts = (objectVersion: ObjectVersion, parts: re
       part.version !== objectVersion.version ||
       part.partNumber !== index + 1
     ) {
-      throw new GenericInternalServerError('Current object version parts are inconsistent');
+      throw new GenericDataLossError('Current object version parts are inconsistent');
     }
 
     totalSizeBytes += part.sizeBytes;
   }
 
   if (totalSizeBytes !== objectVersion.totalSizeBytes) {
-    throw new GenericInternalServerError('Current object version parts are inconsistent');
+    throw new GenericDataLossError('Current object version parts are inconsistent');
   }
 };

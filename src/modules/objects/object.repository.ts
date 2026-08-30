@@ -1,6 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { GenericDataLossError, GenericFailedPreconditionError } from '@/errors/application.errors';
+
 import type { BucketId } from '@/modules/buckets/bucket.domain';
 
 import type {
@@ -161,12 +163,10 @@ class ObjectRepository implements ObjectRepositoryContract {
 
     try {
       objectVersionCommit = await this.prisma.$transaction(async (tx) => {
-        const objectVersion = await tx.objectVersion.update({
+        const commitResult = await tx.objectVersion.updateMany({
           where: {
-            object_id_version: {
-              object_id: input.objectId,
-              version: input.version
-            },
+            object_id: input.objectId,
+            version: input.version,
             state: 'pending'
           },
           data: {
@@ -174,6 +174,36 @@ class ObjectRepository implements ObjectRepositoryContract {
             committed_at: new Date()
           }
         });
+
+        if (commitResult.count === 0) {
+          const existingObjectVersion = await tx.objectVersion.findUnique({
+            where: {
+              object_id_version: {
+                object_id: input.objectId,
+                version: input.version
+              }
+            }
+          });
+
+          if (!existingObjectVersion) {
+            throw new GenericDataLossError('Object version disappeared before commit');
+          }
+
+          throw new GenericFailedPreconditionError('Object version is not pending');
+        }
+
+        const objectVersion = await tx.objectVersion.findUnique({
+          where: {
+            object_id_version: {
+              object_id: input.objectId,
+              version: input.version
+            }
+          }
+        });
+
+        if (!objectVersion) {
+          throw new GenericDataLossError('Committed object version could not be found');
+        }
 
         await tx.object.updateMany({
           where: {
@@ -194,11 +224,15 @@ class ObjectRepository implements ObjectRepositoryContract {
           }
         });
 
-        const object = await tx.object.findUniqueOrThrow({
+        const object = await tx.object.findUnique({
           where: {
             id: input.objectId
           }
         });
+
+        if (!object) {
+          throw new GenericDataLossError('Object disappeared during object version commit');
+        }
 
         return {
           object,

@@ -5,8 +5,11 @@ import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-rout
 import {
   BadRequestHttpErrorResponseSchema,
   ConflictHttpErrorResponseSchema,
+  GatewayTimeoutHttpErrorResponseSchema,
+  InsufficientStorageHttpErrorResponseSchema,
   InternalServerErrorHttpErrorResponseSchema,
   NotFoundHttpErrorResponseSchema,
+  ServiceUnavailableHttpErrorResponseSchema,
   UnauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
@@ -33,7 +36,8 @@ export const getObjectHttpSchema = {
     401: UnauthorizedHttpErrorResponseSchema,
     404: NotFoundHttpErrorResponseSchema,
     409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema
+    500: InternalServerErrorHttpErrorResponseSchema,
+    503: ServiceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -45,7 +49,8 @@ export const headObjectHttpSchema = {
     401: UnauthorizedHttpErrorResponseSchema,
     404: NotFoundHttpErrorResponseSchema,
     409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema
+    500: InternalServerErrorHttpErrorResponseSchema,
+    503: ServiceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -67,7 +72,10 @@ export const putObjectHttpSchema = {
     401: UnauthorizedHttpErrorResponseSchema,
     404: NotFoundHttpErrorResponseSchema,
     409: ConflictHttpErrorResponseSchema,
-    500: InternalServerErrorHttpErrorResponseSchema
+    500: InternalServerErrorHttpErrorResponseSchema,
+    503: ServiceUnavailableHttpErrorResponseSchema,
+    504: GatewayTimeoutHttpErrorResponseSchema,
+    507: InsufficientStorageHttpErrorResponseSchema
   }
 };
 

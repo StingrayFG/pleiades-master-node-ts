@@ -1,7 +1,12 @@
 import type { Buffer } from 'node:buffer';
 import { Readable } from 'node:stream';
 
-import { GenericConflictError, GenericInternalServerError, GenericNotFoundError } from '@/errors/application.errors';
+import {
+  GenericDataLossError,
+  GenericFailedPreconditionError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
+
 import type { BucketServiceContract } from '@/modules/buckets/bucket.service';
 import type {
   CreatePartsInput,
@@ -46,7 +51,7 @@ class ObjectService implements ObjectServiceContract {
     const bucket = await this.bucketService.getBucketByName(input.bucketName);
 
     if (bucket.state !== 'active') {
-      throw new GenericConflictError('Bucket is not active');
+      throw new GenericFailedPreconditionError('Bucket is not active');
     }
 
     const object = await this.objectRepository.findObjectByKey(bucket.id, input.objectKey);
@@ -55,10 +60,14 @@ class ObjectService implements ObjectServiceContract {
       throw new GenericNotFoundError();
     }
 
+    if (object.currentVersion > object.lastAllocatedVersion) {
+      throw new GenericDataLossError('Current object version is inconsistent');
+    }
+
     const objectVersion = await this.objectRepository.findObjectVersion(object.id, object.currentVersion);
 
     if (!objectVersion || objectVersion.state !== 'committed' || objectVersion.committedAt === null) {
-      throw new GenericInternalServerError('Current object version is inconsistent');
+      throw new GenericDataLossError('Current object version is inconsistent');
     }
 
     return objectVersion;
@@ -95,7 +104,7 @@ class ObjectService implements ObjectServiceContract {
     const bucket = await this.bucketService.getBucketByName(input.bucketName);
 
     if (bucket.state !== 'active') {
-      throw new GenericConflictError('Bucket is not active');
+      throw new GenericFailedPreconditionError('Bucket is not active');
     }
 
     const upsertObjectInput: UpsertObjectAndCreateVersionRepositoryInput = {
