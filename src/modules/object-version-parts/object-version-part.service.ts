@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import env from '@/env';
 import {
   GenericBadRequestError,
-  GenericConflictError,
   GenericInternalServerError,
-  GenericNotFoundError
+  GenericNotFoundError,
+  GenericResourceExhaustedError
 } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
@@ -29,6 +29,12 @@ import type {
 } from './object-version-part.application';
 import type { Part, PartReplica } from './object-version-part.domain';
 import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.domain-policies';
+import {
+  type CreatePartReplicasError,
+  type GetPartBlobError,
+  resolveFailedCreatePartReplicasError,
+  resolveFailedGetPartBlobError
+} from './object-version-part.error-resolvers';
 import { splitObjectDataIntoPartBytes } from './object-version-part.processors';
 import {
   resolveFailedCreatePartReplicaState,
@@ -139,7 +145,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
   /* get helpers */
 
   private async getPartBlobFromReplicas(part: Part, replicas: readonly PartReplica[]): Promise<BlobMetadataWithBytes> {
-    const errors: unknown[] = [];
+    const errors: GetPartBlobError[] = [];
 
     for (const replica of replicas) {
       let dataNode: DataNode;
@@ -147,7 +153,10 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       try {
         dataNode = await this.dataNodeService.getDataNodeById(replica.dataNodeId);
       } catch (err) {
-        errors.push(err);
+        errors.push({
+          source: 'data-node-resolution',
+          error: err
+        });
         continue;
       }
 
@@ -157,18 +166,22 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         return getReplicaBlobResult.blob;
       }
 
-      errors.push(getReplicaBlobResult.reason);
+      errors.push({
+        source: 'replica-read',
+        error: getReplicaBlobResult.reason
+      });
 
       try {
         await this.updateReplicaStateFromGetReplicaBlobResult(part.blobId, getReplicaBlobResult);
       } catch (err) {
-        errors.push(err);
+        errors.push({
+          source: 'replica-state-update',
+          error: err
+        });
       }
     }
 
-    throw new GenericInternalServerError('Failed to read object version part from all committed replicas', {
-      cause: new AggregateError(errors)
-    });
+    throw resolveFailedGetPartBlobError(errors);
   }
 
   private async getReplicaBlob(part: Part, dataNode: DataNode): Promise<GetReplicaBlobResult> {
@@ -235,8 +248,9 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     const checksumValue = calculateBlobChecksum(partInput.bytes);
 
     const candidateDataNodes = input.availableDataNodes.filter((dataNode) => dataNode.storageFreeBytes >= sizeBytes);
+
     if (candidateDataNodes.length < env.REPLICATION_FACTOR) {
-      throw new GenericConflictError('Not enough active data nodes with available storage');
+      throw new GenericResourceExhaustedError('Not enough available data nodes with sufficient storage');
     }
 
     const responsibleDataNodes = selectResponsibleDataNodes(placementGroup, env.REPLICATION_FACTOR, candidateDataNodes);
@@ -278,33 +292,38 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     responsibleDataNodes: readonly DataNode[]
   ): Promise<void> {
     const createReplicaBlobResults: CreateReplicaBlobResult[] = [];
-    const errors: unknown[] = [];
+    const errors: CreatePartReplicasError[] = [];
 
     for (const settledResult of await Promise.allSettled(
       responsibleDataNodes.map((dataNode) => this.createReplicaBlob(blob, dataNode))
     )) {
       if (settledResult.status === 'rejected') {
-        errors.push(settledResult.reason);
+        errors.push({
+          source: 'replica-create',
+          error: settledResult.reason
+        });
+
         continue;
       }
 
       createReplicaBlobResults.push(settledResult.value);
 
       if (settledResult.value.status === 'rejected') {
-        errors.push(settledResult.value.reason);
+        errors.push({
+          source: 'replica-create',
+          error: settledResult.value.reason
+        });
       }
     }
 
     try {
       await this.updateReplicaStatesFromCreateReplicaBlobResults(blob.blobId, createReplicaBlobResults);
     } catch (err) {
-      errors.push(err);
+      errors.push({ source: 'replica-state-update', error: err });
     }
 
     if (errors.length > 0) {
-      throw new GenericInternalServerError('Failed to replicate blob to all responsible data nodes', {
-        cause: new AggregateError(errors)
-      });
+      throw resolveFailedCreatePartReplicasError(errors);
     }
   }
 
