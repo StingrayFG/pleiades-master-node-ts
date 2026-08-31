@@ -38,10 +38,10 @@ export const dataNodeSchema = z.object({
   storageTotalBytes: z.bigint().nonnegative(),
   storageFreeBytes: z.bigint().nonnegative(),
 
-  lastContactAt: z.date(),
-  lastHeartbeatAt: z.date().nullable(),
-  lastHealthCheckAt: z.date().nullable(),
   registeredAt: z.date(),
+  lastContactAt: z.date(),
+  lastHealthCheckAt: z.date().nullable(),
+  lastHeartbeatAt: z.date().nullable(),
   updatedAt: z.date(),
 
   revision: z.bigint().nonnegative()

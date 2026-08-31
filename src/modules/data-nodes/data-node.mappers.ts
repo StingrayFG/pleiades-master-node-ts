@@ -128,10 +128,10 @@ export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): Dat
       storageTotalBytes: dataNode.storage_total_bytes,
       storageFreeBytes: dataNode.storage_free_bytes,
 
-      lastContactAt: dataNode.last_contact_at,
-      lastHeartbeatAt: dataNode.last_heartbeat_at,
-      lastHealthCheckAt: dataNode.last_health_check_at,
       registeredAt: dataNode.registered_at,
+      lastContactAt: dataNode.last_contact_at,
+      lastHealthCheckAt: dataNode.last_health_check_at,
+      lastHeartbeatAt: dataNode.last_heartbeat_at,
       updatedAt: dataNode.updated_at,
 
       revision: dataNode.revision
