@@ -1,19 +1,19 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { InternodeDataLossError } from '@/errors/internode.errors';
 
-import type { EnsureBlobExistsInput, GetBlobInput, GetBlobMetadataInput, VerifyBlobInput } from './blob.application';
+import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
 import { BLOB_CHECKSUM_ALGORITHM, type BlobMetadata, type BlobMetadataWithBytes } from './blob.domain';
 import { calculateBlobChecksum } from './blob.processors';
 
 /* verifiers */
 
-export const verifyGetBlobMetadataResult = (input: GetBlobMetadataInput, result: BlobMetadata): void => {
+export const verifyGetBlobMetadataResult = (input: DataNodeBlobInput, result: BlobMetadata): void => {
   if (result.blobId !== input.blobId) {
     throw new InternodeDataLossError('Data node returned metadata for a different blob');
   }
 };
 
-export const verifyGetBlobResult = (input: GetBlobInput, result: BlobMetadataWithBytes): void => {
+export const verifyGetBlobResult = (input: DataNodeBlobInput, result: BlobMetadataWithBytes): void => {
   const actualSizeBytes = BigInt(result.bytes.length);
   const actualChecksumValue = calculateBlobChecksum(result.bytes);
 
@@ -27,13 +27,13 @@ export const verifyGetBlobResult = (input: GetBlobInput, result: BlobMetadataWit
   }
 };
 
-export const verifyBlobResult = (input: VerifyBlobInput, result: BlobMetadata): void => {
+export const verifyBlobResult = (input: DataNodeBlobInput, result: BlobMetadata): void => {
   if (result.blobId !== input.blobId) {
     throw new InternodeDataLossError('Data node returned verification metadata for a different blob');
   }
 };
 
-export const verifyEnsureBlobExistsInput = (input: EnsureBlobExistsInput): void => {
+export const verifyEnsureBlobExistsInput = (input: DataNodeBlobWithBytesInput): void => {
   const actualSizeBytes = BigInt(input.blob.bytes.length);
   const actualChecksumValue = calculateBlobChecksum(input.blob.bytes);
 
@@ -46,7 +46,7 @@ export const verifyEnsureBlobExistsInput = (input: EnsureBlobExistsInput): void 
   }
 };
 
-export const verifyEnsureBlobExistsResult = (input: EnsureBlobExistsInput, result: BlobMetadata): void => {
+export const verifyEnsureBlobExistsResult = (input: DataNodeBlobWithBytesInput, result: BlobMetadata): void => {
   if (
     result.blobId !== input.blob.blobId ||
     result.sizeBytes !== input.blob.sizeBytes ||

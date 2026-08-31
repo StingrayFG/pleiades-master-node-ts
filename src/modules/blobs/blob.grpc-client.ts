@@ -14,13 +14,7 @@ import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappe
 
 import type { DataNodeEndpoint } from '@/modules/data-nodes/data-node.domain';
 
-import type {
-  DeleteBlobClientInput,
-  GetBlobClientInput,
-  HeadBlobClientInput,
-  PutBlobClientInput,
-  VerifyBlobClientInput
-} from './blob.application';
+import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import {
   mapDeleteBlobClientInputToGrpcDeleteBlobRequest,
@@ -37,11 +31,11 @@ import {
 /* contract */
 
 type BlobGrpcClientContract = {
-  headBlob(input: HeadBlobClientInput): Promise<BlobMetadata>;
-  getBlob(input: GetBlobClientInput): Promise<BlobMetadataWithBytes>;
-  verifyBlob(input: VerifyBlobClientInput): Promise<BlobMetadata>;
-  putBlob(input: PutBlobClientInput): Promise<BlobMetadata>;
-  deleteBlob(input: DeleteBlobClientInput): Promise<void>;
+  headBlob(input: DataNodeBlobInput): Promise<BlobMetadata>;
+  getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes>;
+  verifyBlob(input: DataNodeBlobInput): Promise<BlobMetadata>;
+  putBlob(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata>;
+  deleteBlob(input: DataNodeBlobInput): Promise<void>;
   close(): void;
 };
 
@@ -60,7 +54,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     this.clientsByEndpoint.clear();
   }
 
-  async headBlob(input: HeadBlobClientInput): Promise<BlobMetadata> {
+  async headBlob(input: DataNodeBlobInput): Promise<BlobMetadata> {
     const client = this.getClient(input.dataNodeEndpoint);
 
     const request = mapHeadBlobClientInputToGrpcHeadBlobRequest(input);
@@ -79,7 +73,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     return mapGrpcHeadBlobResponseToDomainBlobMetadata(response);
   }
 
-  async getBlob(input: GetBlobClientInput): Promise<BlobMetadataWithBytes> {
+  async getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes> {
     const client = this.getClient(input.dataNodeEndpoint);
 
     const request = mapGetBlobClientInputToGrpcGetBlobRequest(input);
@@ -98,7 +92,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     return mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes(response);
   }
 
-  async verifyBlob(input: VerifyBlobClientInput): Promise<BlobMetadata> {
+  async verifyBlob(input: DataNodeBlobInput): Promise<BlobMetadata> {
     const client = this.getClient(input.dataNodeEndpoint);
 
     const request = mapVerifyBlobClientInputToGrpcVerifyBlobRequest(input);
@@ -117,7 +111,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     return mapGrpcVerifyBlobResponseToDomainBlobMetadata(response);
   }
 
-  async putBlob(input: PutBlobClientInput): Promise<BlobMetadata> {
+  async putBlob(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata> {
     const client = this.getClient(input.dataNodeEndpoint);
 
     const request = mapPutBlobClientInputToGrpcPutBlobRequest(input);
@@ -136,7 +130,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     return mapGrpcPutBlobResponseToDomainBlobMetadata(response);
   }
 
-  async deleteBlob(input: DeleteBlobClientInput): Promise<void> {
+  async deleteBlob(input: DataNodeBlobInput): Promise<void> {
     const client = this.getClient(input.dataNodeEndpoint);
 
     const request = mapDeleteBlobClientInputToGrpcDeleteBlobRequest(input);

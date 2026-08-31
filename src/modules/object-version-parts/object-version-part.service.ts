@@ -9,7 +9,7 @@ import {
 } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
-import type { EnsureBlobExistsInput, GetBlobInput } from '@/modules/blobs/blob.application';
+import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from '@/modules/blobs/blob.application';
 import { BLOB_CHECKSUM_ALGORITHM, type BlobId, type BlobMetadataWithBytes } from '@/modules/blobs/blob.domain';
 import { calculateBlobChecksum } from '@/modules/blobs/blob.processors';
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
@@ -186,7 +186,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async getReplicaBlob(part: Part, dataNode: DataNode): Promise<GetReplicaBlobResult> {
     try {
-      const getBlobInput: GetBlobInput = {
+      const getBlobInput: DataNodeBlobInput = {
         blobId: part.blobId,
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       };
@@ -329,7 +329,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async createReplicaBlob(blob: BlobMetadataWithBytes, dataNode: DataNode): Promise<CreateReplicaBlobResult> {
     try {
-      const ensureBlobExistsInput: EnsureBlobExistsInput = {
+      const ensureBlobExistsInput: DataNodeBlobWithBytesInput = {
         blob,
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       };

@@ -1,15 +1,4 @@
-import type {
-  DeleteBlobClientInput,
-  DeleteBlobInput,
-  EnsureBlobExistsInput,
-  GetBlobClientInput,
-  GetBlobInput,
-  GetBlobMetadataInput,
-  HeadBlobClientInput,
-  PutBlobClientInput,
-  VerifyBlobClientInput,
-  VerifyBlobInput
-} from './blob.application';
+import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import type { BlobGrpcClientContract } from './blob.grpc-client';
 import {
@@ -23,11 +12,11 @@ import {
 /* contract */
 
 type BlobServiceContract = {
-  getBlobMetadata(input: GetBlobMetadataInput): Promise<BlobMetadata>;
-  getBlob(input: GetBlobInput): Promise<BlobMetadataWithBytes>;
-  verifyBlob(input: VerifyBlobInput): Promise<BlobMetadata>;
-  ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata>;
-  deleteBlob(input: DeleteBlobInput): Promise<void>;
+  getBlobMetadata(input: DataNodeBlobInput): Promise<BlobMetadata>;
+  getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes>;
+  verifyBlob(input: DataNodeBlobInput): Promise<BlobMetadata>;
+  ensureBlobExists(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata>;
+  deleteBlob(input: DataNodeBlobInput): Promise<void>;
 };
 
 /* service */
@@ -35,8 +24,8 @@ type BlobServiceContract = {
 class BlobService implements BlobServiceContract {
   constructor(private readonly grpcClient: BlobGrpcClientContract) {}
 
-  async getBlobMetadata(input: GetBlobMetadataInput): Promise<BlobMetadata> {
-    const headBlobClientInput: HeadBlobClientInput = {
+  async getBlobMetadata(input: DataNodeBlobInput): Promise<BlobMetadata> {
+    const headBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
@@ -48,8 +37,8 @@ class BlobService implements BlobServiceContract {
     return blob;
   }
 
-  async getBlob(input: GetBlobInput): Promise<BlobMetadataWithBytes> {
-    const getBlobClientInput: GetBlobClientInput = {
+  async getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes> {
+    const getBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
@@ -61,8 +50,8 @@ class BlobService implements BlobServiceContract {
     return blob;
   }
 
-  async verifyBlob(input: VerifyBlobInput): Promise<BlobMetadata> {
-    const verifyBlobClientInput: VerifyBlobClientInput = {
+  async verifyBlob(input: DataNodeBlobInput): Promise<BlobMetadata> {
+    const verifyBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
@@ -74,10 +63,10 @@ class BlobService implements BlobServiceContract {
     return blob;
   }
 
-  async ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata> {
+  async ensureBlobExists(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata> {
     verifyEnsureBlobExistsInput(input);
 
-    const putBlobClientInput: PutBlobClientInput = {
+    const putBlobClientInput: DataNodeBlobWithBytesInput = {
       blob: input.blob,
       dataNodeEndpoint: input.dataNodeEndpoint
     };
@@ -89,8 +78,8 @@ class BlobService implements BlobServiceContract {
     return blob;
   }
 
-  async deleteBlob(input: DeleteBlobInput): Promise<void> {
-    const deleteBlobClientInput: DeleteBlobClientInput = {
+  async deleteBlob(input: DataNodeBlobInput): Promise<void> {
+    const deleteBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
       dataNodeEndpoint: input.dataNodeEndpoint
     };

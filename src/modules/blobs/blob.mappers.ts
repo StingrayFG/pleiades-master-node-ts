@@ -11,13 +11,7 @@ import {
   type VerifyBlobResponse
 } from '@/gen/proto/blob/v1/blob';
 
-import type {
-  DeleteBlobClientInput,
-  GetBlobClientInput,
-  HeadBlobClientInput,
-  PutBlobClientInput,
-  VerifyBlobClientInput
-} from './blob.application';
+import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
 import {
   blobMetadataSchema,
   blobMetadataWithBytesSchema,
@@ -76,7 +70,7 @@ export const mapGrpcPutBlobResponseToDomainBlobMetadata = (response: PutBlobResp
 
 /* client -> grpc mappers */
 
-export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: HeadBlobClientInput): HeadBlobRequest => {
+export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: DataNodeBlobInput): HeadBlobRequest => {
   return withMapperError('Failed to map head blob gRPC client input to gRPC request', () =>
     HeadBlobRequest.create({
       blob_id: input.blobId
@@ -84,7 +78,7 @@ export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: HeadBlobClien
   );
 };
 
-export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: GetBlobClientInput): GetBlobRequest => {
+export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: DataNodeBlobInput): GetBlobRequest => {
   return withMapperError('Failed to map get blob gRPC client input to gRPC request', () =>
     GetBlobRequest.create({
       blob_id: input.blobId
@@ -92,7 +86,7 @@ export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: GetBlobClientIn
   );
 };
 
-export const mapVerifyBlobClientInputToGrpcVerifyBlobRequest = (input: VerifyBlobClientInput): VerifyBlobRequest => {
+export const mapVerifyBlobClientInputToGrpcVerifyBlobRequest = (input: DataNodeBlobInput): VerifyBlobRequest => {
   return withMapperError('Failed to map verify blob gRPC client input to gRPC request', () =>
     VerifyBlobRequest.create({
       blob_id: input.blobId
@@ -100,7 +94,7 @@ export const mapVerifyBlobClientInputToGrpcVerifyBlobRequest = (input: VerifyBlo
   );
 };
 
-export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: PutBlobClientInput): PutBlobRequest => {
+export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: DataNodeBlobWithBytesInput): PutBlobRequest => {
   return withMapperError('Failed to map put blob gRPC client input to gRPC request', () =>
     PutBlobRequest.create({
       blob_id: input.blob.blobId,
@@ -112,7 +106,7 @@ export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: PutBlobClientIn
   );
 };
 
-export const mapDeleteBlobClientInputToGrpcDeleteBlobRequest = (input: DeleteBlobClientInput): DeleteBlobRequest => {
+export const mapDeleteBlobClientInputToGrpcDeleteBlobRequest = (input: DataNodeBlobInput): DeleteBlobRequest => {
   return withMapperError('Failed to map delete blob client input to gRPC request', () =>
     DeleteBlobRequest.create({
       blob_id: input.blobId
