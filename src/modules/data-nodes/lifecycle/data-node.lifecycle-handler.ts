@@ -3,16 +3,16 @@ import { InternodeApplicationError } from '@/errors/internode.errors';
 import type {
   RecordDataNodeHealthCheckRepositoryInput,
   UpdateDataNodeStateRepositoryInput
-} from './data-node.application';
-import type { DataNode, DataNodeState } from './data-node.domain';
+} from '../data-node.application';
+import type { DataNode, DataNodeState } from '../data-node.domain';
+import { resolveDataNodeState } from '../data-node.domain-policies';
+import type { DataNodeGrpcClientContract } from '../data-node.grpc-client';
+import { mapDataNodeToDataNodeEndpoint } from '../data-node.mappers';
+import type { DataNodeRepositoryContract } from '../data-node.repository';
 import {
-  resolveDataNodeState,
   resolveDataNodeStateFromContactSilence,
   shouldCheckDataNodeHealth
-} from './data-node.domain-policies';
-import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
-import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
-import type { DataNodeRepositoryContract } from './data-node.repository';
+} from './data-node-lifecycle.policies';
 
 /* contract */
 

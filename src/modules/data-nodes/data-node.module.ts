@@ -2,9 +2,9 @@ import type { PrismaClient } from '@prisma/client';
 
 import { DataNodeGrpcClient } from './data-node.grpc-client';
 import { DataNodeGrpcController } from './data-node.grpc-controller';
-import { DataNodeLifecycleHandler } from './data-node.lifecycle-handler';
 import { DataNodeRepository } from './data-node.repository';
 import { DataNodeService } from './data-node.service';
+import { DataNodeLifecycleHandler } from './lifecycle/data-node.lifecycle-handler';
 
 /* contract */
 
