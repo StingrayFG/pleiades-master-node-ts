@@ -4,7 +4,8 @@ import {
   BlobClient as GrpcBlobClient,
   type GetBlobResponse,
   type HeadBlobResponse,
-  type PutBlobResponse
+  type PutBlobResponse,
+  type VerifyBlobResponse
 } from '@/gen/proto/blob/v1/blob';
 import { GRPC_BLOB_MESSAGE_SIZE_LIMIT_BYTES } from '@/transports/grpc/client/grpc-client.constants';
 import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
@@ -17,7 +18,8 @@ import type {
   DeleteBlobClientInput,
   GetBlobClientInput,
   HeadBlobClientInput,
-  PutBlobClientInput
+  PutBlobClientInput,
+  VerifyBlobClientInput
 } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import {
@@ -26,8 +28,10 @@ import {
   mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes,
   mapGrpcHeadBlobResponseToDomainBlobMetadata,
   mapGrpcPutBlobResponseToDomainBlobMetadata,
+  mapGrpcVerifyBlobResponseToDomainBlobMetadata,
   mapHeadBlobClientInputToGrpcHeadBlobRequest,
-  mapPutBlobClientInputToGrpcPutBlobRequest
+  mapPutBlobClientInputToGrpcPutBlobRequest,
+  mapVerifyBlobClientInputToGrpcVerifyBlobRequest
 } from './blob.mappers';
 
 /* contract */
@@ -35,6 +39,7 @@ import {
 type BlobGrpcClientContract = {
   headBlob(input: HeadBlobClientInput): Promise<BlobMetadata>;
   getBlob(input: GetBlobClientInput): Promise<BlobMetadataWithBytes>;
+  verifyBlob(input: VerifyBlobClientInput): Promise<BlobMetadata>;
   putBlob(input: PutBlobClientInput): Promise<BlobMetadata>;
   deleteBlob(input: DeleteBlobClientInput): Promise<void>;
   close(): void;
@@ -91,6 +96,25 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     });
 
     return mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes(response);
+  }
+
+  async verifyBlob(input: VerifyBlobClientInput): Promise<BlobMetadata> {
+    const client = this.getClient(input.dataNodeEndpoint);
+
+    const request = mapVerifyBlobClientInputToGrpcVerifyBlobRequest(input);
+
+    const response = await new Promise<VerifyBlobResponse>((resolve, reject) => {
+      client.verifyBlob(request, createAuthenticatedGrpcMetadata(), createDefaultGrpcCallOptions(), (err, response) => {
+        if (err) {
+          reject(mapGrpcErrorToInternodeApplicationError(err));
+          return;
+        }
+
+        resolve(response);
+      });
+    });
+
+    return mapGrpcVerifyBlobResponseToDomainBlobMetadata(response);
   }
 
   async putBlob(input: PutBlobClientInput): Promise<BlobMetadata> {

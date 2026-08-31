@@ -106,6 +106,17 @@ export interface GetBlobResponse {
   bytes: Buffer;
 }
 
+export interface VerifyBlobRequest {
+  blob_id: string;
+}
+
+export interface VerifyBlobResponse {
+  blob_id: string;
+  size_bytes: string;
+  checksum_algorithm: string;
+  checksum_value: string;
+}
+
 export interface PutBlobRequest {
   blob_id: string;
   size_bytes: string;
@@ -613,6 +624,194 @@ export const GetBlobResponse: MessageFns<GetBlobResponse> = {
     message.checksum_algorithm = object.checksum_algorithm ?? "";
     message.checksum_value = object.checksum_value ?? "";
     message.bytes = object.bytes ?? Buffer.alloc(0);
+    return message;
+  },
+};
+
+function createBaseVerifyBlobRequest(): VerifyBlobRequest {
+  return { blob_id: "" };
+}
+
+export const VerifyBlobRequest: MessageFns<VerifyBlobRequest> = {
+  encode(message: VerifyBlobRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.blob_id !== "") {
+      writer.uint32(10).string(message.blob_id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VerifyBlobRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVerifyBlobRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.blob_id = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VerifyBlobRequest {
+    return {
+      blob_id: isSet(object.blobId)
+        ? globalThis.String(object.blobId)
+        : isSet(object.blob_id)
+        ? globalThis.String(object.blob_id)
+        : "",
+    };
+  },
+
+  toJSON(message: VerifyBlobRequest): unknown {
+    const obj: any = {};
+    if (message.blob_id !== "") {
+      obj.blobId = message.blob_id;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VerifyBlobRequest>, I>>(base?: I): VerifyBlobRequest {
+    return VerifyBlobRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VerifyBlobRequest>, I>>(object: I): VerifyBlobRequest {
+    const message = createBaseVerifyBlobRequest();
+    message.blob_id = object.blob_id ?? "";
+    return message;
+  },
+};
+
+function createBaseVerifyBlobResponse(): VerifyBlobResponse {
+  return { blob_id: "", size_bytes: "0", checksum_algorithm: "", checksum_value: "" };
+}
+
+export const VerifyBlobResponse: MessageFns<VerifyBlobResponse> = {
+  encode(message: VerifyBlobResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.blob_id !== "") {
+      writer.uint32(10).string(message.blob_id);
+    }
+    if (message.size_bytes !== "0") {
+      writer.uint32(16).int64(message.size_bytes);
+    }
+    if (message.checksum_algorithm !== "") {
+      writer.uint32(26).string(message.checksum_algorithm);
+    }
+    if (message.checksum_value !== "") {
+      writer.uint32(34).string(message.checksum_value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VerifyBlobResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVerifyBlobResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.blob_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.size_bytes = reader.int64().toString();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.checksum_algorithm = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.checksum_value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VerifyBlobResponse {
+    return {
+      blob_id: isSet(object.blobId)
+        ? globalThis.String(object.blobId)
+        : isSet(object.blob_id)
+        ? globalThis.String(object.blob_id)
+        : "",
+      size_bytes: isSet(object.sizeBytes)
+        ? globalThis.String(object.sizeBytes)
+        : isSet(object.size_bytes)
+        ? globalThis.String(object.size_bytes)
+        : "0",
+      checksum_algorithm: isSet(object.checksumAlgorithm)
+        ? globalThis.String(object.checksumAlgorithm)
+        : isSet(object.checksum_algorithm)
+        ? globalThis.String(object.checksum_algorithm)
+        : "",
+      checksum_value: isSet(object.checksumValue)
+        ? globalThis.String(object.checksumValue)
+        : isSet(object.checksum_value)
+        ? globalThis.String(object.checksum_value)
+        : "",
+    };
+  },
+
+  toJSON(message: VerifyBlobResponse): unknown {
+    const obj: any = {};
+    if (message.blob_id !== "") {
+      obj.blobId = message.blob_id;
+    }
+    if (message.size_bytes !== "0") {
+      obj.sizeBytes = message.size_bytes;
+    }
+    if (message.checksum_algorithm !== "") {
+      obj.checksumAlgorithm = message.checksum_algorithm;
+    }
+    if (message.checksum_value !== "") {
+      obj.checksumValue = message.checksum_value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VerifyBlobResponse>, I>>(base?: I): VerifyBlobResponse {
+    return VerifyBlobResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VerifyBlobResponse>, I>>(object: I): VerifyBlobResponse {
+    const message = createBaseVerifyBlobResponse();
+    message.blob_id = object.blob_id ?? "";
+    message.size_bytes = object.size_bytes ?? "0";
+    message.checksum_algorithm = object.checksum_algorithm ?? "";
+    message.checksum_value = object.checksum_value ?? "";
     return message;
   },
 };
@@ -1323,6 +1522,15 @@ export const BlobService = {
     responseSerialize: (value: GetBlobResponse): Buffer => Buffer.from(GetBlobResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetBlobResponse => GetBlobResponse.decode(value),
   },
+  verifyBlob: {
+    path: "/blob.v1.Blob/VerifyBlob" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: VerifyBlobRequest): Buffer => Buffer.from(VerifyBlobRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): VerifyBlobRequest => VerifyBlobRequest.decode(value),
+    responseSerialize: (value: VerifyBlobResponse): Buffer => Buffer.from(VerifyBlobResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): VerifyBlobResponse => VerifyBlobResponse.decode(value),
+  },
   putBlob: {
     path: "/blob.v1.Blob/PutBlob" as const,
     requestStream: false as const,
@@ -1356,6 +1564,7 @@ export const BlobService = {
 export interface BlobServer extends UntypedServiceImplementation {
   headBlob: handleUnaryCall<HeadBlobRequest, HeadBlobResponse>;
   getBlob: handleUnaryCall<GetBlobRequest, GetBlobResponse>;
+  verifyBlob: handleUnaryCall<VerifyBlobRequest, VerifyBlobResponse>;
   putBlob: handleUnaryCall<PutBlobRequest, PutBlobResponse>;
   replicateBlob: handleUnaryCall<ReplicateBlobRequest, ReplicateBlobResponse>;
   deleteBlob: handleUnaryCall<DeleteBlobRequest, DeleteBlobResponse>;
@@ -1391,6 +1600,21 @@ export interface BlobClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetBlobResponse) => void,
+  ): ClientUnaryCall;
+  verifyBlob(
+    request: VerifyBlobRequest,
+    callback: (error: ServiceError | null, response: VerifyBlobResponse) => void,
+  ): ClientUnaryCall;
+  verifyBlob(
+    request: VerifyBlobRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: VerifyBlobResponse) => void,
+  ): ClientUnaryCall;
+  verifyBlob(
+    request: VerifyBlobRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: VerifyBlobResponse) => void,
   ): ClientUnaryCall;
   putBlob(
     request: PutBlobRequest,

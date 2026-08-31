@@ -4,16 +4,19 @@ import {
   GetBlobRequest,
   HeadBlobRequest,
   PutBlobRequest,
+  VerifyBlobRequest,
   type GetBlobResponse,
   type HeadBlobResponse,
-  type PutBlobResponse
+  type PutBlobResponse,
+  type VerifyBlobResponse
 } from '@/gen/proto/blob/v1/blob';
 
 import type {
   DeleteBlobClientInput,
   GetBlobClientInput,
   HeadBlobClientInput,
-  PutBlobClientInput
+  PutBlobClientInput,
+  VerifyBlobClientInput
 } from './blob.application';
 import {
   blobMetadataSchema,
@@ -49,6 +52,17 @@ export const mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes = (
   );
 };
 
+export const mapGrpcVerifyBlobResponseToDomainBlobMetadata = (response: VerifyBlobResponse): BlobMetadata => {
+  return withMapperError('Failed to map gRPC verify blob response to domain blob metadata', () =>
+    blobMetadataSchema.parse({
+      blobId: response.blob_id,
+      sizeBytes: parseByteCount(response.size_bytes),
+      checksumAlgorithm: response.checksum_algorithm,
+      checksumValue: response.checksum_value
+    })
+  );
+};
+
 export const mapGrpcPutBlobResponseToDomainBlobMetadata = (response: PutBlobResponse): BlobMetadata => {
   return withMapperError('Failed to map gRPC put blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
@@ -73,6 +87,14 @@ export const mapHeadBlobClientInputToGrpcHeadBlobRequest = (input: HeadBlobClien
 export const mapGetBlobClientInputToGrpcGetBlobRequest = (input: GetBlobClientInput): GetBlobRequest => {
   return withMapperError('Failed to map get blob gRPC client input to gRPC request', () =>
     GetBlobRequest.create({
+      blob_id: input.blobId
+    })
+  );
+};
+
+export const mapVerifyBlobClientInputToGrpcVerifyBlobRequest = (input: VerifyBlobClientInput): VerifyBlobRequest => {
+  return withMapperError('Failed to map verify blob gRPC client input to gRPC request', () =>
+    VerifyBlobRequest.create({
       blob_id: input.blobId
     })
   );

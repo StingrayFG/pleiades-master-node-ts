@@ -23,6 +23,7 @@ message BlobErrorDetails {
 service Blob {
   rpc HeadBlob(HeadBlobRequest) returns (HeadBlobResponse);
   rpc GetBlob(GetBlobRequest) returns (GetBlobResponse);
+  rpc VerifyBlob(VerifyBlobRequest) returns (VerifyBlobResponse);
   rpc PutBlob(PutBlobRequest) returns (PutBlobResponse);
   rpc ReplicateBlob(ReplicateBlobRequest) returns (ReplicateBlobResponse);
   rpc DeleteBlob(DeleteBlobRequest) returns (DeleteBlobResponse);
@@ -49,6 +50,17 @@ message GetBlobResponse {
   string checksum_algorithm = 3;
   string checksum_value = 4;
   bytes bytes = 6;
+}
+
+message VerifyBlobRequest {
+  string blob_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message VerifyBlobResponse {
+  string blob_id = 1;
+  int64 size_bytes = 2;
+  string checksum_algorithm = 3;
+  string checksum_value = 4;
 }
 
 message PutBlobRequest {

@@ -1,7 +1,7 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { InternodeDataLossError } from '@/errors/internode.errors';
 
-import type { EnsureBlobExistsInput, GetBlobInput, GetBlobMetadataInput } from './blob.application';
+import type { EnsureBlobExistsInput, GetBlobInput, GetBlobMetadataInput, VerifyBlobInput } from './blob.application';
 import { BLOB_CHECKSUM_ALGORITHM, type BlobMetadata, type BlobMetadataWithBytes } from './blob.domain';
 import { calculateBlobChecksum } from './blob.processors';
 
@@ -24,6 +24,12 @@ export const verifyGetBlobResult = (input: GetBlobInput, result: BlobMetadataWit
     result.checksumValue !== actualChecksumValue
   ) {
     throw new InternodeDataLossError('Data node returned inconsistent blob data');
+  }
+};
+
+export const verifyBlobResult = (input: VerifyBlobInput, result: BlobMetadata): void => {
+  if (result.blobId !== input.blobId) {
+    throw new InternodeDataLossError('Data node returned verification metadata for a different blob');
   }
 };
 

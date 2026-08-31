@@ -6,15 +6,18 @@ import type {
   GetBlobInput,
   GetBlobMetadataInput,
   HeadBlobClientInput,
-  PutBlobClientInput
+  PutBlobClientInput,
+  VerifyBlobClientInput,
+  VerifyBlobInput
 } from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import type { BlobGrpcClientContract } from './blob.grpc-client';
 import {
-  verifyGetBlobMetadataResult,
-  verifyGetBlobResult,
+  verifyBlobResult,
+  verifyEnsureBlobExistsInput,
   verifyEnsureBlobExistsResult,
-  verifyEnsureBlobExistsInput
+  verifyGetBlobMetadataResult,
+  verifyGetBlobResult
 } from './blob.verifiers';
 
 /* contract */
@@ -22,6 +25,7 @@ import {
 type BlobServiceContract = {
   getBlobMetadata(input: GetBlobMetadataInput): Promise<BlobMetadata>;
   getBlob(input: GetBlobInput): Promise<BlobMetadataWithBytes>;
+  verifyBlob(input: VerifyBlobInput): Promise<BlobMetadata>;
   ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata>;
   deleteBlob(input: DeleteBlobInput): Promise<void>;
 };
@@ -53,6 +57,19 @@ class BlobService implements BlobServiceContract {
     const blob = await this.grpcClient.getBlob(getBlobClientInput);
 
     verifyGetBlobResult(input, blob);
+
+    return blob;
+  }
+
+  async verifyBlob(input: VerifyBlobInput): Promise<BlobMetadata> {
+    const verifyBlobClientInput: VerifyBlobClientInput = {
+      blobId: input.blobId,
+      dataNodeEndpoint: input.dataNodeEndpoint
+    };
+
+    const blob = await this.grpcClient.verifyBlob(verifyBlobClientInput);
+
+    verifyBlobResult(input, blob);
 
     return blob;
   }
