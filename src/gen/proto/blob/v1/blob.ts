@@ -143,7 +143,6 @@ export interface DeleteBlobRequest {
 }
 
 export interface DeleteBlobResponse {
-  blob_id: string;
 }
 
 function createBaseBlobErrorDetails(): BlobErrorDetails {
@@ -1262,14 +1261,11 @@ export const DeleteBlobRequest: MessageFns<DeleteBlobRequest> = {
 };
 
 function createBaseDeleteBlobResponse(): DeleteBlobResponse {
-  return { blob_id: "" };
+  return {};
 }
 
 export const DeleteBlobResponse: MessageFns<DeleteBlobResponse> = {
-  encode(message: DeleteBlobResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.blob_id !== "") {
-      writer.uint32(10).string(message.blob_id);
-    }
+  encode(_: DeleteBlobResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     return writer;
   },
 
@@ -1280,14 +1276,6 @@ export const DeleteBlobResponse: MessageFns<DeleteBlobResponse> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.blob_id = reader.string();
-          continue;
-        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1297,30 +1285,20 @@ export const DeleteBlobResponse: MessageFns<DeleteBlobResponse> = {
     return message;
   },
 
-  fromJSON(object: any): DeleteBlobResponse {
-    return {
-      blob_id: isSet(object.blobId)
-        ? globalThis.String(object.blobId)
-        : isSet(object.blob_id)
-        ? globalThis.String(object.blob_id)
-        : "",
-    };
+  fromJSON(_: any): DeleteBlobResponse {
+    return {};
   },
 
-  toJSON(message: DeleteBlobResponse): unknown {
+  toJSON(_: DeleteBlobResponse): unknown {
     const obj: any = {};
-    if (message.blob_id !== "") {
-      obj.blobId = message.blob_id;
-    }
     return obj;
   },
 
   create<I extends Exact<DeepPartial<DeleteBlobResponse>, I>>(base?: I): DeleteBlobResponse {
     return DeleteBlobResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<DeleteBlobResponse>, I>>(object: I): DeleteBlobResponse {
+  fromPartial<I extends Exact<DeepPartial<DeleteBlobResponse>, I>>(_: I): DeleteBlobResponse {
     const message = createBaseDeleteBlobResponse();
-    message.blob_id = object.blob_id ?? "";
     return message;
   },
 };

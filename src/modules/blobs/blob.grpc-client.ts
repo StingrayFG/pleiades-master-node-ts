@@ -13,9 +13,15 @@ import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappe
 
 import type { DataNodeEndpoint } from '@/modules/data-nodes/data-node.domain';
 
-import type { GetBlobClientInput, HeadBlobClientInput, PutBlobClientInput } from './blob.application';
+import type {
+  DeleteBlobClientInput,
+  GetBlobClientInput,
+  HeadBlobClientInput,
+  PutBlobClientInput
+} from './blob.application';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import {
+  mapDeleteBlobClientInputToGrpcDeleteBlobRequest,
   mapGetBlobClientInputToGrpcGetBlobRequest,
   mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes,
   mapGrpcHeadBlobResponseToDomainBlobMetadata,
@@ -30,6 +36,7 @@ type BlobGrpcClientContract = {
   headBlob(input: HeadBlobClientInput): Promise<BlobMetadata>;
   getBlob(input: GetBlobClientInput): Promise<BlobMetadataWithBytes>;
   putBlob(input: PutBlobClientInput): Promise<BlobMetadata>;
+  deleteBlob(input: DeleteBlobClientInput): Promise<void>;
   close(): void;
 };
 
@@ -103,6 +110,23 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     });
 
     return mapGrpcPutBlobResponseToDomainBlobMetadata(response);
+  }
+
+  async deleteBlob(input: DeleteBlobClientInput): Promise<void> {
+    const client = this.getClient(input.dataNodeEndpoint);
+
+    const request = mapDeleteBlobClientInputToGrpcDeleteBlobRequest(input);
+
+    await new Promise<void>((resolve, reject) => {
+      client.deleteBlob(request, createAuthenticatedGrpcMetadata(), createDefaultGrpcCallOptions(), (err) => {
+        if (err) {
+          reject(mapGrpcErrorToInternodeApplicationError(err));
+          return;
+        }
+
+        resolve();
+      });
+    });
   }
 
   /* private */

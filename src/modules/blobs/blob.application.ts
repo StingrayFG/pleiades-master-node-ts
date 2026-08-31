@@ -21,6 +21,11 @@ export const ensureBlobExistsInputSchema = z.object({
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 
+export const deleteBlobInputSchema = z.object({
+  blobId: blobIdSchema,
+  dataNodeEndpoint: dataNodeEndpointSchema
+});
+
 /* client schemas */
 
 export const headBlobClientInputSchema = z.object({
@@ -38,12 +43,19 @@ export const putBlobClientInputSchema = z.object({
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 
+export const deleteBlobClientInputSchema = z.object({
+  blobId: blobIdSchema,
+  dataNodeEndpoint: dataNodeEndpointSchema
+});
+
 /* types */
 
 export type GetBlobMetadataInput = z.infer<typeof getBlobMetadataInputSchema>;
 export type GetBlobInput = z.infer<typeof getBlobInputSchema>;
 export type EnsureBlobExistsInput = z.infer<typeof ensureBlobExistsInputSchema>;
+export type DeleteBlobInput = z.infer<typeof deleteBlobInputSchema>;
 
 export type HeadBlobClientInput = z.infer<typeof headBlobClientInputSchema>;
 export type GetBlobClientInput = z.infer<typeof getBlobClientInputSchema>;
 export type PutBlobClientInput = z.infer<typeof putBlobClientInputSchema>;
+export type DeleteBlobClientInput = z.infer<typeof deleteBlobClientInputSchema>;

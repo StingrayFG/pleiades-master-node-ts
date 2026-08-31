@@ -1,5 +1,6 @@
 import { parseByteCount, withMapperError } from '@/common/mappers/mappers';
 import {
+  DeleteBlobRequest,
   GetBlobRequest,
   HeadBlobRequest,
   PutBlobRequest,
@@ -8,7 +9,12 @@ import {
   type PutBlobResponse
 } from '@/gen/proto/blob/v1/blob';
 
-import type { GetBlobClientInput, HeadBlobClientInput, PutBlobClientInput } from './blob.application';
+import type {
+  DeleteBlobClientInput,
+  GetBlobClientInput,
+  HeadBlobClientInput,
+  PutBlobClientInput
+} from './blob.application';
 import {
   blobMetadataSchema,
   blobMetadataWithBytesSchema,
@@ -80,6 +86,14 @@ export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: PutBlobClientIn
       checksum_algorithm: input.blob.checksumAlgorithm,
       checksum_value: input.blob.checksumValue,
       bytes: input.blob.bytes
+    })
+  );
+};
+
+export const mapDeleteBlobClientInputToGrpcDeleteBlobRequest = (input: DeleteBlobClientInput): DeleteBlobRequest => {
+  return withMapperError('Failed to map delete blob client input to gRPC request', () =>
+    DeleteBlobRequest.create({
+      blob_id: input.blobId
     })
   );
 };

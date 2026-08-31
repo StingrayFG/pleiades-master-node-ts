@@ -90,6 +90,4 @@ message DeleteBlobRequest {
   string blob_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
-message DeleteBlobResponse {
-  string blob_id = 1;
-}
+message DeleteBlobResponse {}

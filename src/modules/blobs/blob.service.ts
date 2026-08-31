@@ -1,4 +1,6 @@
 import type {
+  DeleteBlobClientInput,
+  DeleteBlobInput,
   EnsureBlobExistsInput,
   GetBlobClientInput,
   GetBlobInput,
@@ -21,6 +23,7 @@ type BlobServiceContract = {
   getBlobMetadata(input: GetBlobMetadataInput): Promise<BlobMetadata>;
   getBlob(input: GetBlobInput): Promise<BlobMetadataWithBytes>;
   ensureBlobExists(input: EnsureBlobExistsInput): Promise<BlobMetadata>;
+  deleteBlob(input: DeleteBlobInput): Promise<void>;
 };
 
 /* service */
@@ -67,6 +70,15 @@ class BlobService implements BlobServiceContract {
     verifyEnsureBlobExistsResult(input, blob);
 
     return blob;
+  }
+
+  async deleteBlob(input: DeleteBlobInput): Promise<void> {
+    const deleteBlobClientInput: DeleteBlobClientInput = {
+      blobId: input.blobId,
+      dataNodeEndpoint: input.dataNodeEndpoint
+    };
+
+    await this.grpcClient.deleteBlob(deleteBlobClientInput);
   }
 }
 
