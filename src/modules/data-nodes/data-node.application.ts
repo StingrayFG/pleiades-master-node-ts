@@ -30,10 +30,11 @@ export const heartbeatDataNodeInputSchema = z.object({
 
 export const applyDataNodeRegistrationRepositoryInputSchema = z.object({
   id: dataNodeIdSchema,
-  endpoint: dataNodeEndpointSchema,
 
   sessionId: dataNodeSessionIdSchema,
   state: dataNodeStateSchema,
+
+  endpoint: dataNodeEndpointSchema,
 
   storageTotalBytes: z.bigint().nonnegative(),
   storageFreeBytes: z.bigint().nonnegative(),

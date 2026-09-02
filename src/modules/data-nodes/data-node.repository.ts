@@ -4,10 +4,10 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
 
 import type {
-  ApplyHeartbeatRepositoryInput,
   ApplyDataNodeRegistrationRepositoryInput,
-  UpdateDataNodeStateRepositoryInput,
-  RecordDataNodeHealthCheckRepositoryInput
+  ApplyHeartbeatRepositoryInput,
+  RecordDataNodeHealthCheckRepositoryInput,
+  UpdateDataNodeStateRepositoryInput
 } from './data-node.application';
 import type { DataNode, DataNodeId } from './data-node.domain';
 import { mapPrismaDataNodeToDomainDataNode } from './data-node.mappers';
@@ -86,14 +86,15 @@ class DataNodeRepository implements DataNodeRepositoryContract {
         await this.prisma.dataNode.create({
           data: {
             id: input.id,
-            hostname: input.endpoint.hostname,
-            port: input.endpoint.port,
-            scheme: input.endpoint.scheme,
 
             session_id: input.sessionId,
             last_heartbeat_sequence: 0n,
             state: input.state,
             mode: 'serving',
+
+            hostname: input.endpoint.hostname,
+            port: input.endpoint.port,
+            scheme: input.endpoint.scheme,
 
             storage_total_bytes: input.storageTotalBytes,
             storage_free_bytes: input.storageFreeBytes,
@@ -123,13 +124,13 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           revision: input.expectedRevision
         },
         data: {
-          hostname: input.endpoint.hostname,
-          port: input.endpoint.port,
-          scheme: input.endpoint.scheme,
-
           session_id: input.sessionId,
           last_heartbeat_sequence: 0n,
           state: input.state,
+
+          hostname: input.endpoint.hostname,
+          port: input.endpoint.port,
+          scheme: input.endpoint.scheme,
 
           storage_total_bytes: input.storageTotalBytes,
           storage_free_bytes: input.storageFreeBytes,
@@ -164,13 +165,13 @@ class DataNodeRepository implements DataNodeRepositoryContract {
         },
         data: {
           state: input.state,
+          last_heartbeat_sequence: input.heartbeatSequence,
 
           storage_total_bytes: input.storageTotalBytes,
           storage_free_bytes: input.storageFreeBytes,
 
           last_contact_at: input.lastContactAt,
           last_heartbeat_at: input.lastHeartbeatAt,
-          last_heartbeat_sequence: input.heartbeatSequence,
 
           revision: {
             increment: 1

@@ -60,10 +60,11 @@ class DataNodeService implements DataNodeServiceContract {
 
       const applyRegistrationInput: ApplyDataNodeRegistrationRepositoryInput = {
         id: input.id,
-        endpoint: input.endpoint,
 
         sessionId,
         state,
+
+        endpoint: input.endpoint,
 
         storageTotalBytes: input.healthSnapshot.storageTotalBytes,
         storageFreeBytes: input.healthSnapshot.storageFreeBytes,

@@ -117,13 +117,14 @@ export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): Dat
   return withMapperError('Failed to map Prisma data node to domain data node', () =>
     dataNodeSchema.parse({
       id: dataNode.id,
-      hostname: dataNode.hostname,
-      port: dataNode.port,
-      scheme: dataNode.scheme,
 
       sessionId: dataNode.session_id,
       state: dataNode.state,
       mode: dataNode.mode,
+
+      hostname: dataNode.hostname,
+      port: dataNode.port,
+      scheme: dataNode.scheme,
 
       storageTotalBytes: dataNode.storage_total_bytes,
       storageFreeBytes: dataNode.storage_free_bytes,
