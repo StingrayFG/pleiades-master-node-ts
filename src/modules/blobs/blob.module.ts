@@ -1,7 +1,15 @@
+import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
+
+import type { BlobConfig } from './blob.config';
 import { BlobGrpcClient } from './blob.grpc-client';
 import { BlobService } from './blob.service';
 
 /* contract */
+
+type BlobModuleDependencies = {
+  blobConfig: BlobConfig;
+  grpcConfig: GrpcClientConfig;
+};
 
 type BlobModule = {
   grpcClient: BlobGrpcClient;
@@ -10,10 +18,10 @@ type BlobModule = {
 
 /* module */
 
-const createBlobModule = (): BlobModule => {
-  const grpcClient = new BlobGrpcClient();
+const createBlobModule = ({ blobConfig, grpcConfig }: BlobModuleDependencies): BlobModule => {
+  const grpcClient = new BlobGrpcClient(grpcConfig);
 
-  const service = new BlobService(grpcClient);
+  const service = new BlobService(grpcClient, blobConfig);
 
   return {
     grpcClient,
@@ -24,4 +32,4 @@ const createBlobModule = (): BlobModule => {
 /* exports */
 
 export { createBlobModule };
-export type { BlobModule };
+export type { BlobModule, BlobModuleDependencies };

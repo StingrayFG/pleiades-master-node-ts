@@ -1,4 +1,3 @@
-import env from '@/env';
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 import { InternodeApplicationError } from '@/errors/internode.errors';
@@ -17,6 +16,7 @@ import type {
   ListPartReplicaRepairCandidatesRepositoryInput,
   TouchPartReplicaRepairCandidateRepositoryInput
 } from '../object-version-part.application';
+import type { PartConfig } from '../object-version-part.config';
 import type { Part, PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { selectResponsibleDataNodes } from '../object-version-part.domain-policies';
 import {
@@ -38,7 +38,8 @@ class PartReplicaRepairHandler {
   constructor(
     private readonly repository: ObjectVersionPartRepositoryContract,
     private readonly dataNodeService: DataNodeServiceContract,
-    private readonly blobService: BlobServiceContract
+    private readonly blobService: BlobServiceContract,
+    private readonly partConfig: PartConfig
   ) {}
 
   async run(now: Date): Promise<void> {
@@ -100,7 +101,7 @@ class PartReplicaRepairHandler {
       (replica) => replica.state === 'committed' || replica.state === 'pending'
     ).length;
 
-    if (effectiveReplicaCount >= env.REPLICATION_FACTOR) {
+    if (effectiveReplicaCount >= this.partConfig.replicationFactor) {
       await this.markRepairCandidateDeleting(partReplica);
       return;
     }

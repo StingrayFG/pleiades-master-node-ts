@@ -33,9 +33,13 @@ export const verifyBlobResult = (input: DataNodeBlobInput, result: BlobMetadata)
   }
 };
 
-export const verifyEnsureBlobExistsInput = (input: DataNodeBlobWithBytesInput): void => {
+export const verifyEnsureBlobExistsInput = (input: DataNodeBlobWithBytesInput, maxSizeBytes: bigint): void => {
   const actualSizeBytes = BigInt(input.blob.bytes.length);
   const actualChecksumValue = calculateBlobChecksum(input.blob.bytes);
+
+  if (actualSizeBytes > maxSizeBytes) {
+    throw new GenericInternalServerError('Blob input exceeds the configured maximum size');
+  }
 
   if (
     input.blob.sizeBytes !== actualSizeBytes ||

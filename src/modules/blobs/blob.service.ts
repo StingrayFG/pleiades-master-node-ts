@@ -1,4 +1,5 @@
 import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
+import type { BlobConfig } from './blob.config';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import type { BlobGrpcClientContract } from './blob.grpc-client';
 import {
@@ -22,7 +23,10 @@ type BlobServiceContract = {
 /* service */
 
 class BlobService implements BlobServiceContract {
-  constructor(private readonly grpcClient: BlobGrpcClientContract) {}
+  constructor(
+    private readonly grpcClient: BlobGrpcClientContract,
+    private readonly blobConfig: BlobConfig
+  ) {}
 
   async getBlobMetadata(input: DataNodeBlobInput): Promise<BlobMetadata> {
     const headBlobClientInput: DataNodeBlobInput = {
@@ -64,7 +68,7 @@ class BlobService implements BlobServiceContract {
   }
 
   async ensureBlobExists(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata> {
-    verifyEnsureBlobExistsInput(input);
+    verifyEnsureBlobExistsInput(input, this.blobConfig.maxSizeBytes);
 
     const putBlobClientInput: DataNodeBlobWithBytesInput = {
       blob: input.blob,

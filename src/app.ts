@@ -3,20 +3,15 @@ import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
-import prisma from '@/database/prisma/prisma.client';
 import env from '@/env';
 import authMiddlewares from '@/middlewares/authMiddlewares';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
-import { createBackgroundModule } from '@/modules/background/background.module';
-import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
-import { createBucketModule } from '@/modules/buckets/bucket.module';
-import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
-import { createObjectVersionPartModule } from '@/modules/object-version-parts/object-version-part.module';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
-import { createObjectModule } from '@/modules/objects/object.module';
+
+import { createCompositionRoot } from '@/composition-root';
 
 /* app */
 
@@ -43,31 +38,9 @@ app.register(fastifyJwt, {
 app.register(authMiddlewares);
 app.register(errorHandlerPlugin);
 
-/* modules */
+/* composition */
 
-const bucketModule = createBucketModule({ prisma });
-
-const dataNodeModule = createDataNodeModule({ prisma });
-
-const blobModule = createBlobModule();
-
-const objectVersionPartModule = createObjectVersionPartModule({
-  prisma,
-  dataNodeService: dataNodeModule.service,
-  blobService: blobModule.service
-});
-
-const objectModule = createObjectModule({
-  prisma,
-  bucketService: bucketModule.service,
-  objectVersionPartRepository: objectVersionPartModule.repository,
-  objectVersionPartService: objectVersionPartModule.service
-});
-
-const backgroundModule = createBackgroundModule({
-  dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
-  objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
-  objectLifecycleHandler: objectModule.lifecycleHandler,
+const compositionRoot = createCompositionRoot({
   logger: app.log
 });
 
@@ -77,7 +50,7 @@ app.register(indexRoute);
 
 app.register(
   createBucketHttpRoutes({
-    controller: bucketModule.controller
+    controller: compositionRoot.bucketModule.controller
   }),
   {
     prefix: '/buckets'
@@ -86,33 +59,26 @@ app.register(
 
 app.register(
   createObjectHttpRoutes({
-    controller: objectModule.controller
+    controller: compositionRoot.objectModule.controller
   }),
   {
     prefix: '/buckets'
   }
 );
 
+/* background workers */
+
+compositionRoot.backgroundModule.dataNodeLifecycleWorker.start();
+compositionRoot.backgroundModule.objectVersionPartLifecycleWorker.start();
+compositionRoot.backgroundModule.objectLifecycleWorker.start();
+
 /* lifecycle */
 
-backgroundModule.dataNodeLifecycleWorker.start();
-backgroundModule.objectVersionPartLifecycleWorker.start();
-backgroundModule.objectLifecycleWorker.start();
-
 app.addHook('onClose', async () => {
-  await Promise.all([
-    backgroundModule.dataNodeLifecycleWorker.stop(),
-    backgroundModule.objectVersionPartLifecycleWorker.stop(),
-    backgroundModule.objectLifecycleWorker.stop()
-  ]);
-
-  dataNodeModule.grpcClient.close();
-  blobModule.grpcClient.close();
-
-  await prisma.$disconnect();
+  await compositionRoot.close();
 });
 
 /* exports */
 
-export { dataNodeModule };
+export { compositionRoot };
 export default app;

@@ -1,8 +1,11 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 
-import app, { dataNodeModule } from '@/app';
+import app, { compositionRoot } from '@/app';
+
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
+
 import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
+
 import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
 
 import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
@@ -29,7 +32,7 @@ const grpcErrorHandlerOptions: ToGrpcServerErrorOptions = {
 const grpcServer = new Server();
 
 const dataNodeGrpcRoutes = createDataNodeGrpcRoutes({
-  controller: dataNodeModule.controller
+  controller: compositionRoot.dataNodeModule.controller
 });
 
 registerGrpcServiceWithErrorHandling(

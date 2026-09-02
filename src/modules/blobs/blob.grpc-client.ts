@@ -7,7 +7,7 @@ import {
   type PutBlobResponse,
   type VerifyBlobResponse
 } from '@/gen/proto/blob/v1/blob';
-import { GRPC_BLOB_MESSAGE_SIZE_LIMIT_BYTES } from '@/transports/grpc/client/grpc-client.constants';
+import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
@@ -43,6 +43,8 @@ type BlobGrpcClientContract = {
 
 class BlobGrpcClient implements BlobGrpcClientContract {
   private readonly clientsByEndpoint = new Map<string, GrpcBlobClient>();
+
+  constructor(private readonly grpcConfig: GrpcClientConfig) {}
 
   /* public */
 
@@ -159,10 +161,11 @@ class BlobGrpcClient implements BlobGrpcClientContract {
     }
 
     const credentials = endpoint.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
+    const maxMessageSizeBytes = this.grpcConfig.maxMessageSizeBytes;
 
     const client = new GrpcBlobClient(`${endpoint.hostname}:${endpoint.port}`, credentials, {
-      'grpc.max_receive_message_length': GRPC_BLOB_MESSAGE_SIZE_LIMIT_BYTES,
-      'grpc.max_send_message_length': GRPC_BLOB_MESSAGE_SIZE_LIMIT_BYTES
+      'grpc.max_receive_message_length': maxMessageSizeBytes,
+      'grpc.max_send_message_length': maxMessageSizeBytes
     });
 
     this.clientsByEndpoint.set(endpointKey, client);
