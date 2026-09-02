@@ -28,8 +28,9 @@ export const mapPrismaObjectVersionToDomainObjectVersion = (objectVersion: Prism
       state: objectVersion.state,
       totalSizeBytes: objectVersion.total_size_bytes,
       contentType: objectVersion.content_type,
+      createdAt: objectVersion.created_at,
       committedAt: objectVersion.committed_at,
-      createdAt: objectVersion.created_at
+      updatedAt: objectVersion.updated_at
     })
   );
 };

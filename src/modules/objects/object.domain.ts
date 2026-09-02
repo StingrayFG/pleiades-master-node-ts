@@ -34,8 +34,9 @@ export const objectVersionSchema = z.object({
   state: objectVersionStateSchema,
   totalSizeBytes: objectVersionTotalSizeBytesSchema,
   contentType: objectVersionContentTypeSchema,
+  createdAt: z.date(),
   committedAt: z.date().nullable(),
-  createdAt: z.date()
+  updatedAt: z.date()
 });
 
 /* types */

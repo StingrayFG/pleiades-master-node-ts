@@ -8,6 +8,7 @@ import {
   GenericUnavailableError,
   type LocalApplicationError
 } from '@/errors/application.errors';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 import {
   InternodeAbortedError,
   InternodeAlreadyExistsError,
@@ -23,39 +24,16 @@ import {
 /* types */
 
 export type GetPartBlobError =
-  | {
-      source: 'data-node-resolution';
-      error: unknown;
-    }
-  | {
-      source: 'replica-read';
-      error: InternodeApplicationError;
-    }
-  | {
-      source: 'replica-state-update';
-      error: unknown;
-    };
+  | ErrorCauseEntry<'data-node-resolution'>
+  | ErrorCauseEntry<'replica-read', InternodeApplicationError>
+  | ErrorCauseEntry<'replica-state-update'>;
 
-export type CreatePartReplicasError =
-  | {
-      source: 'replica-create';
-      error: unknown;
-    }
-  | {
-      source: 'replica-state-update';
-      error: unknown;
-    };
-
-/* helpers */
-
-const createAggregateCause = (errors: readonly { source: string; error: unknown }[]): AggregateError => {
-  return new AggregateError(errors);
-};
+export type CreatePartReplicasError = ErrorCauseEntry<'replica-create'> | ErrorCauseEntry<'replica-state-update'>;
 
 /* resolvers */
 
 export const resolveFailedGetPartBlobError = (errors: readonly GetPartBlobError[]): LocalApplicationError => {
-  const cause = createAggregateCause(errors);
+  const cause = createAggregateErrorCause(errors);
 
   if (errors.some(({ source }) => source === 'replica-state-update')) {
     return new GenericInternalServerError('Failed to read object version part and update replica state', { cause });
@@ -124,7 +102,7 @@ export const resolveFailedGetPartBlobError = (errors: readonly GetPartBlobError[
 export const resolveFailedCreatePartReplicasError = (
   errors: readonly CreatePartReplicasError[]
 ): LocalApplicationError => {
-  const cause = createAggregateCause(errors);
+  const cause = createAggregateErrorCause(errors);
 
   if (errors.some(({ source }) => source === 'replica-state-update')) {
     return new GenericInternalServerError('Failed to replicate object version part and update replica states', {

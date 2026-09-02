@@ -13,13 +13,12 @@ import { mapDataNodeBlobStateToPartReplicaState } from './object-version-part.do
 
 const failedGetPartReplicaStates = new Set([
   'pending',
-  'deleting',
   'missing',
   'corrupt'
 ] as const) satisfies ReadonlySet<PartReplicaState>;
 const failedCreatePartReplicaStates = new Set([
   'pending',
-  'deleting',
+  'missing',
   'corrupt'
 ] as const) satisfies ReadonlySet<PartReplicaState>;
 
@@ -42,6 +41,10 @@ export const resolveFailedGetPartReplicaState = (
   if (error instanceof InternodeFailedPreconditionError && error.details?.blobState) {
     const state = mapDataNodeBlobStateToPartReplicaState(error.details.blobState);
 
+    if (state === 'deleting') {
+      return 'missing';
+    }
+
     return failedGetPartReplicaStates.has(state as FailedGetPartReplicaState)
       ? (state as FailedGetPartReplicaState)
       : null;
@@ -57,6 +60,10 @@ export const resolveFailedCreatePartReplicaState = (error: InternodeApplicationE
 
   if (error instanceof InternodeFailedPreconditionError && error.details?.blobState) {
     const state = mapDataNodeBlobStateToPartReplicaState(error.details.blobState);
+
+    if (state === 'deleting') {
+      return 'missing';
+    }
 
     if (failedCreatePartReplicaStates.has(state as FailedCreatePartReplicaState)) {
       return state as FailedCreatePartReplicaState;

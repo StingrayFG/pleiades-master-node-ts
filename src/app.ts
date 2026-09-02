@@ -60,11 +60,14 @@ const objectVersionPartModule = createObjectVersionPartModule({
 const objectModule = createObjectModule({
   prisma,
   bucketService: bucketModule.service,
+  objectVersionPartRepository: objectVersionPartModule.repository,
   objectVersionPartService: objectVersionPartModule.service
 });
 
 const backgroundModule = createBackgroundModule({
   dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
+  objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
+  objectLifecycleHandler: objectModule.lifecycleHandler,
   logger: app.log
 });
 
@@ -94,11 +97,13 @@ app.register(
 
 backgroundModule.dataNodeLifecycleWorker.start();
 backgroundModule.objectVersionPartLifecycleWorker.start();
+backgroundModule.objectLifecycleWorker.start();
 
 app.addHook('onClose', async () => {
   await Promise.all([
     backgroundModule.dataNodeLifecycleWorker.stop(),
-    backgroundModule.objectVersionPartLifecycleWorker.stop()
+    backgroundModule.objectVersionPartLifecycleWorker.stop(),
+    backgroundModule.objectLifecycleWorker.stop()
   ]);
 
   dataNodeModule.grpcClient.close();

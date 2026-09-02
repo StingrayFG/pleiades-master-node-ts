@@ -25,7 +25,7 @@ import type {
   CreateReplicaBlobResult,
   GetReplicaBlobResult,
   ListPartsByObjectVersionInput,
-  UpdateReplicaStatesRepositoryInput
+  UpdatePartReplicaStatesRepositoryInput
 } from './object-version-part.application';
 import type { Part, PartReplica } from './object-version-part.domain';
 import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.domain-policies';
@@ -226,10 +226,11 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       return;
     }
 
-    const updateStatesInput: UpdateReplicaStatesRepositoryInput = [
+    const updateStatesInput: UpdatePartReplicaStatesRepositoryInput = [
       {
         blobId,
         dataNodeId: getReplicaBlobResult.dataNodeId,
+        expectedState: 'committed',
         state
       }
     ];
@@ -357,7 +358,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     blobId: BlobId,
     createReplicaBlobResults: readonly CreateReplicaBlobResult[]
   ): Promise<void> {
-    const updateStatesInput: UpdateReplicaStatesRepositoryInput = [];
+    const updateStatesInput: UpdatePartReplicaStatesRepositoryInput = [];
 
     for (const createReplicaBlobResult of createReplicaBlobResults) {
       const state =
@@ -371,6 +372,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       updateStatesInput.push({
         blobId,
         dataNodeId: createReplicaBlobResult.dataNodeId,
+        expectedState: 'pending',
         state
       });
     }

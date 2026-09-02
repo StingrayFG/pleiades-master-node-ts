@@ -38,8 +38,9 @@ export const partReplicaSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
   state: partReplicaStateSchema,
-  lastVerifiedAt: z.date().nullable(),
   createdAt: z.date(),
+  lastVerifiedAt: z.date().nullable(),
+  stateChangedAt: z.date(),
   updatedAt: z.date()
 });
 

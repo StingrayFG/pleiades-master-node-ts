@@ -1,19 +1,19 @@
 import type { FastifyBaseLogger } from 'fastify';
 
-import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
+import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 
 /* constants */
 
-const DATA_NODE_LIFECYCLE_INTERVAL_MS = 60_000;
+const OBJECT_VERSION_PART_LIFECYCLE_INTERVAL_MS = 60_000;
 
 /* worker */
 
-class DataNodeLifecycleWorker {
+class ObjectVersionPartLifecycleWorker {
   private timer: NodeJS.Timeout | null = null;
   private runPromise: Promise<void> | null = null;
 
   constructor(
-    private readonly lifecycleHandler: DataNodeLifecycleHandlerContract,
+    private readonly lifecycleHandler: ObjectVersionPartLifecycleHandlerContract,
     private readonly logger: FastifyBaseLogger
   ) {}
 
@@ -26,7 +26,7 @@ class DataNodeLifecycleWorker {
 
     this.timer = setInterval(() => {
       this.run();
-    }, DATA_NODE_LIFECYCLE_INTERVAL_MS);
+    }, OBJECT_VERSION_PART_LIFECYCLE_INTERVAL_MS);
   }
 
   async stop(): Promise<void> {
@@ -46,7 +46,7 @@ class DataNodeLifecycleWorker {
     this.runPromise = this.lifecycleHandler
       .run()
       .catch((err) => {
-        this.logger.error({ err }, 'Data node lifecycle sweep failed');
+        this.logger.error({ err }, 'Object version part lifecycle sweep failed');
       })
       .finally(() => {
         this.runPromise = null;
@@ -56,4 +56,4 @@ class DataNodeLifecycleWorker {
 
 /* exports */
 
-export { DataNodeLifecycleWorker };
+export { ObjectVersionPartLifecycleWorker };

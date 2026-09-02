@@ -12,10 +12,11 @@ import { type Part, type PartReplica, partReplicaSchema, partSchema } from './ob
 export const mapPrismaPartToDomainPart = (part: PrismaObjectVersionPart): Part => {
   return withMapperError('Failed to map Prisma object version part to domain object version part', () =>
     partSchema.parse({
-      blobId: part.blob_id,
       objectId: part.object_id,
       version: part.version,
       partNumber: part.part_number,
+
+      blobId: part.blob_id,
       placementGroup: part.placement_group,
       sizeBytes: part.size_bytes,
       checksumAlgorithm: part.checksum_algorithm,
@@ -31,8 +32,9 @@ export const mapPrismaPartReplicaToDomainPartReplica = (partReplica: PrismaObjec
       blobId: partReplica.blob_id,
       dataNodeId: partReplica.data_node_id,
       state: partReplica.state,
-      lastVerifiedAt: partReplica.last_verified_at,
       createdAt: partReplica.created_at,
+      lastVerifiedAt: partReplica.last_verified_at,
+      stateChangedAt: partReplica.state_changed_at,
       updatedAt: partReplica.updated_at
     })
   );
