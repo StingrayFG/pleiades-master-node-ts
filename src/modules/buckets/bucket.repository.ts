@@ -63,6 +63,7 @@ class BucketRepository implements BucketRepositoryContract {
       bucket = await this.prisma.bucket.create({
         data: {
           name: bucketName,
+
           state: 'active'
         }
       });

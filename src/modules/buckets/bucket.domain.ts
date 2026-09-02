@@ -17,7 +17,9 @@ export const bucketStateSchema = z.enum(BUCKET_STATES);
 export const bucketSchema = z.object({
   id: bucketIdSchema,
   name: bucketNameSchema,
+
   state: bucketStateSchema,
+
   createdAt: z.date(),
   updatedAt: z.date()
 });
