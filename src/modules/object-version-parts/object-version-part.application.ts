@@ -43,7 +43,9 @@ export const getReplicaBlobResultSchema = z.discriminatedUnion('status', [
 export const createPartsInputSchema = z.object({
   objectId: objectIdSchema,
   version: objectVersionNumberSchema,
+
   totalSizeBytes: objectVersionTotalSizeBytesSchema,
+
   data: z.instanceof(Readable)
 });
 
@@ -96,7 +98,9 @@ export const listPartReplicaDeletionCandidatesRepositoryInputSchema = z.object({
 export const createPartWithReplicasRepositoryInputSchema = z.object({
   part: partKeySchema.extend({
     blobId: blobIdSchema,
+
     placementGroup: placementGroupSchema,
+
     sizeBytes: blobSizeBytesSchema,
     checksumAlgorithm: blobChecksumAlgorithmSchema,
     checksumValue: blobChecksumValueSchema
@@ -108,6 +112,7 @@ export const claimPartReplicaRepairRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   failedDataNodeId: dataNodeIdSchema,
   replacementDataNodeId: dataNodeIdSchema,
+
   expectedState: z.enum(['missing', 'corrupt'])
 });
 
@@ -119,27 +124,34 @@ export const applyObjectVersionDeletionToPartReplicasRepositoryInputSchema = z.o
 export const applyPartReplicaVerificationRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   state: partReplicaStateSchema,
+
   verifiedAt: z.date().optional()
 });
 
 export const applyPartReplicaRepairRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   state: partReplicaStateSchema,
+
   verifiedAt: z.date().optional()
 });
 
 export const applyPendingPartReplicaReconciliationRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   state: partReplicaStateSchema,
+
   verifiedAt: z.date().optional()
 });
 
 export const applyRedundantPartReplicaDeletionRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   expectedState: z.enum(['missing', 'corrupt'])
 });
 
@@ -148,6 +160,7 @@ export const updatePartReplicaStatesRepositoryInputSchema = z
     z.object({
       blobId: blobIdSchema,
       dataNodeId: dataNodeIdSchema,
+
       expectedState: partReplicaStateSchema,
       state: partReplicaStateSchema
     })
@@ -162,6 +175,7 @@ export const touchPartReplicaVerificationCandidateRepositoryInputSchema = z.obje
 export const touchPartReplicaRepairCandidateRepositoryInputSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   state: z.enum(['missing', 'corrupt'])
 });
 

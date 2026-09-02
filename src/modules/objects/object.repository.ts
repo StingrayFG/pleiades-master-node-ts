@@ -217,8 +217,9 @@ class ObjectRepository implements ObjectRepositoryContract {
           },
           create: {
             key: input.objectKey,
-            last_allocated_version: 1,
-            bucket_id: input.bucketId
+            bucket_id: input.bucketId,
+
+            last_allocated_version: 1
           },
           update: {
             last_allocated_version: {
@@ -231,7 +232,9 @@ class ObjectRepository implements ObjectRepositoryContract {
           data: {
             object_id: object.id,
             version: object.last_allocated_version,
+
             state: 'pending',
+
             total_size_bytes: input.totalSizeBytes,
             content_type: input.contentType
           }
@@ -425,5 +428,4 @@ class ObjectRepository implements ObjectRepositoryContract {
 /* exports */
 
 export { ObjectRepository };
-
 export type { ObjectRepositoryContract };

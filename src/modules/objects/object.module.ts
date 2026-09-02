@@ -64,5 +64,4 @@ const createObjectModule = ({
 /* exports */
 
 export { createObjectModule };
-
 export type { ObjectModule, ObjectModuleDependencies };

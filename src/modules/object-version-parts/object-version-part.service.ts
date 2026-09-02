@@ -116,6 +116,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
           objectId: input.objectId,
           version: input.version,
           partNumber,
+
           bytes: partBytes
         },
         availableDataNodes
@@ -233,6 +234,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       {
         blobId,
         dataNodeId: getReplicaBlobResult.dataNodeId,
+
         expectedState: 'committed',
         state
       }
@@ -270,7 +272,9 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         partNumber: partInput.partNumber,
 
         blobId,
+
         placementGroup,
+
         sizeBytes,
         checksumAlgorithm: BLOB_CHECKSUM_ALGORITHM,
         checksumValue
@@ -379,6 +383,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       updateStatesInput.push({
         blobId,
         dataNodeId: createReplicaBlobResult.dataNodeId,
+
         expectedState: 'pending',
         state
       });

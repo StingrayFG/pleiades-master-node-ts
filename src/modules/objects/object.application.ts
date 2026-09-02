@@ -33,8 +33,10 @@ export const getObjectResultSchema = z.object({
 export const createObjectInputSchema = z.object({
   bucketName: bucketNameSchema,
   objectKey: objectKeySchema,
+
   totalSizeBytes: objectVersionTotalSizeBytesSchema,
   contentType: objectVersionContentTypeSchema,
+
   data: z.instanceof(Readable)
 });
 
@@ -55,8 +57,9 @@ export const listDeletingObjectVersionCleanupCandidatesRepositoryInputSchema = z
 });
 
 export const upsertObjectAndCreateVersionRepositoryInputSchema = z.object({
-  bucketId: bucketIdSchema,
   objectKey: objectKeySchema,
+  bucketId: bucketIdSchema,
+
   totalSizeBytes: objectVersionTotalSizeBytesSchema,
   contentType: objectVersionContentTypeSchema
 });
@@ -69,6 +72,7 @@ export const upsertObjectAndCreateVersionRepositoryResultSchema = z.object({
 export const claimObjectVersionCleanupRepositoryInputSchema = z.object({
   objectId: objectIdSchema,
   version: objectVersionNumberSchema,
+
   updatedBefore: z.date()
 });
 

@@ -19,6 +19,7 @@ class PendingObjectVersionCleanupHandler {
         this.repository.claimObjectVersionCleanup({
           objectId: objectVersion.objectId,
           version: objectVersion.version,
+
           updatedBefore
         })
       )

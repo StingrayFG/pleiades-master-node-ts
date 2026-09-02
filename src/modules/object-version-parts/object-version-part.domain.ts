@@ -27,17 +27,22 @@ export const partKeySchema = z.object({
 
 export const partSchema = partKeySchema.extend({
   blobId: blobIdSchema,
+
   placementGroup: placementGroupSchema,
+
   sizeBytes: blobSizeBytesSchema,
   checksumAlgorithm: blobChecksumAlgorithmSchema,
   checksumValue: blobChecksumValueSchema,
+
   createdAt: z.date()
 });
 
 export const partReplicaSchema = z.object({
   blobId: blobIdSchema,
   dataNodeId: dataNodeIdSchema,
+
   state: partReplicaStateSchema,
+
   createdAt: z.date(),
   lastVerifiedAt: z.date().nullable(),
   stateChangedAt: z.date(),

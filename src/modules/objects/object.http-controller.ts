@@ -71,8 +71,10 @@ class ObjectController implements ObjectHttpControllerContract {
     const serviceInput: CreateObjectInput = {
       bucketName,
       objectKey,
+
       totalSizeBytes,
       contentType,
+
       data
     };
 
@@ -87,5 +89,4 @@ class ObjectController implements ObjectHttpControllerContract {
 /* exports */
 
 export { ObjectController };
-
 export type { ObjectHttpControllerContract };

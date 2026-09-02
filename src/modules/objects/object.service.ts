@@ -108,8 +108,9 @@ class ObjectService implements ObjectServiceContract {
     }
 
     const upsertObjectInput: UpsertObjectAndCreateVersionRepositoryInput = {
-      bucketId: bucket.id,
       objectKey: input.objectKey,
+      bucketId: bucket.id,
+
       totalSizeBytes: input.totalSizeBytes,
       contentType: input.contentType
     };
@@ -119,7 +120,9 @@ class ObjectService implements ObjectServiceContract {
     const createPartsInput: CreatePartsInput = {
       objectId: objectVersionAllocation.object.id,
       version: objectVersionAllocation.objectVersion.version,
+
       totalSizeBytes: input.totalSizeBytes,
+
       data: input.data
     };
 
@@ -152,5 +155,4 @@ class ObjectService implements ObjectServiceContract {
 /* exports */
 
 export { ObjectService };
-
 export type { ObjectServiceContract };

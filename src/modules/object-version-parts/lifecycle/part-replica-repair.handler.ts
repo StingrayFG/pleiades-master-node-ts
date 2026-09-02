@@ -118,6 +118,7 @@ class PartReplicaRepairHandler {
       blobId: partReplica.blobId,
       failedDataNodeId: partReplica.dataNodeId,
       replacementDataNodeId: replacementDataNode.id,
+
       expectedState: partReplica.state
     };
 
@@ -153,7 +154,9 @@ class PartReplicaRepairHandler {
     const applyRepairInput: ApplyPartReplicaRepairRepositoryInput = {
       blobId: partReplica.blobId,
       dataNodeId: replacementDataNode.id,
+
       state,
+
       ...(verifiedAt !== undefined
         ? {
             verifiedAt
@@ -240,6 +243,7 @@ class PartReplicaRepairHandler {
     const redundantReplicaDeletionInput: ApplyRedundantPartReplicaDeletionRepositoryInput = {
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
+
       expectedState: partReplica.state
     };
 
@@ -254,6 +258,7 @@ class PartReplicaRepairHandler {
     const touchRepairCandidateInput: TouchPartReplicaRepairCandidateRepositoryInput = {
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
+
       state: partReplica.state
     };
 

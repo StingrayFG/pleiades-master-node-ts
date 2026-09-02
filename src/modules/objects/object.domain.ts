@@ -21,9 +21,11 @@ export const objectVersionContentTypeSchema = z.string().min(1);
 export const objectSchema = z.object({
   id: objectIdSchema,
   key: objectKeySchema,
+  bucketId: bucketIdSchema,
+
   currentVersion: objectCurrentVersionSchema,
   lastAllocatedVersion: objectLastAllocatedVersionSchema,
-  bucketId: bucketIdSchema,
+
   createdAt: z.date(),
   updatedAt: z.date()
 });
@@ -31,9 +33,12 @@ export const objectSchema = z.object({
 export const objectVersionSchema = z.object({
   objectId: objectIdSchema,
   version: objectVersionNumberSchema,
+
   state: objectVersionStateSchema,
+
   totalSizeBytes: objectVersionTotalSizeBytesSchema,
   contentType: objectVersionContentTypeSchema,
+
   createdAt: z.date(),
   committedAt: z.date().nullable(),
   updatedAt: z.date()

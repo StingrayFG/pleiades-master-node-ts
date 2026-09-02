@@ -11,9 +11,11 @@ export const mapPrismaObjectToDomainObject = (object: PrismaObject): Object => {
     objectSchema.parse({
       id: object.id,
       key: object.key,
+      bucketId: object.bucket_id,
+
       currentVersion: object.current_version,
       lastAllocatedVersion: object.last_allocated_version,
-      bucketId: object.bucket_id,
+
       createdAt: object.created_at,
       updatedAt: object.updated_at
     })
@@ -25,9 +27,12 @@ export const mapPrismaObjectVersionToDomainObjectVersion = (objectVersion: Prism
     objectVersionSchema.parse({
       objectId: objectVersion.object_id,
       version: objectVersion.version,
+
       state: objectVersion.state,
+
       totalSizeBytes: objectVersion.total_size_bytes,
       contentType: objectVersion.content_type,
+
       createdAt: objectVersion.created_at,
       committedAt: objectVersion.committed_at,
       updatedAt: objectVersion.updated_at

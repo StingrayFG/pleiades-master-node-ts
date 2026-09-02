@@ -300,7 +300,9 @@ class ObjectVersionPartRepository implements ObjectVersionPartRepositoryContract
             part_number: input.part.partNumber,
 
             blob_id: input.part.blobId,
+
             placement_group: input.part.placementGroup,
+
             size_bytes: input.part.sizeBytes,
             checksum_algorithm: input.part.checksumAlgorithm,
             checksum_value: input.part.checksumValue
@@ -311,6 +313,7 @@ class ObjectVersionPartRepository implements ObjectVersionPartRepositoryContract
           data: input.replicaDataNodeIds.map((dataNodeId) => ({
             blob_id: input.part.blobId,
             data_node_id: dataNodeId,
+
             state: 'pending'
           }))
         });
@@ -354,6 +357,7 @@ class ObjectVersionPartRepository implements ObjectVersionPartRepositoryContract
           data: {
             blob_id: input.blobId,
             data_node_id: input.replacementDataNodeId,
+
             state: 'pending'
           }
         });
