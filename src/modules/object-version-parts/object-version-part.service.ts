@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-import env from '@/env';
 import {
   GenericBadRequestError,
   GenericInternalServerError,
@@ -10,6 +9,7 @@ import {
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
 import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from '@/modules/blobs/blob.application';
+import type { BlobConfig } from '@/modules/blobs/blob.config';
 import { BLOB_CHECKSUM_ALGORITHM, type BlobId, type BlobMetadataWithBytes } from '@/modules/blobs/blob.domain';
 import { calculateBlobChecksum } from '@/modules/blobs/blob.processors';
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
@@ -27,6 +27,7 @@ import type {
   ListPartsByObjectVersionInput,
   UpdatePartReplicaStatesRepositoryInput
 } from './object-version-part.application';
+import type { PartConfig } from './object-version-part.config';
 import type { Part, PartReplica } from './object-version-part.domain';
 import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.domain-policies';
 import {
@@ -57,7 +58,9 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
   constructor(
     private readonly repository: ObjectVersionPartRepositoryContract,
     private readonly dataNodeService: DataNodeServiceContract,
-    private readonly blobService: BlobServiceContract
+    private readonly blobService: BlobServiceContract,
+    private readonly blobConfig: BlobConfig,
+    private readonly partConfig: PartConfig
   ) {}
 
   /* public */
@@ -96,7 +99,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     let receivedSizeBytes = 0n;
     let partNumber = 1;
 
-    for await (const partBytes of splitObjectDataIntoPartBytes(input.data, env.BLOB_SIZE_LIMIT_BYTES)) {
+    for await (const partBytes of splitObjectDataIntoPartBytes(input.data, Number(this.blobConfig.maxSizeBytes))) {
       const sizeBytes = BigInt(partBytes.length);
       receivedSizeBytes += sizeBytes;
       if (receivedSizeBytes > input.totalSizeBytes) {
@@ -244,17 +247,21 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     const partInput = input.part;
 
     const blobId = randomUUID();
-    const placementGroup = calculatePartPlacementGroup(blobId, env.PLACEMENT_GROUP_COUNT);
+    const placementGroup = calculatePartPlacementGroup(blobId, this.partConfig.placementGroupCount);
     const sizeBytes = BigInt(partInput.bytes.length);
     const checksumValue = calculateBlobChecksum(partInput.bytes);
 
     const candidateDataNodes = input.availableDataNodes.filter((dataNode) => dataNode.storageFreeBytes >= sizeBytes);
 
-    if (candidateDataNodes.length < env.REPLICATION_FACTOR) {
+    if (candidateDataNodes.length < this.partConfig.replicationFactor) {
       throw new GenericResourceExhaustedError('Not enough available data nodes with sufficient storage');
     }
 
-    const responsibleDataNodes = selectResponsibleDataNodes(placementGroup, env.REPLICATION_FACTOR, candidateDataNodes);
+    const responsibleDataNodes = selectResponsibleDataNodes(
+      placementGroup,
+      this.partConfig.replicationFactor,
+      candidateDataNodes
+    );
 
     const createPartRepositoryInput: CreatePartWithReplicasRepositoryInput = {
       part: {

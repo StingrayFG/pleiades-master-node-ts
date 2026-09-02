@@ -1,8 +1,6 @@
 const defaultEnv = {
   PORT: '4400',
   GRPC_PORT: '4410',
-  PLACEMENT_GROUP_COUNT: '64',
-  REPLICATION_FACTOR: '3',
   BLOB_SIZE_LIMIT_BYTES: '10485760'
 } as const;
 
@@ -58,14 +56,6 @@ const GRPC_PORT = parsePort('GRPC_PORT', getEnvValue('GRPC_PORT', defaultEnv.GRP
 const REDIS_URL = validateUrl('REDIS_URL', getEnvValue('REDIS_URL'), ['redis:', 'rediss:']);
 const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
 
-const PLACEMENT_GROUP_COUNT = parsePositiveInteger(
-  'PLACEMENT_GROUP_COUNT',
-  getEnvValue('PLACEMENT_GROUP_COUNT', defaultEnv.PLACEMENT_GROUP_COUNT)
-);
-const REPLICATION_FACTOR = parsePositiveInteger(
-  'REPLICATION_FACTOR',
-  getEnvValue('REPLICATION_FACTOR', defaultEnv.REPLICATION_FACTOR)
-);
 const BLOB_SIZE_LIMIT_BYTES = parsePositiveInteger(
   'BLOB_SIZE_LIMIT_BYTES',
   getEnvValue('BLOB_SIZE_LIMIT_BYTES', defaultEnv.BLOB_SIZE_LIMIT_BYTES)
@@ -80,8 +70,6 @@ export const env = {
   REDIS_URL,
   DATABASE_URL,
 
-  PLACEMENT_GROUP_COUNT,
-  REPLICATION_FACTOR,
   BLOB_SIZE_LIMIT_BYTES,
 
   JWT_TOKEN_SECRET

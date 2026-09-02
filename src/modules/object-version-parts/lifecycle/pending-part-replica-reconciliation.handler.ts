@@ -9,16 +9,11 @@ import type {
   ApplyPendingPartReplicaReconciliationRepositoryInput,
   ListPendingPartReplicaReconciliationCandidatesRepositoryInput
 } from '../object-version-part.application';
+import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { resolveFailedGetPartReplicaState } from '../object-version-part.replica-state-resolvers';
 import type { ObjectVersionPartRepositoryContract } from '../object-version-part.repository';
 import { verifyPartBlob } from '../object-version-part.verifiers';
-
-/* constants */
-
-const PART_REPLICA_PENDING_RECONCILIATION_AFTER_MS = 10 * 60 * 1000;
-const PART_REPLICA_PENDING_MAX_AGE_MS = 60 * 60 * 1000;
-const PART_REPLICA_PENDING_RECONCILIATION_BATCH_SIZE = 32;
 
 /* handler */
 
@@ -26,17 +21,18 @@ class PendingPartReplicaReconciliationHandler {
   constructor(
     private readonly repository: ObjectVersionPartRepositoryContract,
     private readonly dataNodeService: DataNodeServiceContract,
-    private readonly blobService: BlobServiceContract
+    private readonly blobService: BlobServiceContract,
+    private readonly partConfig: PartConfig
   ) {}
 
   async run(now: Date): Promise<void> {
-    const updatedBefore = new Date(now.getTime() - PART_REPLICA_PENDING_RECONCILIATION_AFTER_MS);
+    const updatedBefore = new Date(now.getTime() - this.partConfig.lifecycle.reconciliation.afterMs);
 
-    const pendingExpiredBefore = new Date(now.getTime() - PART_REPLICA_PENDING_MAX_AGE_MS);
+    const pendingExpiredBefore = new Date(now.getTime() - this.partConfig.lifecycle.reconciliation.maxAgeMs);
 
     const listPendingCandidatesInput: ListPendingPartReplicaReconciliationCandidatesRepositoryInput = {
       updatedBefore,
-      limit: PART_REPLICA_PENDING_RECONCILIATION_BATCH_SIZE
+      limit: this.partConfig.lifecycle.reconciliation.batchSize
     };
 
     const partReplicas =

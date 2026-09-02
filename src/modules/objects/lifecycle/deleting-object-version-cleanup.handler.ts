@@ -9,12 +9,9 @@ import type {
   ListDeletingObjectVersionCleanupCandidatesRepositoryInput,
   TouchObjectVersionDeletionCandidateRepositoryInput
 } from '../object.application';
+import { objectConfig } from '../object.config';
 import type { ObjectVersion } from '../object.domain';
 import type { ObjectRepositoryContract } from '../object.repository';
-
-/* constants */
-
-const OBJECT_VERSION_DELETION_BATCH_SIZE = 32;
 
 /* handler */
 
@@ -26,7 +23,7 @@ class DeletingObjectVersionCleanupHandler {
 
   async run(): Promise<void> {
     const listDeletionCandidatesInput: ListDeletingObjectVersionCleanupCandidatesRepositoryInput = {
-      limit: OBJECT_VERSION_DELETION_BATCH_SIZE
+      limit: objectConfig.lifecycle.deletionCleanupBatchSize
     };
 
     const objectVersions =

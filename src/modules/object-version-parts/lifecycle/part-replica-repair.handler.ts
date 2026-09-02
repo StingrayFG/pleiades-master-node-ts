@@ -26,12 +26,6 @@ import {
 import type { ObjectVersionPartRepositoryContract } from '../object-version-part.repository';
 import { verifyPartBlob } from '../object-version-part.verifiers';
 
-/* constants */
-
-const PART_REPLICA_REPAIR_AFTER_MS = 10 * 60 * 1000;
-const PART_REPLICA_REPAIR_BATCH_SIZE = 32;
-const PART_REPLICA_REPAIR_CONCURRENCY = 4;
-
 /* handler */
 
 class PartReplicaRepairHandler {
@@ -43,19 +37,19 @@ class PartReplicaRepairHandler {
   ) {}
 
   async run(now: Date): Promise<void> {
-    const updatedBefore = new Date(now.getTime() - PART_REPLICA_REPAIR_AFTER_MS);
+    const updatedBefore = new Date(now.getTime() - this.partConfig.lifecycle.repair.afterMs);
 
     const listRepairCandidatesInput: ListPartReplicaRepairCandidatesRepositoryInput = {
       updatedBefore,
-      limit: PART_REPLICA_REPAIR_BATCH_SIZE
+      limit: this.partConfig.lifecycle.repair.batchSize
     };
 
     const partReplicas = await this.repository.listPartReplicaRepairCandidates(listRepairCandidatesInput);
 
     const errors: ErrorCauseEntry[] = [];
 
-    for (let index = 0; index < partReplicas.length; index += PART_REPLICA_REPAIR_CONCURRENCY) {
-      const repairBatch = partReplicas.slice(index, index + PART_REPLICA_REPAIR_CONCURRENCY);
+    for (let index = 0; index < partReplicas.length; index += this.partConfig.lifecycle.repair.concurrency) {
+      const repairBatch = partReplicas.slice(index, index + this.partConfig.lifecycle.repair.concurrency);
 
       const results = await Promise.allSettled(
         repairBatch.map((partReplica) => this.repairFailedPartReplica(partReplica, now))

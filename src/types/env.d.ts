@@ -7,8 +7,6 @@ declare global {
       REDIS_URL: string;
       DATABASE_URL: string;
 
-      PLACEMENT_GROUP_COUNT: string;
-      REPLICATION_FACTOR: string;
       BLOB_SIZE_LIMIT_BYTES: string;
 
       JWT_TOKEN_SECRET: string;

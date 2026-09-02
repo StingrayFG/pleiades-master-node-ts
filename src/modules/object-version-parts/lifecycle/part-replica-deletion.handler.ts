@@ -9,13 +9,9 @@ import type {
   ListPartReplicaDeletionCandidatesRepositoryInput,
   TouchPartReplicaDeletionCandidateRepositoryInput
 } from '../object-version-part.application';
+import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica } from '../object-version-part.domain';
 import type { ObjectVersionPartRepositoryContract } from '../object-version-part.repository';
-
-/* constants */
-
-const PART_REPLICA_DELETION_AFTER_MS = 10 * 60 * 1000;
-const PART_REPLICA_DELETION_BATCH_SIZE = 32;
 
 /* handler */
 
@@ -23,15 +19,16 @@ class PartReplicaDeletionHandler {
   constructor(
     private readonly repository: ObjectVersionPartRepositoryContract,
     private readonly dataNodeService: DataNodeServiceContract,
-    private readonly blobService: BlobServiceContract
+    private readonly blobService: BlobServiceContract,
+    private readonly partConfig: PartConfig
   ) {}
 
   async run(now: Date): Promise<void> {
-    const updatedBefore = new Date(now.getTime() - PART_REPLICA_DELETION_AFTER_MS);
+    const updatedBefore = new Date(now.getTime() - this.partConfig.lifecycle.deletion.afterMs);
 
     const listDeletionCandidatesInput: ListPartReplicaDeletionCandidatesRepositoryInput = {
       updatedBefore,
-      limit: PART_REPLICA_DELETION_BATCH_SIZE
+      limit: this.partConfig.lifecycle.deletion.batchSize
     };
 
     const partReplicas = await this.repository.listPartReplicaDeletionCandidates(listDeletionCandidatesInput);

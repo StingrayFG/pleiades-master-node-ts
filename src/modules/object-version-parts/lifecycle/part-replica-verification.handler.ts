@@ -10,15 +10,11 @@ import type {
   ListPartReplicaVerificationCandidatesRepositoryInput,
   TouchPartReplicaVerificationCandidateRepositoryInput
 } from '../object-version-part.application';
+import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { resolveFailedGetPartReplicaState } from '../object-version-part.replica-state-resolvers';
 import type { ObjectVersionPartRepositoryContract } from '../object-version-part.repository';
 import { verifyPartBlob } from '../object-version-part.verifiers';
-
-/* constants */
-
-const PART_REPLICA_VERIFICATION_AFTER_MS = 24 * 60 * 60 * 1000;
-const PART_REPLICA_VERIFICATION_BATCH_SIZE = 32;
 
 /* handler */
 
@@ -26,15 +22,16 @@ class PartReplicaVerificationHandler {
   constructor(
     private readonly repository: ObjectVersionPartRepositoryContract,
     private readonly dataNodeService: DataNodeServiceContract,
-    private readonly blobService: BlobServiceContract
+    private readonly blobService: BlobServiceContract,
+    private readonly partConfig: PartConfig
   ) {}
 
   async run(now: Date): Promise<void> {
-    const verifiedBefore = new Date(now.getTime() - PART_REPLICA_VERIFICATION_AFTER_MS);
+    const verifiedBefore = new Date(now.getTime() - this.partConfig.lifecycle.verification.afterMs);
 
     const listVerificationCandidatesInput: ListPartReplicaVerificationCandidatesRepositoryInput = {
       verifiedBefore,
-      limit: PART_REPLICA_VERIFICATION_BATCH_SIZE
+      limit: this.partConfig.lifecycle.verification.batchSize
     };
 
     const partReplicas = await this.repository.listPartReplicaVerificationCandidates(listVerificationCandidatesInput);
