@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer';
 import type { Readable } from 'node:stream';
 
+import { GenericInternalServerError } from '@/errors/application.errors';
+
 /* processors */
 
 export const splitObjectDataIntoPartBytes = async function* (
@@ -8,7 +10,7 @@ export const splitObjectDataIntoPartBytes = async function* (
   partSizeBytes: number
 ): AsyncGenerator<Buffer> {
   if (!Number.isSafeInteger(partSizeBytes) || partSizeBytes <= 0) {
-    throw new Error('Invalid object version part size');
+    throw new GenericInternalServerError('Invalid object version part size');
   }
 
   let chunks: Buffer[] = [];

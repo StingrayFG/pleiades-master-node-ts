@@ -1,3 +1,4 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
@@ -45,7 +46,7 @@ class PartReplicaVerificationHandler {
     const part = await this.repository.findPartByBlobId(partReplica.blobId);
 
     if (!part) {
-      throw new Error('Part replica references a missing object version part');
+      throw new GenericInternalServerError('Part replica references a missing object version part');
     }
 
     const dataNode = await this.dataNodeService.getDataNodeById(partReplica.dataNodeId);

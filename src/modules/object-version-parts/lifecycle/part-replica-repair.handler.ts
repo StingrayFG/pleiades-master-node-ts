@@ -91,7 +91,7 @@ class PartReplicaRepairHandler {
     const part = await this.repository.findPartByBlobId(partReplica.blobId);
 
     if (!part) {
-      throw new Error('Part replica references a missing object version part');
+      throw new GenericInternalServerError('Part replica references a missing object version part');
     }
 
     const partReplicas = await this.repository.listPartReplicasByBlobId(part.blobId);
