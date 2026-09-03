@@ -68,13 +68,12 @@ app.register(
 
 /* background workers */
 
-compositionRoot.backgroundModule.dataNodeLifecycleWorker.start();
-compositionRoot.backgroundModule.objectVersionPartLifecycleWorker.start();
-compositionRoot.backgroundModule.objectLifecycleWorker.start();
+compositionRoot.backgroundModule.start();
 
 /* lifecycle */
 
 app.addHook('onClose', async () => {
+  await compositionRoot.backgroundModule.stop();
   await compositionRoot.close();
 });
 

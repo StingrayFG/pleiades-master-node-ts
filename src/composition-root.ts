@@ -73,12 +73,6 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   });
 
   const close = async (): Promise<void> => {
-    await Promise.all([
-      backgroundModule.dataNodeLifecycleWorker.stop(),
-      backgroundModule.objectVersionPartLifecycleWorker.stop(),
-      backgroundModule.objectLifecycleWorker.stop()
-    ]);
-
     dataNodeModule.grpcClient.close();
     blobModule.grpcClient.close();
 
@@ -95,6 +89,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     close
   };
 };
+
+/* exports */
 
 export { createCompositionRoot };
 export type { CompositionRoot };

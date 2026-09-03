@@ -4,9 +4,9 @@ import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/life
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
 
-import { DataNodeLifecycleWorker } from './data-node-lifecycle.worker';
-import { ObjectLifecycleWorker } from './object-lifecycle.worker';
-import { ObjectVersionPartLifecycleWorker } from './object-version-part-lifecycle.worker';
+import { backgroundConfig } from './background.config';
+import type { BackgroundWorkerContract } from './background-worker.contract';
+import { IntervalBackgroundWorker } from './interval-background.worker';
 
 /* contract */
 
@@ -18,9 +18,24 @@ type BackgroundModuleDependencies = {
 };
 
 type BackgroundModule = {
-  dataNodeLifecycleWorker: DataNodeLifecycleWorker;
-  objectVersionPartLifecycleWorker: ObjectVersionPartLifecycleWorker;
-  objectLifecycleWorker: ObjectLifecycleWorker;
+  start(): void;
+  stop(): Promise<void>;
+};
+
+/* helpers */
+
+const createLoggedBackgroundHandler = (
+  handler: () => Promise<void>,
+  logger: FastifyBaseLogger,
+  failureMessage: string
+): (() => Promise<void>) => {
+  return async () => {
+    try {
+      await handler();
+    } catch (err) {
+      logger.error({ err }, failureMessage);
+    }
+  };
 };
 
 /* module */
@@ -31,19 +46,44 @@ const createBackgroundModule = ({
   objectLifecycleHandler,
   logger
 }: BackgroundModuleDependencies): BackgroundModule => {
-  const dataNodeLifecycleWorker = new DataNodeLifecycleWorker(dataNodeLifecycleHandler, logger);
-
-  const objectVersionPartLifecycleWorker = new ObjectVersionPartLifecycleWorker(
-    objectVersionPartLifecycleHandler,
-    logger
+  const dataNodeLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.dataNodeLifecycleIntervalMs,
+    createLoggedBackgroundHandler(() => dataNodeLifecycleHandler.run(), logger, 'Data node lifecycle sweep failed')
   );
 
-  const objectLifecycleWorker = new ObjectLifecycleWorker(objectLifecycleHandler, logger);
+  const objectVersionPartLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.objectVersionPartLifecycleIntervalMs,
+    createLoggedBackgroundHandler(
+      () => objectVersionPartLifecycleHandler.run(),
+      logger,
+      'Object version part lifecycle sweep failed'
+    )
+  );
 
-  return {
+  const objectLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.objectLifecycleIntervalMs,
+    createLoggedBackgroundHandler(() => objectLifecycleHandler.run(), logger, 'Object lifecycle sweep failed')
+  );
+
+  const workers: readonly BackgroundWorkerContract[] = [
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,
     objectLifecycleWorker
+  ];
+
+  const start = (): void => {
+    for (const worker of workers) {
+      worker.start();
+    }
+  };
+
+  const stop = async (): Promise<void> => {
+    await Promise.all(workers.map((worker) => worker.stop()));
+  };
+
+  return {
+    start,
+    stop
   };
 };
 
