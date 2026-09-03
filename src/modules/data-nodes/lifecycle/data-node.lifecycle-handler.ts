@@ -9,10 +9,7 @@ import { resolveDataNodeState } from '../data-node.domain-policies';
 import type { DataNodeGrpcClientContract } from '../data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from '../data-node.mappers';
 import type { DataNodeRepositoryContract } from '../data-node.repository';
-import {
-  resolveDataNodeStateFromContactSilence,
-  shouldCheckDataNodeHealth
-} from './data-node-lifecycle.policies';
+import { resolveDataNodeStateFromContactSilence, shouldCheckDataNodeHealth } from './data-node-lifecycle.policies';
 
 /* contract */
 

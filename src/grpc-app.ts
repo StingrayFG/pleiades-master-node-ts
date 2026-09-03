@@ -1,11 +1,9 @@
-import { Server, ServerCredentials } from '@grpc/grpc-js';
+import { Server } from '@grpc/grpc-js';
 
 import app, { compositionRoot } from '@/app';
-
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
-
 import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
-
+import { InsecureGrpcServerCredentials } from '@/transports/grpc/server/credentials/insecure-grpc-server-credentials';
 import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
 
 import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
@@ -31,6 +29,8 @@ const grpcErrorHandlerOptions: ToGrpcServerErrorOptions = {
 
 const grpcServer = new Server();
 
+const grpcServerCredentials = new InsecureGrpcServerCredentials();
+
 const dataNodeGrpcRoutes = createDataNodeGrpcRoutes({
   controller: compositionRoot.dataNodeModule.controller
 });
@@ -47,7 +47,7 @@ registerGrpcServiceWithErrorHandling(
 const startGrpcApp = (options: GrpcAppListenOptions, callback: GrpcAppListenCallback): void => {
   const address = `${options.host}:${options.port}`;
 
-  grpcServer.bindAsync(address, ServerCredentials.createInsecure(), (err, boundPort) => {
+  grpcServer.bindAsync(address, grpcServerCredentials.get(), (err, boundPort) => {
     if (err) {
       grpcServer.forceShutdown();
       callback(err, address);

@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import prisma from '@/database/prisma/prisma.client';
 import env from '@/env';
+import { InsecureGrpcClientCredentials } from '@/transports/grpc/client/credentials/insecure-grpc-client-credentials';
 
 import { createBackgroundModule } from '@/modules/background/background.module';
 import type { BlobConfig } from '@/modules/blobs/blob.config';
@@ -33,6 +34,8 @@ type CompositionRoot = {
 /* factory */
 
 const createCompositionRoot = ({ logger }: CreateCompositionRootInput): CompositionRoot => {
+  const grpcClientCredentials = new InsecureGrpcClientCredentials();
+
   const blobConfig: BlobConfig = {
     maxSizeBytes: BigInt(env.BLOB_SIZE_LIMIT_BYTES)
   };
@@ -42,7 +45,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   });
 
   const dataNodeModule = createDataNodeModule({
-    prisma
+    prisma,
+    grpcClientCredentials
   });
 
   const blobModule = createBlobModule({

@@ -3,6 +3,7 @@ import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
+import { createCompositionRoot } from '@/composition-root';
 import env from '@/env';
 import authMiddlewares from '@/middlewares/authMiddlewares';
 import indexRoute from '@/routes/indexRoute';
@@ -10,8 +11,6 @@ import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
-
-import { createCompositionRoot } from '@/composition-root';
 
 /* app */
 

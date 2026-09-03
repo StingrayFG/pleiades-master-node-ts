@@ -1,11 +1,10 @@
-import { credentials as grpcCredentials } from '@grpc/grpc-js';
-
 import { GenericInternalServerError } from '@/errors/application.errors';
 import {
   CheckDataNodeHealthRequest,
   DataNodeStatusClient as GrpcStatusClient,
   type CheckDataNodeHealthResponse
 } from '@/gen/proto/status/v1/status';
+import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
@@ -23,6 +22,8 @@ type DataNodeGrpcClientContract = {
 /* client */
 
 class DataNodeGrpcClient implements DataNodeGrpcClientContract {
+  constructor(private readonly grpcClientCredentials: GrpcClientCredentialsContract) {}
+
   private readonly clients = new Map<string, GrpcStatusClient>();
 
   close(): void {
@@ -42,7 +43,7 @@ class DataNodeGrpcClient implements DataNodeGrpcClientContract {
       return existingClient;
     }
 
-    const credentials = endpoint.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
+    const credentials = this.grpcClientCredentials.get();
 
     const client = new GrpcStatusClient(`${endpoint.hostname}:${endpoint.port}`, credentials);
 

@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
+import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
+
 import { DataNodeGrpcClient } from './data-node.grpc-client';
 import { DataNodeGrpcController } from './data-node.grpc-controller';
 import { DataNodeRepository } from './data-node.repository';
@@ -10,6 +12,7 @@ import { DataNodeLifecycleHandler } from './lifecycle/data-node.lifecycle-handle
 
 type DataNodeModuleDependencies = {
   prisma: PrismaClient;
+  grpcClientCredentials: GrpcClientCredentialsContract;
 };
 
 type DataNodeModule = {
@@ -22,10 +25,10 @@ type DataNodeModule = {
 
 /* module */
 
-const createDataNodeModule = ({ prisma }: DataNodeModuleDependencies): DataNodeModule => {
+const createDataNodeModule = ({ prisma, grpcClientCredentials }: DataNodeModuleDependencies): DataNodeModule => {
   const repository = new DataNodeRepository(prisma);
 
-  const grpcClient = new DataNodeGrpcClient();
+  const grpcClient = new DataNodeGrpcClient(grpcClientCredentials);
 
   const service = new DataNodeService(repository, grpcClient);
 
