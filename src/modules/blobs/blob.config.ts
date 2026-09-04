@@ -1,9 +1,11 @@
-/* config */
+/* types */
 
-type BlobConfig = {
+export type BlobConfig = {
   maxSizeBytes: bigint;
 };
 
-/* exports */
+/* config */
 
-export type { BlobConfig };
+export const blobConfig: BlobConfig = {
+  maxSizeBytes: 10n * 1024n * 1024n
+};

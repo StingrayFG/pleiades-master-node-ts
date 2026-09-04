@@ -1,25 +1,25 @@
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 
-import type { BlobConfig } from './blob.config';
+import { blobConfig } from './blob.config';
 
 /* constants */
 
 const GRPC_BLOB_MESSAGE_OVERHEAD_BYTES = 1024n * 1024n;
 
-/* factory */
+/* helpers */
 
-const createBlobGrpcConfig = (blobConfig: BlobConfig): GrpcClientConfig => {
+const getBlobGrpcMaxMessageSizeBytes = (): number => {
   const maxMessageSizeBytes = blobConfig.maxSizeBytes + GRPC_BLOB_MESSAGE_OVERHEAD_BYTES;
 
   if (maxMessageSizeBytes > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error('Blob gRPC message size exceeds supported numeric range');
   }
 
-  return {
-    maxMessageSizeBytes: Number(maxMessageSizeBytes)
-  };
+  return Number(maxMessageSizeBytes);
 };
 
-/* exports */
+/* config */
 
-export { createBlobGrpcConfig };
+export const blobGrpcConfig: GrpcClientConfig = {
+  maxMessageSizeBytes: getBlobGrpcMaxMessageSizeBytes()
+};

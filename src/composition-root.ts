@@ -1,15 +1,14 @@
 import type { FastifyBaseLogger } from 'fastify';
 
 import prisma from '@/database/prisma/prisma.client';
-import env from '@/env';
 import { MtlsGrpcClientCredentials } from '@/transports/grpc/client/credentials/mtls-grpc-client-credentials';
 import { loadGrpcMtlsConfig } from '@/transports/grpc/config/grpc-mtls.loader';
 import type { GrpcServerCredentialsContract } from '@/transports/grpc/server/credentials/grpc-server-credentials.contract';
 import { MtlsGrpcServerCredentials } from '@/transports/grpc/server/credentials/mtls-grpc-server-credentials';
 
 import { createBackgroundModule } from '@/modules/background/background.module';
-import type { BlobConfig } from '@/modules/blobs/blob.config';
-import { createBlobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
+import { blobConfig } from '@/modules/blobs/blob.config';
+import { blobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
 import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
@@ -44,10 +43,6 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
   const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
 
-  const blobConfig: BlobConfig = {
-    maxSizeBytes: BigInt(env.BLOB_SIZE_LIMIT_BYTES)
-  };
-
   const bucketModule = createBucketModule({
     prisma
   });
@@ -60,7 +55,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const blobModule = createBlobModule({
     blobConfig,
     grpcClientCredentials,
-    grpcConfig: createBlobGrpcConfig(blobConfig)
+    grpcConfig: blobGrpcConfig
   });
 
   const objectVersionPartModule = createObjectVersionPartModule({
