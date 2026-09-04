@@ -3,6 +3,7 @@ import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
+import { serializeErrorForLog } from '@/common/serializers/error.serializer';
 import { createCompositionRoot } from '@/composition-root';
 import env from '@/env';
 import authMiddlewares from '@/middlewares/authMiddlewares';
@@ -16,7 +17,10 @@ import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 
 const app = Fastify({
   logger: {
-    level: process.env.LOG_LEVEL || 'info'
+    level: process.env.LOG_LEVEL || 'info',
+    serializers: {
+      err: serializeErrorForLog
+    }
   }
 });
 
