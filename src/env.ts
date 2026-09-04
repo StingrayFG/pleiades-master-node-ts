@@ -56,7 +56,6 @@ const GRPC_CA_CERT_PATH = getEnvValue('GRPC_CA_CERT_PATH');
 const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
 const GRPC_PRIVATE_KEY_PATH = getEnvValue('GRPC_PRIVATE_KEY_PATH');
 
-const REDIS_URL = validateUrl('REDIS_URL', getEnvValue('REDIS_URL'), ['redis:', 'rediss:']);
 const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
 
 const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
@@ -69,7 +68,6 @@ export const env = {
   GRPC_CERT_PATH,
   GRPC_PRIVATE_KEY_PATH,
 
-  REDIS_URL,
   DATABASE_URL,
 
   JWT_TOKEN_SECRET

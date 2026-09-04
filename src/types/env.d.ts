@@ -8,7 +8,6 @@ declare global {
       GRPC_CERT_PATH: string;
       GRPC_PRIVATE_KEY_PATH: string;
 
-      REDIS_URL: string;
       DATABASE_URL: string;
 
       JWT_TOKEN_SECRET: string;
