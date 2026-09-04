@@ -9,6 +9,7 @@ export const DATA_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const
 
 export const dataNodeIdSchema = z.string().min(1);
 
+export const dataNodeCertificateFingerprintSchema = z.string().min(1);
 export const dataNodeSessionIdSchema = z.string().uuid();
 export const dataNodeStateSchema = z.enum(DATA_NODE_STATES);
 export const dataNodeModeSchema = z.enum(DATA_NODE_MODES);
@@ -30,6 +31,7 @@ export const dataNodeEndpointSchema = z.object({
 export const dataNodeSchema = z.object({
   id: dataNodeIdSchema,
 
+  certificateFingerprint: dataNodeCertificateFingerprintSchema,
   sessionId: dataNodeSessionIdSchema,
   state: dataNodeStateSchema,
   mode: dataNodeModeSchema,
@@ -68,6 +70,7 @@ export const dataNodeHealthSnapshotSchema = z
 
 export type DataNodeId = z.infer<typeof dataNodeIdSchema>;
 
+export type DataNodeCertificateFingerprint = z.infer<typeof dataNodeCertificateFingerprintSchema>;
 export type DataNodeSessionId = z.infer<typeof dataNodeSessionIdSchema>;
 export type DataNodeState = z.infer<typeof dataNodeStateSchema>;
 export type DataNodeMode = z.infer<typeof dataNodeModeSchema>;

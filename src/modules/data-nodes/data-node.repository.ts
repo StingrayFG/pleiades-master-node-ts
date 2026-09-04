@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
+import { GenericConflictError } from '@/errors/application.errors';
 
 import type {
   ApplyDataNodeRegistrationRepositoryInput,
@@ -87,6 +88,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           data: {
             id: input.id,
 
+            certificate_fingerprint: input.certificateFingerprint,
             session_id: input.sessionId,
             last_heartbeat_sequence: 0n,
             state: input.state,
@@ -104,8 +106,12 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           }
         });
       } catch (err) {
-        if (isUniqueConstraintError(err)) {
+        if (isUniqueConstraintError(err, 'id')) {
           return false;
+        }
+
+        if (isUniqueConstraintError(err, 'certificate_fingerprint')) {
+          throw new GenericConflictError('Data node certificate is already registered');
         }
 
         throw mapPrismaError(err, errorMap) ?? err;
@@ -158,6 +164,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
         where: {
           id: input.id,
 
+          certificate_fingerprint: input.certificateFingerprint,
           session_id: input.sessionId,
           last_heartbeat_sequence: {
             lt: input.heartbeatSequence

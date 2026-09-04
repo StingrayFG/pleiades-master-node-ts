@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  dataNodeCertificateFingerprintSchema,
   dataNodeEndpointSchema,
   dataNodeHealthSnapshotSchema,
   dataNodeIdSchema,
@@ -12,6 +13,9 @@ import {
 
 export const registerDataNodeInputSchema = z.object({
   id: dataNodeIdSchema,
+
+  certificateFingerprint: dataNodeCertificateFingerprintSchema,
+
   endpoint: dataNodeEndpointSchema,
 
   healthSnapshot: dataNodeHealthSnapshotSchema
@@ -20,6 +24,7 @@ export const registerDataNodeInputSchema = z.object({
 export const heartbeatDataNodeInputSchema = z.object({
   id: dataNodeIdSchema,
 
+  certificateFingerprint: dataNodeCertificateFingerprintSchema,
   sessionId: dataNodeSessionIdSchema,
   heartbeatSequence: z.bigint().positive(),
 
@@ -31,6 +36,7 @@ export const heartbeatDataNodeInputSchema = z.object({
 export const applyDataNodeRegistrationRepositoryInputSchema = z.object({
   id: dataNodeIdSchema,
 
+  certificateFingerprint: dataNodeCertificateFingerprintSchema,
   sessionId: dataNodeSessionIdSchema,
   state: dataNodeStateSchema,
 
@@ -47,6 +53,7 @@ export const applyDataNodeRegistrationRepositoryInputSchema = z.object({
 export const applyHeartbeatRepositoryInputSchema = z.object({
   id: dataNodeIdSchema,
 
+  certificateFingerprint: dataNodeCertificateFingerprintSchema,
   sessionId: dataNodeSessionIdSchema,
   heartbeatSequence: z.bigint().positive(),
   state: dataNodeStateSchema,

@@ -1,3 +1,4 @@
+import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 
 import type { BlobConfig } from './blob.config';
@@ -8,6 +9,7 @@ import { BlobService } from './blob.service';
 
 type BlobModuleDependencies = {
   blobConfig: BlobConfig;
+  grpcClientCredentials: GrpcClientCredentialsContract;
   grpcConfig: GrpcClientConfig;
 };
 
@@ -18,8 +20,8 @@ type BlobModule = {
 
 /* module */
 
-const createBlobModule = ({ blobConfig, grpcConfig }: BlobModuleDependencies): BlobModule => {
-  const grpcClient = new BlobGrpcClient(grpcConfig);
+const createBlobModule = ({ blobConfig, grpcClientCredentials, grpcConfig }: BlobModuleDependencies): BlobModule => {
+  const grpcClient = new BlobGrpcClient(grpcConfig, grpcClientCredentials);
 
   const service = new BlobService(grpcClient, blobConfig);
 

@@ -1,9 +1,5 @@
 /**/
 
-type GrpcClientConfig = {
+export type GrpcClientConfig = {
   maxMessageSizeBytes: number;
 };
-
-/**/
-
-export type { GrpcClientConfig };

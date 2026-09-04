@@ -23,6 +23,7 @@ model DataNode {
   id                      String @id
   
   // lifecycle
+  certificate_fingerprint String        @unique
   session_id              String
   last_heartbeat_sequence BigInt        @default(0)
   state                   DataNodeState @default(joining)

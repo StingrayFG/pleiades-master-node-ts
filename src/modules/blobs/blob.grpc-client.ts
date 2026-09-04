@@ -1,5 +1,3 @@
-import { credentials as grpcCredentials } from '@grpc/grpc-js';
-
 import {
   BlobClient as GrpcBlobClient,
   type GetBlobResponse,
@@ -7,6 +5,7 @@ import {
   type PutBlobResponse,
   type VerifyBlobResponse
 } from '@/gen/proto/blob/v1/blob';
+import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 import { createAuthenticatedGrpcMetadata } from '@/transports/grpc/client/grpc-client.metadata';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
@@ -44,7 +43,10 @@ type BlobGrpcClientContract = {
 class BlobGrpcClient implements BlobGrpcClientContract {
   private readonly clientsByEndpoint = new Map<string, GrpcBlobClient>();
 
-  constructor(private readonly grpcConfig: GrpcClientConfig) {}
+  constructor(
+    private readonly grpcConfig: GrpcClientConfig,
+    private readonly grpcClientCredentials: GrpcClientCredentialsContract
+  ) {}
 
   /* public */
 
@@ -160,7 +162,7 @@ class BlobGrpcClient implements BlobGrpcClientContract {
       return existingClient;
     }
 
-    const credentials = endpoint.scheme === 'grpcs' ? grpcCredentials.createSsl() : grpcCredentials.createInsecure();
+    const credentials = this.grpcClientCredentials.get();
     const maxMessageSizeBytes = this.grpcConfig.maxMessageSizeBytes;
 
     const client = new GrpcBlobClient(`${endpoint.hostname}:${endpoint.port}`, credentials, {

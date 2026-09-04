@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { GenericConflictError, GenericInternalServerError, GenericNotFoundError } from '@/errors/application.errors';
+import {
+  GenericConflictError,
+  GenericForbiddenError,
+  GenericInternalServerError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
 
 import type {
   ApplyDataNodeRegistrationRepositoryInput,
@@ -56,11 +61,16 @@ class DataNodeService implements DataNodeServiceContract {
     for (let attempt = 0; attempt < 3; attempt++) {
       const currentDataNode = await this.repository.findById(input.id);
 
+      if (currentDataNode && currentDataNode.certificateFingerprint !== input.certificateFingerprint) {
+        throw new GenericForbiddenError('Data node certificate does not match the registered certificate');
+      }
+
       const state = 'joining';
 
       const applyRegistrationInput: ApplyDataNodeRegistrationRepositoryInput = {
         id: input.id,
 
+        certificateFingerprint: input.certificateFingerprint,
         sessionId,
         state,
 
@@ -92,6 +102,7 @@ class DataNodeService implements DataNodeServiceContract {
     const applyHeartbeatInput: ApplyHeartbeatRepositoryInput = {
       id: input.id,
 
+      certificateFingerprint: input.certificateFingerprint,
       sessionId: input.sessionId,
       heartbeatSequence: input.heartbeatSequence,
       state,
@@ -113,6 +124,10 @@ class DataNodeService implements DataNodeServiceContract {
 
     if (!dataNode) {
       throw new GenericNotFoundError('Data node not found');
+    }
+
+    if (dataNode.certificateFingerprint !== input.certificateFingerprint) {
+      throw new GenericForbiddenError('Data node certificate does not match the registered certificate');
     }
 
     if (dataNode.sessionId !== input.sessionId) {

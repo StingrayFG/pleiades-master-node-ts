@@ -35,5 +35,8 @@ coverage/
 # legacy / removed code
 removed/
 
+# development certificates
+dev-certificates/
+
 # custom scripts
 dbuild.sh

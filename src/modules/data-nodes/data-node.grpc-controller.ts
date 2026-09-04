@@ -7,6 +7,7 @@ import type {
   RegisterDataNodeRequest,
   RegisterDataNodeResponse
 } from '@/gen/proto/membership/v1/membership';
+import { getGrpcPeerCertificateFingerprint } from '@/transports/grpc/server/auth/grpc-peer-auth';
 
 import type { HeartbeatDataNodeInput, RegisterDataNodeInput } from './data-node.application';
 import {
@@ -37,10 +38,12 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
     call: ServerUnaryCall<RegisterDataNodeRequest, RegisterDataNodeResponse>,
     callback: sendUnaryData<RegisterDataNodeResponse>
   ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
     let serviceInput: RegisterDataNodeInput;
 
     try {
-      serviceInput = mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput(call.request);
+      serviceInput = mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput(call.request, certificateFingerprint);
     } catch (err) {
       if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid register data node request', { cause: err });
@@ -60,10 +63,15 @@ class DataNodeGrpcController implements DataNodeGrpcControllerContract {
     call: ServerUnaryCall<RecordDataNodeHeartbeatRequest, RecordDataNodeHeartbeatResponse>,
     callback: sendUnaryData<RecordDataNodeHeartbeatResponse>
   ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
     let serviceInput: HeartbeatDataNodeInput;
 
     try {
-      serviceInput = mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput(call.request);
+      serviceInput = mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput(
+        call.request,
+        certificateFingerprint
+      );
     } catch (err) {
       if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid record data node heartbeat request', { cause: err });

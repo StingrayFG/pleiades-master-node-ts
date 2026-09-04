@@ -1,6 +1,6 @@
 import { credentials, type ChannelCredentials } from '@grpc/grpc-js';
 
-import type { GrpcClientCredentialsContract } from './grpc-client-credentials.contract.js';
+import type { GrpcClientCredentialsContract } from './grpc-client-credentials.contract';
 
 /**/
 

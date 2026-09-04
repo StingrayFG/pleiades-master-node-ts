@@ -2,7 +2,10 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import prisma from '@/database/prisma/prisma.client';
 import env from '@/env';
-import { InsecureGrpcClientCredentials } from '@/transports/grpc/client/credentials/insecure-grpc-client-credentials';
+import { MtlsGrpcClientCredentials } from '@/transports/grpc/client/credentials/mtls-grpc-client-credentials';
+import { loadGrpcMtlsConfig } from '@/transports/grpc/config/grpc-mtls.loader';
+import type { GrpcServerCredentialsContract } from '@/transports/grpc/server/credentials/grpc-server-credentials.contract';
+import { MtlsGrpcServerCredentials } from '@/transports/grpc/server/credentials/mtls-grpc-server-credentials';
 
 import { createBackgroundModule } from '@/modules/background/background.module';
 import type { BlobConfig } from '@/modules/blobs/blob.config';
@@ -21,6 +24,8 @@ type CreateCompositionRootInput = {
 };
 
 type CompositionRoot = {
+  grpcServerCredentials: GrpcServerCredentialsContract;
+
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
   blobModule: ReturnType<typeof createBlobModule>;
@@ -34,7 +39,10 @@ type CompositionRoot = {
 /* factory */
 
 const createCompositionRoot = ({ logger }: CreateCompositionRootInput): CompositionRoot => {
-  const grpcClientCredentials = new InsecureGrpcClientCredentials();
+  const grpcMtlsConfig = loadGrpcMtlsConfig();
+
+  const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
+  const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
 
   const blobConfig: BlobConfig = {
     maxSizeBytes: BigInt(env.BLOB_SIZE_LIMIT_BYTES)
@@ -51,6 +59,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const blobModule = createBlobModule({
     blobConfig,
+    grpcClientCredentials,
     grpcConfig: createBlobGrpcConfig(blobConfig)
   });
 
@@ -84,6 +93,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   };
 
   return {
+    grpcServerCredentials,
     bucketModule,
     dataNodeModule,
     blobModule,

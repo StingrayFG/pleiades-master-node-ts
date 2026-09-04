@@ -60,7 +60,8 @@ export const mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot = (
 /* grpc -> application */
 
 export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
-  request: RecordDataNodeHeartbeatRequest
+  request: RecordDataNodeHeartbeatRequest,
+  certificateFingerprint: HeartbeatDataNodeInput['certificateFingerprint']
 ): HeartbeatDataNodeInput => {
   return withMapperError('Failed to map gRPC record data node heartbeat request to heartbeat data node input', () => {
     if (!request.health_snapshot) {
@@ -70,6 +71,7 @@ export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
     return heartbeatDataNodeInputSchema.parse({
       id: request.node_id,
 
+      certificateFingerprint,
       sessionId: request.session_id,
       heartbeatSequence: request.heartbeat_sequence,
 
@@ -79,7 +81,8 @@ export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
 };
 
 export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
-  request: RegisterDataNodeRequest
+  request: RegisterDataNodeRequest,
+  certificateFingerprint: RegisterDataNodeInput['certificateFingerprint']
 ): RegisterDataNodeInput => {
   return withMapperError('Failed to map gRPC register data node request to register data node input', () => {
     if (!request.health_snapshot) {
@@ -88,6 +91,9 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
 
     return registerDataNodeInputSchema.parse({
       id: request.node_id,
+
+      certificateFingerprint,
+
       endpoint: {
         hostname: request.hostname,
         port: request.port,
@@ -118,6 +124,7 @@ export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): Dat
     dataNodeSchema.parse({
       id: dataNode.id,
 
+      certificateFingerprint: dataNode.certificate_fingerprint,
       sessionId: dataNode.session_id,
       state: dataNode.state,
       mode: dataNode.mode,
