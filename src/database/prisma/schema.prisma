@@ -6,57 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum DataNodeState {
-  joining
-  active
-  offline
-  failed
-}
-
-enum DataNodeMode {
-  serving
-  draining
-}
-
-model DataNode {
-  // identity
-  id                      String @id
-  
-  // lifecycle
-  certificate_fingerprint String        @unique
-  session_id              String
-  last_heartbeat_sequence BigInt        @default(0)
-  state                   DataNodeState @default(joining)
-  mode                    DataNodeMode  @default(serving)
-
-  // connection metadata
-  hostname                String
-  port                    Int
-  scheme                  String @default("grpcs")
-
-  // storage metadata
-  storage_total_bytes BigInt
-  storage_free_bytes  BigInt
-
-  // relations
-  replicas ObjectVersionPartReplica[]
-
-  // timestamps
-  registered_at        DateTime  @default(now())
-  last_contact_at      DateTime
-  last_heartbeat_at    DateTime?
-  last_health_check_at DateTime?
-  updated_at           DateTime  @updatedAt
-
-  // concurrency
-  revision BigInt @default(0)
-
-  // database metadata
-  @@index([state])
-  @@index([last_heartbeat_at])
-  @@map("data_nodes")
-}
-
 enum BucketState {
   active
   deleting
@@ -200,4 +149,55 @@ model ObjectVersionPartReplica {
   @@index([state, last_verified_at])
   @@index([state, updated_at])
   @@map("replicas")
+}
+
+enum DataNodeState {
+  joining
+  active
+  offline
+  failed
+}
+
+enum DataNodeMode {
+  serving
+  draining
+}
+
+model DataNode {
+  // identity
+  id                      String @id
+  
+  // lifecycle
+  certificate_fingerprint String        @unique
+  session_id              String
+  last_heartbeat_sequence BigInt        @default(0)
+  state                   DataNodeState @default(joining)
+  mode                    DataNodeMode  @default(serving)
+
+  // connection metadata
+  hostname                String
+  port                    Int
+  scheme                  String @default("grpcs")
+
+  // storage metadata
+  storage_total_bytes BigInt
+  storage_free_bytes  BigInt
+
+  // relations
+  replicas ObjectVersionPartReplica[]
+
+  // timestamps
+  registered_at        DateTime  @default(now())
+  last_contact_at      DateTime
+  last_heartbeat_at    DateTime?
+  last_health_check_at DateTime?
+  updated_at           DateTime  @updatedAt
+
+  // concurrency
+  revision BigInt @default(0)
+
+  // database metadata
+  @@index([state])
+  @@index([last_heartbeat_at])
+  @@map("data_nodes")
 }
