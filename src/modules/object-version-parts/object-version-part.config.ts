@@ -1,39 +1,41 @@
-/* config */
+/* types */
 
-type PartRepairConfig = {
+export type PartRepairConfig = {
   afterMs: number;
   batchSize: number;
   concurrency: number;
 };
 
-type PartReconciliationConfig = {
+export type PartReconciliationConfig = {
   afterMs: number;
   maxAgeMs: number;
   batchSize: number;
 };
 
-type PartVerificationConfig = {
+export type PartVerificationConfig = {
   afterMs: number;
   batchSize: number;
 };
 
-type PartDeletionConfig = {
+export type PartDeletionConfig = {
   afterMs: number;
   batchSize: number;
 };
 
-type PartLifecycleConfig = {
+export type PartLifecycleConfig = {
   repair: PartRepairConfig;
   reconciliation: PartReconciliationConfig;
   verification: PartVerificationConfig;
   deletion: PartDeletionConfig;
 };
 
-type PartConfig = {
+export type PartConfig = {
   placementGroupCount: number;
   replicationFactor: number;
   lifecycle: PartLifecycleConfig;
 };
+
+/* config */
 
 export const partConfig: PartConfig = {
   placementGroupCount: 64,
@@ -59,15 +61,4 @@ export const partConfig: PartConfig = {
       batchSize: 32
     }
   }
-};
-
-/* exports */
-
-export type {
-  PartConfig,
-  PartLifecycleConfig,
-  PartDeletionConfig,
-  PartReconciliationConfig,
-  PartRepairConfig,
-  PartVerificationConfig
 };

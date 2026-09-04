@@ -1,14 +1,16 @@
-/* config */
+/* types  */
 
-type DataNodeLifecycleConfig = {
+export type DataNodeLifecycleConfig = {
   offlineAfterMs: number;
   healthCheckAfterMs: number;
   healthCheckIntervalMs: number;
 };
 
-type DataNodeConfig = {
+export type DataNodeConfig = {
   lifecycle: DataNodeLifecycleConfig;
 };
+
+/* config */
 
 export const dataNodeConfig: DataNodeConfig = {
   lifecycle: {
@@ -17,7 +19,3 @@ export const dataNodeConfig: DataNodeConfig = {
     healthCheckIntervalMs: 5 * 60 * 1000
   }
 };
-
-/* exports */
-
-export type { DataNodeConfig, DataNodeLifecycleConfig };

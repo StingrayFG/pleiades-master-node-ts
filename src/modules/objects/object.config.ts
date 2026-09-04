@@ -1,14 +1,16 @@
-/* config */
+/* types */
 
-type ObjectLifecycleConfig = {
+export type ObjectLifecycleConfig = {
   pendingCleanupAfterMs: number;
   pendingCleanupBatchSize: number;
   deletionCleanupBatchSize: number;
 };
 
-type ObjectConfig = {
+export type ObjectConfig = {
   lifecycle: ObjectLifecycleConfig;
 };
+
+/* config */
 
 export const objectConfig: ObjectConfig = {
   lifecycle: {
@@ -17,7 +19,3 @@ export const objectConfig: ObjectConfig = {
     deletionCleanupBatchSize: 32
   }
 };
-
-/* exports */
-
-export type { ObjectConfig, ObjectLifecycleConfig };

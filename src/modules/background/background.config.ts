@@ -1,14 +1,16 @@
-/* config */
+/* types  */
 
-type BackgroundWorkerConfig = {
+export type BackgroundWorkerConfig = {
   dataNodeLifecycleIntervalMs: number;
   objectVersionPartLifecycleIntervalMs: number;
   objectLifecycleIntervalMs: number;
 };
 
-type BackgroundConfig = {
+export type BackgroundConfig = {
   worker: BackgroundWorkerConfig;
 };
+
+/* config */
 
 export const backgroundConfig: BackgroundConfig = {
   worker: {
@@ -17,7 +19,3 @@ export const backgroundConfig: BackgroundConfig = {
     objectLifecycleIntervalMs: 60_000
   }
 };
-
-/* exports */
-
-export type { BackgroundConfig, BackgroundWorkerConfig };
