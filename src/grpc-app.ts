@@ -1,10 +1,17 @@
+// external
 import { Server } from '@grpc/grpc-js';
 
+// application
 import app, { compositionRoot } from '@/app';
+
+// generated grpc contracts
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
+
+// grpc infrastructure
 import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
 import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
 
+// module grpc surfaces
 import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
 
 /* contract */

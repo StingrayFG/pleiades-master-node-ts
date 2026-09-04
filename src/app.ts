@@ -1,15 +1,20 @@
+// external
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 
+// application infrastructure
 import { serializeErrorForLog } from '@/common/serializers/error.serializer';
 import { createCompositionRoot } from '@/composition-root';
 import env from '@/env';
+
+// http infrastructure
 import authMiddlewares from '@/middlewares/authMiddlewares';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
+// module routes
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 
