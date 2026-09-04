@@ -12,12 +12,12 @@ import {
   InternodeInvalidArgumentError,
   InternodeNotFoundError,
   InternodeResourceExhaustedError,
-  InternodeUnavailableError
+  InternodeUnavailableError,
+  InternodeErrorDetails
 } from '@/errors/internode.errors';
 import { BlobErrorDetails, BlobState } from '@/gen/proto/blob/v1/blob';
 
 import type { DataNodeBlobState } from '@/modules/blobs/blob.domain';
-import type { InternodeBlobErrorDetails } from '@/modules/blobs/blob.internode';
 
 /* types and constants */
 
@@ -27,7 +27,7 @@ type GrpcErrorCode = Exclude<GrpcStatusCode, typeof status.OK>;
 type KnownBlobState = Exclude<BlobState, BlobState.UNRECOGNIZED>;
 
 type InternodeApplicationErrorFactory = (
-  ...args: [message: string, details?: InternodeBlobErrorDetails, options?: ErrorOptions]
+  ...args: [message: string, details?: InternodeErrorDetails, options?: ErrorOptions]
 ) => InternodeApplicationError;
 
 const BLOB_ERROR_DETAILS_METADATA_KEY = 'blob-error-details-bin';
@@ -109,51 +109,43 @@ const mapGrpcErrorToInternodeApplicationError = (error: unknown): InternodeAppli
         ? error.message
         : 'gRPC request failed';
 
-  const blobErrorDetails = extractBlobErrorDetails(error);
+  const errorDetails = extractInternodeErrorDetails(error);
 
-  return internodeApplicationErrorFactoryByGrpcStatusCode[code](message, blobErrorDetails, {
+  return internodeApplicationErrorFactoryByGrpcStatusCode[code](message, errorDetails, {
     cause: error
   });
 };
 
-const extractBlobErrorDetails = (error: unknown): InternodeBlobErrorDetails | undefined => {
-  const details = decodeBlobErrorDetails(error);
-
-  if (!details) {
-    return undefined;
-  }
-
-  if (!details?.blob_id) {
-    return undefined;
-  }
-
-  if (details.state === BlobState.UNRECOGNIZED) {
-    return undefined;
-  }
-
-  const blobState = dataNodeBlobStateByProtoState[details.state];
-
-  if (!blobState) {
-    return undefined;
-  }
-
-  return {
-    blobId: details.blob_id,
-    blobState
-  };
-};
-
-const decodeBlobErrorDetails = (error: unknown): BlobErrorDetails | undefined => {
+const extractInternodeErrorDetails = (error: unknown): InternodeErrorDetails | undefined => {
   if (!error || typeof error !== 'object') {
     return undefined;
   }
 
   const metadata = 'metadata' in error && error.metadata instanceof Metadata ? error.metadata : undefined;
 
-  if (!metadata) {
-    return undefined;
-  }
+  let details;
 
+  if (metadata?.get(BLOB_ERROR_DETAILS_METADATA_KEY).length) {
+    details = decodeBlobErrorDetailsFromMetadata(metadata);
+
+    if (!details || !details.blob_id || details.state === BlobState.UNRECOGNIZED) {
+      return undefined;
+    }
+
+    const blobState = dataNodeBlobStateByProtoState[details.state];
+
+    if (!blobState) {
+      return undefined;
+    }
+
+    return {
+      blobId: details.blob_id,
+      blobState
+    };
+  }
+};
+
+const decodeBlobErrorDetailsFromMetadata = (metadata: Metadata): BlobErrorDetails | undefined => {
   const value = metadata.get(BLOB_ERROR_DETAILS_METADATA_KEY)[0];
 
   if (!Buffer.isBuffer(value)) {
