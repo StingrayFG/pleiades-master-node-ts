@@ -12,7 +12,6 @@ import {
   type RegisterDataNodeInput
 } from './data-node.application';
 import {
-  dataNodeEndpointSchema,
   dataNodeHealthSnapshotSchema,
   dataNodeSchema,
   type DataNode,
@@ -108,13 +107,13 @@ export const mapGrpcRegisterDataNodeRequestToRegisterDataNodeInput = (
 /* domain */
 
 export const mapDataNodeToDataNodeEndpoint = (dataNode: DataNode): DataNodeEndpoint => {
-  return withMapperError('Failed to map data node to data node endpoint', () =>
-    dataNodeEndpointSchema.parse({
+  return withMapperError('Failed to map data node to data node endpoint', () => {
+    return {
       hostname: dataNode.hostname,
       port: dataNode.port,
       scheme: dataNode.scheme
-    })
-  );
+    };
+  });
 };
 
 /* prisma -> domain */
