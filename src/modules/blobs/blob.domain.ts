@@ -16,6 +16,7 @@ export const dataNodeBlobStateSchema = z.enum(DATA_NODE_BLOB_STATES);
 
 export const blobMetadataSchema = z.object({
   blobId: blobIdSchema,
+
   sizeBytes: blobSizeBytesSchema,
   checksumAlgorithm: blobChecksumAlgorithmSchema,
   checksumValue: blobChecksumValueSchema

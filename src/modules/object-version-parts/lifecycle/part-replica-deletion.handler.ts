@@ -51,6 +51,7 @@ class PartReplicaDeletionHandler {
     try {
       await this.blobService.deleteBlob({
         blobId: partReplica.blobId,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       });
     } catch (err) {

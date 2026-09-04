@@ -8,11 +8,13 @@ import { blobIdSchema, blobMetadataWithBytesSchema } from './blob.domain';
 
 export const dataNodeBlobInputSchema = z.object({
   blobId: blobIdSchema,
+
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 
 export const dataNodeBlobWithBytesInputSchema = z.object({
   blob: blobMetadataWithBytesSchema,
+
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 

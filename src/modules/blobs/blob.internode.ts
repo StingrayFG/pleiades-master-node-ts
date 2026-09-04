@@ -6,6 +6,7 @@ import { blobIdSchema, dataNodeBlobStateSchema } from './blob.domain';
 
 export const internodeBlobErrorDetailsSchema = z.object({
   blobId: blobIdSchema,
+
   blobState: dataNodeBlobStateSchema.optional()
 });
 

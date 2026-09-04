@@ -59,6 +59,7 @@ class PartReplicaVerificationHandler {
     try {
       const blobMetadata = await this.blobService.verifyBlob({
         blobId: part.blobId,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       });
 

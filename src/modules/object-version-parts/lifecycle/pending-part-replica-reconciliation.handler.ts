@@ -77,6 +77,7 @@ class PendingPartReplicaReconciliationHandler {
     try {
       const blobMetadata = await this.blobService.getBlobMetadata({
         blobId: part.blobId,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       });
 

@@ -192,6 +192,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     try {
       const getBlobInput: DataNodeBlobInput = {
         blobId: part.blobId,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       };
 
@@ -286,9 +287,11 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
     const blob: BlobMetadataWithBytes = {
       blobId,
+
       sizeBytes,
       checksumAlgorithm: BLOB_CHECKSUM_ALGORITHM,
       checksumValue,
+
       bytes: partInput.bytes
     };
 
@@ -343,6 +346,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
     try {
       const ensureBlobExistsInput: DataNodeBlobWithBytesInput = {
         blob,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
       };
 

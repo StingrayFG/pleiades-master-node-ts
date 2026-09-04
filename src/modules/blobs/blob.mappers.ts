@@ -25,6 +25,7 @@ export const mapGrpcHeadBlobResponseToDomainBlobMetadata = (response: HeadBlobRe
   return withMapperError('Failed to map gRPC head blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
       blobId: response.blob_id,
+
       sizeBytes: parseByteCount(response.size_bytes),
       checksumAlgorithm: response.checksum_algorithm,
       checksumValue: response.checksum_value
@@ -38,9 +39,11 @@ export const mapGrpcGetBlobResponseToDomainBlobMetadataWithBytes = (
   return withMapperError('Failed to map gRPC get blob response to domain blob metadata with bytes', () =>
     blobMetadataWithBytesSchema.parse({
       blobId: response.blob_id,
+
       sizeBytes: parseByteCount(response.size_bytes),
       checksumAlgorithm: response.checksum_algorithm,
       checksumValue: response.checksum_value,
+
       bytes: response.bytes
     })
   );
@@ -50,6 +53,7 @@ export const mapGrpcVerifyBlobResponseToDomainBlobMetadata = (response: VerifyBl
   return withMapperError('Failed to map gRPC verify blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
       blobId: response.blob_id,
+
       sizeBytes: parseByteCount(response.size_bytes),
       checksumAlgorithm: response.checksum_algorithm,
       checksumValue: response.checksum_value
@@ -61,6 +65,7 @@ export const mapGrpcPutBlobResponseToDomainBlobMetadata = (response: PutBlobResp
   return withMapperError('Failed to map gRPC put blob response to domain blob metadata', () =>
     blobMetadataSchema.parse({
       blobId: response.blob_id,
+
       sizeBytes: parseByteCount(response.size_bytes),
       checksumAlgorithm: response.checksum_algorithm,
       checksumValue: response.checksum_value
@@ -98,9 +103,11 @@ export const mapPutBlobClientInputToGrpcPutBlobRequest = (input: DataNodeBlobWit
   return withMapperError('Failed to map put blob gRPC client input to gRPC request', () =>
     PutBlobRequest.create({
       blob_id: input.blob.blobId,
+
       size_bytes: input.blob.sizeBytes.toString(),
       checksum_algorithm: input.blob.checksumAlgorithm,
       checksum_value: input.blob.checksumValue,
+
       bytes: input.blob.bytes
     })
   );

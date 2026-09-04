@@ -31,6 +31,7 @@ class BlobService implements BlobServiceContract {
   async getBlobMetadata(input: DataNodeBlobInput): Promise<BlobMetadata> {
     const headBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
+
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
@@ -44,6 +45,7 @@ class BlobService implements BlobServiceContract {
   async getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes> {
     const getBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
+
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
@@ -57,6 +59,7 @@ class BlobService implements BlobServiceContract {
   async verifyBlob(input: DataNodeBlobInput): Promise<BlobMetadata> {
     const verifyBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
+
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
@@ -72,6 +75,7 @@ class BlobService implements BlobServiceContract {
 
     const putBlobClientInput: DataNodeBlobWithBytesInput = {
       blob: input.blob,
+
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
@@ -85,6 +89,7 @@ class BlobService implements BlobServiceContract {
   async deleteBlob(input: DataNodeBlobInput): Promise<void> {
     const deleteBlobClientInput: DataNodeBlobInput = {
       blobId: input.blobId,
+
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 

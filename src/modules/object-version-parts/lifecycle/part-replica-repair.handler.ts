@@ -134,6 +134,7 @@ class PartReplicaRepairHandler {
     try {
       await this.blobService.ensureBlobExists({
         blob,
+
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(replacementDataNode)
       });
 
@@ -194,6 +195,7 @@ class PartReplicaRepairHandler {
       try {
         const blob = await this.blobService.getBlob({
           blobId: part.blobId,
+
           dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
         });
 
