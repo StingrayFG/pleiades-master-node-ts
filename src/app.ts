@@ -10,7 +10,7 @@ import { createCompositionRoot } from '@/composition-root';
 import env from '@/env';
 
 // http infrastructure
-import authMiddlewares from '@/middlewares/authMiddlewares';
+import jwtMiddleware from '@/plugins/jwt/jwt.middleware';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
@@ -40,10 +40,13 @@ app.register(cors, {
 });
 
 app.register(fastifyJwt, {
-  secret: env.JWT_TOKEN_SECRET
+  secret: env.JWT_TOKEN_SECRET,
+  sign: {
+    expiresIn: env.JWT_TOKEN_TTL
+  }
 });
 
-app.register(authMiddlewares);
+app.register(jwtMiddleware);
 app.register(errorHandlerPlugin);
 
 /* composition */

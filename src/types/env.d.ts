@@ -11,6 +11,7 @@ declare global {
       DATABASE_URL: string;
 
       JWT_TOKEN_SECRET: string;
+      JWT_TOKEN_TTL: string;
     }
   }
 }

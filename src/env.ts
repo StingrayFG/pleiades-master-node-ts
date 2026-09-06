@@ -1,6 +1,7 @@
 const defaultEnv = {
   PORT: '4400',
-  GRPC_PORT: '4410'
+  GRPC_PORT: '4410',
+  JWT_TOKEN_TTL: '30m'
 } as const;
 
 const getEnvValue = (name: string, fallback?: string): string => {
@@ -52,25 +53,27 @@ const validateUrl = (name: string, value: string, allowedProtocols: readonly str
 const PORT = parsePort('PORT', getEnvValue('PORT', defaultEnv.PORT));
 const GRPC_PORT = parsePort('GRPC_PORT', getEnvValue('GRPC_PORT', defaultEnv.GRPC_PORT));
 
-const GRPC_CA_CERT_PATH = getEnvValue('GRPC_CA_CERT_PATH');
-const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
-const GRPC_PRIVATE_KEY_PATH = getEnvValue('GRPC_PRIVATE_KEY_PATH');
-
 const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
 
 const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
+const JWT_TOKEN_TTL = getEnvValue('JWT_TOKEN_TTL', defaultEnv.JWT_TOKEN_TTL);
+
+const GRPC_CA_CERT_PATH = getEnvValue('GRPC_CA_CERT_PATH');
+const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
+const GRPC_PRIVATE_KEY_PATH = getEnvValue('GRPC_PRIVATE_KEY_PATH');
 
 export const env = {
   PORT,
   GRPC_PORT,
 
-  GRPC_CA_CERT_PATH,
-  GRPC_CERT_PATH,
-  GRPC_PRIVATE_KEY_PATH,
-
   DATABASE_URL,
 
-  JWT_TOKEN_SECRET
+  JWT_TOKEN_SECRET,
+  JWT_TOKEN_TTL,
+
+  GRPC_CA_CERT_PATH,
+  GRPC_CERT_PATH,
+  GRPC_PRIVATE_KEY_PATH
 } as const;
 
 export default env;
