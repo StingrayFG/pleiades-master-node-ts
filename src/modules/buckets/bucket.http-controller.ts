@@ -12,7 +12,7 @@ import type { BucketServiceContract } from './bucket.service';
 /* contract */
 
 type BucketHttpControllerContract = {
-  listBuckets(reply: FastifyReply<ListBucketsHttpRoute>): Promise<void>;
+  listBuckets(req: FastifyRequest<ListBucketsHttpRoute>, reply: FastifyReply<ListBucketsHttpRoute>): Promise<void>;
   getBucket(req: FastifyRequest<GetBucketHttpRoute>, reply: FastifyReply<GetBucketHttpRoute>): Promise<void>;
   putBucket(req: FastifyRequest<PutBucketHttpRoute>, reply: FastifyReply<PutBucketHttpRoute>): Promise<void>;
   deleteBucket(req: FastifyRequest<DeleteBucketHttpRoute>, reply: FastifyReply<DeleteBucketHttpRoute>): Promise<void>;
@@ -23,8 +23,13 @@ type BucketHttpControllerContract = {
 class BucketController implements BucketHttpControllerContract {
   constructor(private readonly service: BucketServiceContract) {}
 
-  async listBuckets(reply: FastifyReply<ListBucketsHttpRoute>): Promise<void> {
-    const buckets = await this.service.listBuckets();
+  async listBuckets(
+    req: FastifyRequest<ListBucketsHttpRoute>,
+    reply: FastifyReply<ListBucketsHttpRoute>
+  ): Promise<void> {
+    const userId = req.auth.userId;
+
+    const buckets = await this.service.listBuckets(userId);
 
     const res = mapDomainBucketsToHttpBucketsResponse(buckets);
 
@@ -32,9 +37,10 @@ class BucketController implements BucketHttpControllerContract {
   }
 
   async getBucket(req: FastifyRequest<GetBucketHttpRoute>, reply: FastifyReply<GetBucketHttpRoute>): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
 
-    const bucket = await this.service.getBucketByName(bucketName);
+    const bucket = await this.service.getBucketByName(userId, bucketName);
 
     const res = mapDomainBucketToHttpBucketResponse(bucket);
 
@@ -42,9 +48,10 @@ class BucketController implements BucketHttpControllerContract {
   }
 
   async putBucket(req: FastifyRequest<PutBucketHttpRoute>, reply: FastifyReply<PutBucketHttpRoute>): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
 
-    const bucketResolution = await this.service.ensureBucketExists(bucketName);
+    const bucketResolution = await this.service.ensureBucketExists(userId, bucketName);
 
     const res = mapDomainBucketToHttpBucketResponse(bucketResolution.bucket);
 
@@ -60,9 +67,10 @@ class BucketController implements BucketHttpControllerContract {
     req: FastifyRequest<DeleteBucketHttpRoute>,
     reply: FastifyReply<DeleteBucketHttpRoute>
   ): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
 
-    const bucket = await this.service.deleteBucket(bucketName);
+    const bucket = await this.service.deleteBucket(userId, bucketName);
 
     const res = mapDomainBucketToHttpBucketResponse(bucket);
 

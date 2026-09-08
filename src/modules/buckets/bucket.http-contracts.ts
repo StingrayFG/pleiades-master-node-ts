@@ -20,7 +20,9 @@ export const bucketNameParamsSchema = z.object({
 
 export const bucketResponseSchema = z.object({
   name: bucketNameSchema,
+
   state: bucketStateSchema,
+
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 });

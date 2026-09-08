@@ -18,10 +18,13 @@ class ObjectController implements ObjectHttpControllerContract {
   constructor(private readonly service: ObjectServiceContract) {}
 
   async getObject(req: FastifyRequest<GetObjectHttpRoute>, reply: FastifyReply<GetObjectHttpRoute>): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
     const objectKey = req.params['*'];
 
     const serviceInput: GetObjectInput = {
+      userId,
+
       bucketName,
       objectKey
     };
@@ -40,10 +43,13 @@ class ObjectController implements ObjectHttpControllerContract {
   }
 
   async headObject(req: FastifyRequest<HeadObjectHttpRoute>, reply: FastifyReply<HeadObjectHttpRoute>): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
     const objectKey = req.params['*'];
 
     const serviceInput: GetObjectMetadataInput = {
+      userId,
+
       bucketName,
       objectKey
     };
@@ -62,13 +68,16 @@ class ObjectController implements ObjectHttpControllerContract {
   }
 
   async putObject(req: FastifyRequest<PutObjectHttpRoute>, reply: FastifyReply<PutObjectHttpRoute>): Promise<void> {
-    const { bucketName } = req.params;
+    const userId = req.auth.userId;
+    const bucketName = req.params.bucketName;
     const objectKey = req.params['*'];
     const totalSizeBytes = req.headers['content-length'];
     const contentType = req.headers['content-type'];
     const data = req.raw;
 
     const serviceInput: CreateObjectInput = {
+      userId,
+
       bucketName,
       objectKey,
 

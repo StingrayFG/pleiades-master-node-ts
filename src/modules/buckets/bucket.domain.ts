@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { userIdSchema } from '@/modules/users/user.domain';
+
 /* field schemas */
 
 export const BUCKET_STATES = ['active', 'deleting', 'disabled'] as const;
@@ -17,6 +19,8 @@ export const bucketStateSchema = z.enum(BUCKET_STATES);
 export const bucketSchema = z.object({
   id: bucketIdSchema,
   name: bucketNameSchema,
+
+  userId: userIdSchema,
 
   state: bucketStateSchema,
 

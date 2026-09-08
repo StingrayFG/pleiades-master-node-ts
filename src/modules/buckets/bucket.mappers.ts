@@ -31,6 +31,9 @@ export const mapPrismaBucketToDomainBucket = (bucket: PrismaBucket): Bucket => {
     return bucketSchema.parse({
       id: bucket.id,
       name: bucket.name,
+
+      userId: bucket.user_id,
+
       state: bucket.state,
       createdAt: bucket.created_at,
       updatedAt: bucket.updated_at

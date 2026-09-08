@@ -48,7 +48,7 @@ class ObjectService implements ObjectServiceContract {
   /* public */
 
   async getObjectMetadata(input: GetObjectMetadataInput): Promise<ObjectVersion> {
-    const bucket = await this.bucketService.getBucketByName(input.bucketName);
+    const bucket = await this.bucketService.getBucketByName(input.userId, input.bucketName);
 
     if (bucket.state !== 'active') {
       throw new GenericFailedPreconditionError('Bucket is not active');
@@ -75,6 +75,8 @@ class ObjectService implements ObjectServiceContract {
 
   async getObject(input: GetObjectInput): Promise<GetObjectResult> {
     const getObjectMetadataInput: GetObjectMetadataInput = {
+      userId: input.userId,
+
       bucketName: input.bucketName,
       objectKey: input.objectKey
     };
@@ -101,7 +103,7 @@ class ObjectService implements ObjectServiceContract {
   }
 
   async createObject(input: CreateObjectInput): Promise<CreateObjectResult> {
-    const bucket = await this.bucketService.getBucketByName(input.bucketName);
+    const bucket = await this.bucketService.getBucketByName(input.userId, input.bucketName);
 
     if (bucket.state !== 'active') {
       throw new GenericFailedPreconditionError('Bucket is not active');

@@ -32,7 +32,7 @@ const createBucketHttpRoutes = ({ controller }: BucketHttpRoutesDependencies): F
       {
         schema: listBucketsHttpSchema
       },
-      (_, reply) => controller.listBuckets(reply)
+      (req, reply) => controller.listBuckets(req, reply)
     );
 
     typedApp.get<GetBucketHttpRoute>(

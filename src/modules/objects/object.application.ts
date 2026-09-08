@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { z } from 'zod';
 
 import { bucketIdSchema, bucketNameSchema } from '@/modules/buckets/bucket.domain';
+import { userIdSchema } from '@/modules/users/user.domain';
 
 import {
   objectIdSchema,
@@ -16,11 +17,15 @@ import {
 /* service schemas */
 
 export const getObjectMetadataInputSchema = z.object({
+  userId: userIdSchema,
+
   bucketName: bucketNameSchema,
   objectKey: objectKeySchema
 });
 
 export const getObjectInputSchema = z.object({
+  userId: userIdSchema,
+
   bucketName: bucketNameSchema,
   objectKey: objectKeySchema
 });
@@ -31,6 +36,8 @@ export const getObjectResultSchema = z.object({
 });
 
 export const createObjectInputSchema = z.object({
+  userId: userIdSchema,
+
   bucketName: bucketNameSchema,
   objectKey: objectKeySchema,
 

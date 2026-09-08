@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
 import { GenericAbortedError } from '@/errors/application.errors';
+import type { UserId } from '@/modules/users/user.domain';
 
 import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
@@ -11,10 +12,10 @@ import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 /* contract */
 
 type BucketRepositoryContract = {
-  listAll(): Promise<Bucket[]>;
-  findByName(name: BucketName): Promise<Bucket | null>;
-  findOrCreate(name: BucketName): Promise<EnsureBucketExistsResult>;
-  delete(name: BucketName): Promise<Bucket>;
+  listAll(userId: UserId): Promise<Bucket[]>;
+  findByName(userId: UserId, name: BucketName): Promise<Bucket | null>;
+  findOrCreate(userId: UserId, name: BucketName): Promise<EnsureBucketExistsResult>;
+  delete(userId: UserId, name: BucketName): Promise<Bucket>;
 };
 
 /* repository */
@@ -24,11 +25,14 @@ const errorMap: PrismaErrorMapperOverrides = {};
 class BucketRepository implements BucketRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async listAll(): Promise<Bucket[]> {
+  async listAll(userId: UserId): Promise<Bucket[]> {
     let buckets;
 
     try {
       buckets = await this.prisma.bucket.findMany({
+        where: {
+          user_id: userId
+        },
         orderBy: {
           name: 'asc'
         }
@@ -40,13 +44,16 @@ class BucketRepository implements BucketRepositoryContract {
     return buckets.map(mapPrismaBucketToDomainBucket);
   }
 
-  async findByName(bucketName: BucketName): Promise<Bucket | null> {
+  async findByName(userId: UserId, bucketName: BucketName): Promise<Bucket | null> {
     let bucket;
 
     try {
       bucket = await this.prisma.bucket.findUnique({
         where: {
-          name: bucketName
+          user_id_name: {
+            user_id: userId,
+            name: bucketName
+          }
         }
       });
     } catch (err) {
@@ -56,13 +63,15 @@ class BucketRepository implements BucketRepositoryContract {
     return bucket ? mapPrismaBucketToDomainBucket(bucket) : null;
   }
 
-  async findOrCreate(bucketName: BucketName): Promise<EnsureBucketExistsResult> {
+  async findOrCreate(userId: UserId, bucketName: BucketName): Promise<EnsureBucketExistsResult> {
     let bucket;
 
     try {
       bucket = await this.prisma.bucket.create({
         data: {
           name: bucketName,
+
+          user_id: userId,
 
           state: 'active'
         }
@@ -72,7 +81,7 @@ class BucketRepository implements BucketRepositoryContract {
         throw mapPrismaError(err, errorMap) ?? err;
       }
 
-      const existingBucket = await this.findByName(bucketName);
+      const existingBucket = await this.findByName(userId, bucketName);
 
       if (!existingBucket) {
         throw new GenericAbortedError('Bucket resolution was aborted by a concurrent change', { cause: err });
@@ -90,13 +99,16 @@ class BucketRepository implements BucketRepositoryContract {
     };
   }
 
-  async delete(bucketName: BucketName): Promise<Bucket> {
+  async delete(userId: UserId, bucketName: BucketName): Promise<Bucket> {
     let bucket;
 
     try {
       bucket = await this.prisma.bucket.delete({
         where: {
-          name: bucketName
+          user_id_name: {
+            user_id: userId,
+            name: bucketName
+          }
         }
       });
     } catch (err) {
