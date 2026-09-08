@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export const DATA_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
 export const DATA_NODE_MODES = ['serving', 'draining'] as const;
-export const DATA_NODE_SCHEMES = ['grpc', 'grpcs'] as const;
+export const DATA_NODE_SCHEMES = ['grpcs'] as const;
 export const DATA_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
 
 export const dataNodeIdSchema = z.string().min(1);
