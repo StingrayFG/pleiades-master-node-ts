@@ -6,6 +6,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// users and authentication
+
 enum UserState {
   active
   disabled
@@ -100,6 +102,8 @@ model UserRefreshToken {
   @@index([user_id])
   @@map("user_refresh_tokens")
 }
+
+// buckets and object storage
 
 enum BucketState {
   active
@@ -250,6 +254,8 @@ model ObjectVersionPartReplica {
   @@index([state, updated_at])
   @@map("replicas")
 }
+
+// cluster and nodes
 
 enum DataNodeState {
   joining
