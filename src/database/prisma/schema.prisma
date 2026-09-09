@@ -18,16 +18,16 @@ model User {
   id String @id @default(uuid())
 
   // authentication
-  username String @unique
+  username      String @unique
   password_hash String
 
   // lifecycle
   state UserState @default(active)
 
   // relations
-  api_keys UserApiKey[]
+  api_keys       UserApiKey[]
   refresh_tokens UserRefreshToken[]
-  buckets  Bucket[]
+  buckets        Bucket[]
 
   // timestamps
   created_at DateTime @default(now())
@@ -62,10 +62,10 @@ model UserApiKey {
   user User @relation(fields: [user_id], references: [id])
 
   // timestamps
-  created_at DateTime @default(now())
-  expires_at DateTime?
+  created_at   DateTime  @default(now())
+  expires_at   DateTime?
   last_used_at DateTime?
-  revoked_at DateTime?
+  revoked_at   DateTime?
 
   // database metadata
   @@index([user_id])
@@ -94,7 +94,7 @@ model UserRefreshToken {
   user User @relation(fields: [user_id], references: [id])
 
   // timestamps
-  created_at DateTime @default(now())
+  created_at DateTime  @default(now())
   expires_at DateTime
   revoked_at DateTime?
 
@@ -113,8 +113,8 @@ enum BucketState {
 
 model Bucket {
   // identity
-  id    String      @id @default(uuid())
-  name  String      
+  id   String @id @default(uuid())
+  name String
 
   // ownership
   user_id String
@@ -124,7 +124,7 @@ model Bucket {
 
   // relations
   user    User     @relation(fields: [user_id], references: [id])
-  objects Object[]  
+  objects Object[]
 
   // timestamps
   created_at DateTime @default(now())
@@ -137,17 +137,19 @@ model Bucket {
 
 model Object {
   // identity
-  id                     String @id @default(uuid())
-  key                    String
-  bucket_id              String
+  id  String @id @default(uuid())
+  key String
+
+  // ownership
+  bucket_id String
 
   // version
   current_version        Int?
-  last_allocated_version Int    @default(0)
+  last_allocated_version Int  @default(0)
 
   // relations
-  bucket    Bucket          @relation(fields: [bucket_id], references: [id])
-  versions  ObjectVersion[]
+  bucket   Bucket          @relation(fields: [bucket_id], references: [id])
+  versions ObjectVersion[]
 
   // timestamps
   created_at DateTime @default(now())
@@ -166,11 +168,11 @@ enum ObjectVersionState {
 
 model ObjectVersion {
   // identity
-  object_id        String
-  version          Int
+  object_id String
+  version   Int
 
   // lifecycle
-  state            ObjectVersionState @default(pending)
+  state ObjectVersionState @default(pending)
 
   // metadata
   total_size_bytes BigInt
@@ -196,11 +198,10 @@ model ObjectVersionPart {
   object_id   String
   version     Int
   part_number Int
-
-  blob_id            String @id @default(uuid())
+  blob_id     String @id @default(uuid())
 
   // placement 
-  placement_group    Int
+  placement_group Int
 
   // metadata
   size_bytes         BigInt
@@ -235,7 +236,7 @@ model ObjectVersionPartReplica {
   data_node_id String
 
   // lifecycle
-  state        ObjectVersionPartReplicaState @default(pending)
+  state ObjectVersionPartReplicaState @default(pending)
 
   // relations
   object_version_part ObjectVersionPart @relation(fields: [blob_id], references: [blob_id])
@@ -244,7 +245,7 @@ model ObjectVersionPartReplica {
   // timestamps
   created_at       DateTime  @default(now())
   last_verified_at DateTime?
-  state_changed_at DateTime @default(now())
+  state_changed_at DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
   // database metadata
@@ -271,8 +272,8 @@ enum DataNodeMode {
 
 model DataNode {
   // identity
-  id                      String @id
-  
+  id String @id
+
   // lifecycle
   certificate_fingerprint String        @unique
   session_id              String
@@ -281,9 +282,9 @@ model DataNode {
   mode                    DataNodeMode  @default(serving)
 
   // connection metadata
-  hostname                String
-  port                    Int
-  scheme                  String @default("grpcs")
+  hostname String
+  port     Int
+  scheme   String @default("grpcs")
 
   // storage metadata
   storage_total_bytes BigInt
