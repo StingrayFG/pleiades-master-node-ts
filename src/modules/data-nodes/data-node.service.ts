@@ -13,6 +13,7 @@ import type {
   HeartbeatDataNodeInput,
   RegisterDataNodeInput
 } from './data-node.application';
+import { dataNodeConfig } from './data-node.config';
 import type { DataNode, DataNodeHealthSnapshot, DataNodeId, DataNodeSessionId } from './data-node.domain';
 import { resolveDataNodeState } from './data-node.domain-policies';
 import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
@@ -58,7 +59,7 @@ class DataNodeService implements DataNodeServiceContract {
 
     const now = new Date();
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < dataNodeConfig.registration.maxAttempts; attempt++) {
       const currentDataNode = await this.repository.findById(input.id);
 
       if (currentDataNode && currentDataNode.certificateFingerprint !== input.certificateFingerprint) {
