@@ -1,0 +1,75 @@
+import { z } from 'zod';
+
+/* field schemas */
+
+export const MASTER_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
+export const MASTER_NODE_MODES = ['leader', 'follower', 'draining'];
+export const MASTER_NODE_SCHEMES = ['grpcs'] as const;
+export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
+
+export const masterNodeIdSchema = z.string().min(1);
+
+export const masterNodeCertificateFingerprintSchema = z.string().min(1);
+export const masterNodeSessionIdSchema = z.string().uuid();
+export const masterNodeStateSchema = z.enum(MASTER_NODE_STATES);
+export const masterNodeModeSchema = z.enum(MASTER_NODE_MODES);
+
+export const masterNodeHostnameSchema = z.string().min(1);
+export const masterNodePortSchema = z.number().int().min(1).max(65535);
+export const masterNodeSchemeSchema = z.enum(MASTER_NODE_SCHEMES);
+
+export const masterNodeHealthSnapshotStatusSchema = z.enum(MASTER_NODE_HEALTH_SNAPSHOT_STATUS);
+
+/* object schemas */
+
+export const masterNodeEndpointSchema = z.object({
+  hostname: masterNodeHostnameSchema,
+  port: masterNodePortSchema,
+  scheme: masterNodeSchemeSchema
+});
+
+export const masterNodeSchema = z.object({
+  id: masterNodeIdSchema,
+
+  certificateFingerprint: masterNodeCertificateFingerprintSchema,
+  sessionId: masterNodeSessionIdSchema,
+  state: masterNodeStateSchema,
+  mode: masterNodeModeSchema,
+
+  hostname: masterNodeHostnameSchema,
+  port: masterNodePortSchema,
+  scheme: masterNodeSchemeSchema,
+
+  registeredAt: z.date(),
+  lastContactAt: z.date(),
+  lastHealthCheckAt: z.date().nullable(),
+  lastHeartbeatAt: z.date().nullable(),
+  updatedAt: z.date(),
+
+  revision: z.bigint().nonnegative()
+});
+
+export const masterNodeHealthSnapshotSchema = z.object({
+  status: masterNodeHealthSnapshotStatusSchema,
+  databaseOk: z.boolean(),
+  message: z.string()
+});
+
+/* types */
+
+export type MasterNodeId = z.infer<typeof masterNodeIdSchema>;
+
+export type MasterNodeCertificateFingerprint = z.infer<typeof masterNodeCertificateFingerprintSchema>;
+export type MasterNodeSessionId = z.infer<typeof masterNodeSessionIdSchema>;
+export type MasterNodeState = z.infer<typeof masterNodeStateSchema>;
+export type MasterNodeMode = z.infer<typeof masterNodeModeSchema>;
+
+export type MasterNodeHostname = z.infer<typeof masterNodeHostnameSchema>;
+export type MasterNodePort = z.infer<typeof masterNodePortSchema>;
+export type MasterNodeScheme = z.infer<typeof masterNodeSchemeSchema>;
+
+export type MasterNodeHealthSnapshotStatus = z.infer<typeof masterNodeHealthSnapshotStatusSchema>;
+
+export type MasterNodeEndpoint = z.infer<typeof masterNodeEndpointSchema>;
+export type MasterNode = z.infer<typeof masterNodeSchema>;
+export type MasterNodeHealthSnapshot = z.infer<typeof masterNodeHealthSnapshotSchema>;

@@ -308,3 +308,49 @@ model DataNode {
   @@index([last_heartbeat_at])
   @@map("data_nodes")
 }
+
+enum MasterNodeState {
+  joining
+  active
+  offline
+  failed
+}
+
+enum MasterNodeMode {
+  leader
+  follower
+  draining
+}
+
+model MasterNode {
+  // identity
+  id String @id
+
+  // lifecycle
+  certificate_fingerprint String          @unique
+  session_id              String
+  state                   MasterNodeState @default(joining)
+  mode                    MasterNodeMode  @default(follower)
+
+  // connection metadata
+  hostname String
+  port     Int
+  scheme   String @default("grpcs")
+
+  // relations
+  tasks           Task[]
+  task_executions TaskExecution[]
+
+  // timestamps
+  registered_at        DateTime  @default(now())
+  last_contact_at      DateTime
+  last_health_check_at DateTime?
+  last_heartbeat_at    DateTime?
+  updated_at           DateTime  @updatedAt
+
+  // concurrency
+  revision BigInt @default(0)
+
+  // database metadata
+  @@map("master_nodes")
+}
