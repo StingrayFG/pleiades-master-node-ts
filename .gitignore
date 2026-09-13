@@ -32,11 +32,14 @@ coverage/
 .idea/
 .vscode/
 
-# legacy / removed code
-removed/
+# local data
+data/
 
 # development certificates
 dev-certificates/
 
 # custom scripts
 dbuild.sh
+
+# legacy / removed code
+removed/

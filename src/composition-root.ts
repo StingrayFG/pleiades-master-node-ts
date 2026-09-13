@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 
 import prisma from '@/database/prisma/prisma.client';
+import env from '@/env';
 import { MtlsGrpcClientCredentials } from '@/transports/grpc/client/credentials/mtls-grpc-client-credentials';
 import { loadGrpcMtlsConfig } from '@/transports/grpc/config/grpc-mtls.loader';
 import type { GrpcServerCredentialsContract } from '@/transports/grpc/server/credentials/grpc-server-credentials.contract';
@@ -12,6 +13,8 @@ import { blobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
 import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
+import type { IdentityConfig } from '@/modules/identity/identity.config';
+import { createIdentityModule } from '@/modules/identity/identity.module';
 import { partConfig } from '@/modules/object-version-parts/object-version-part.config';
 import { createObjectVersionPartModule } from '@/modules/object-version-parts/object-version-part.module';
 import { createObjectModule } from '@/modules/objects/object.module';
@@ -25,6 +28,7 @@ type CreateCompositionRootInput = {
 type CompositionRoot = {
   grpcServerCredentials: GrpcServerCredentialsContract;
 
+  identityModule: ReturnType<typeof createIdentityModule>;
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
   blobModule: ReturnType<typeof createBlobModule>;
@@ -38,6 +42,14 @@ type CompositionRoot = {
 /* factory */
 
 const createCompositionRoot = ({ logger }: CreateCompositionRootInput): CompositionRoot => {
+  const identityConfig: IdentityConfig = {
+    nodeIdPath: env.NODE_ID_PATH
+  };
+
+  const identityModule = createIdentityModule({
+    identityConfig
+  });
+
   const grpcMtlsConfig = loadGrpcMtlsConfig();
 
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
@@ -89,6 +101,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   return {
     grpcServerCredentials,
+    identityModule,
     bucketModule,
     dataNodeModule,
     blobModule,

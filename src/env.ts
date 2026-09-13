@@ -1,6 +1,7 @@
 const defaultEnv = {
   PORT: '4400',
   GRPC_PORT: '4410',
+  NODE_ID_PATH: 'data/node-id',
   JWT_TOKEN_TTL: '30m'
 } as const;
 
@@ -55,6 +56,8 @@ const GRPC_PORT = parsePort('GRPC_PORT', getEnvValue('GRPC_PORT', defaultEnv.GRP
 
 const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
 
+const NODE_ID_PATH = getEnvValue('NODE_ID_PATH', defaultEnv.NODE_ID_PATH);
+
 const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
 const JWT_TOKEN_TTL = getEnvValue('JWT_TOKEN_TTL', defaultEnv.JWT_TOKEN_TTL);
 
@@ -67,6 +70,8 @@ export const env = {
   GRPC_PORT,
 
   DATABASE_URL,
+
+  NODE_ID_PATH,
 
   JWT_TOKEN_SECRET,
   JWT_TOKEN_TTL,

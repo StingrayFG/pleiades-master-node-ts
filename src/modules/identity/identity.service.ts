@@ -1,0 +1,74 @@
+import { randomBytes } from 'node:crypto';
+
+import { GenericInternalServerError } from '@/errors/application.errors';
+
+import { nodeIdSchema, type NodeId } from './identity.domain';
+import type { IdentityRepositoryContract } from './identity.repository';
+
+/* constants */
+
+const NODE_ID_PREFIX = 'master-node';
+const NODE_ID_RANDOM_SIZE_BYTES = 6;
+
+/* contract */
+
+type IdentityServiceContract = {
+  getNodeId(): NodeId;
+};
+
+/* service */
+
+class IdentityService implements IdentityServiceContract {
+  private nodeId: NodeId | null = null;
+
+  constructor(private readonly repository: IdentityRepositoryContract) {}
+
+  getNodeId(): NodeId {
+    if (this.nodeId) {
+      return this.nodeId;
+    }
+
+    const existingNodeId = this.repository.findNodeId();
+
+    if (existingNodeId) {
+      this.nodeId = existingNodeId;
+
+      return existingNodeId;
+    }
+
+    const nodeId = this.generateNodeId();
+
+    if (this.repository.createNodeId(nodeId)) {
+      this.nodeId = nodeId;
+
+      return nodeId;
+    }
+
+    const concurrentlyCreatedNodeId = this.repository.findNodeId();
+
+    if (!concurrentlyCreatedNodeId) {
+      throw new GenericInternalServerError('The node ID file was created concurrently but could not be read');
+    }
+
+    this.nodeId = concurrentlyCreatedNodeId;
+
+    return concurrentlyCreatedNodeId;
+  }
+
+  private generateNodeId(): NodeId {
+    let randomIdPart;
+
+    try {
+      randomIdPart = randomBytes(NODE_ID_RANDOM_SIZE_BYTES).toString('hex');
+    } catch (err) {
+      throw new GenericInternalServerError('Failed to generate the node ID', { cause: err });
+    }
+
+    return nodeIdSchema.parse(`${NODE_ID_PREFIX}-${randomIdPart}`);
+  }
+}
+
+/* exports */
+
+export { IdentityService };
+export type { IdentityServiceContract };
