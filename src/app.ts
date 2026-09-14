@@ -11,10 +11,12 @@ import env from '@/env';
 
 // http infrastructure
 import jwtMiddleware from '@/plugins/jwt/jwt.middleware';
+import adminJwtMiddleware from '@/plugins/admin-jwt/admin-jwt.middleware';
 import indexRoute from '@/routes/indexRoute';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
 // module routes
+import { createBootstrapHttpRoutes } from '@/modules/bootstrap/bootstrap.http-routes';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 
@@ -45,8 +47,13 @@ app.register(fastifyJwt, {
     expiresIn: env.JWT_TOKEN_TTL
   }
 });
+app.register(fastifyJwt, {
+  namespace: 'admin',
+  secret: env.ADMIN_TOKEN_SECRET
+});
 
 app.register(jwtMiddleware);
+app.register(adminJwtMiddleware);
 app.register(errorHandlerPlugin);
 
 /* composition */
@@ -58,6 +65,15 @@ const compositionRoot = createCompositionRoot({
 /* routes */
 
 app.register(indexRoute);
+
+app.register(
+  createBootstrapHttpRoutes({
+    controller: compositionRoot.bootstrapModule.controller
+  }),
+  {
+    prefix: '/internal/bootstrap'
+  }
+);
 
 app.register(
   createBucketHttpRoutes({

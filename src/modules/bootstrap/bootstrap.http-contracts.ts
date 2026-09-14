@@ -1,0 +1,33 @@
+import { z } from 'zod';
+
+import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
+import {
+  conflictHttpErrorResponseSchema,
+  internalServerErrorHttpErrorResponseSchema
+} from '@/transports/http/schemas/error.schemas';
+
+import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
+
+import { masterBootstrapRoleSchema } from './bootstrap.domain';
+
+/* schemas */
+
+export const bootstrapResultResponseSchema = z.object({
+  role: masterBootstrapRoleSchema,
+  epoch: z.string(),
+  leaderMasterId: masterNodeIdSchema.nullable()
+});
+
+export const bootstrapLeaderHttpSchema = {
+  response: {
+    200: bootstrapResultResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema
+  }
+};
+
+/* types */
+
+export type BootstrapResultResponse = z.infer<typeof bootstrapResultResponseSchema>;
+
+export type BootstrapLeaderHttpRoute = InferHttpRoute<typeof bootstrapLeaderHttpSchema>;

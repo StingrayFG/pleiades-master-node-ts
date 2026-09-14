@@ -61,6 +61,8 @@ const NODE_ID_PATH = getEnvValue('NODE_ID_PATH', defaultEnv.NODE_ID_PATH);
 const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
 const JWT_TOKEN_TTL = getEnvValue('JWT_TOKEN_TTL', defaultEnv.JWT_TOKEN_TTL);
 
+const ADMIN_TOKEN_SECRET = getEnvValue('ADMIN_TOKEN_SECRET');
+
 const GRPC_CA_CERT_PATH = getEnvValue('GRPC_CA_CERT_PATH');
 const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
 const GRPC_PRIVATE_KEY_PATH = getEnvValue('GRPC_PRIVATE_KEY_PATH');
@@ -75,6 +77,8 @@ export const env = {
 
   JWT_TOKEN_SECRET,
   JWT_TOKEN_TTL,
+
+  ADMIN_TOKEN_SECRET,
 
   GRPC_CA_CERT_PATH,
   GRPC_CERT_PATH,
