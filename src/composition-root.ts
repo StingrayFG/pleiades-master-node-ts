@@ -12,6 +12,7 @@ import { blobConfig } from '@/modules/blobs/blob.config';
 import { blobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
 import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
+import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
@@ -29,6 +30,7 @@ type CompositionRoot = {
   grpcServerCredentials: GrpcServerCredentialsContract;
 
   identityModule: ReturnType<typeof createIdentityModule>;
+  consensusModule: ReturnType<typeof createConsensusModule>;
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
   blobModule: ReturnType<typeof createBlobModule>;
@@ -48,6 +50,10 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const identityModule = createIdentityModule({
     identityConfig
+  });
+
+  const consensusModule = createConsensusModule({
+    prisma
   });
 
   const grpcMtlsConfig = loadGrpcMtlsConfig();
@@ -102,6 +108,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   return {
     grpcServerCredentials,
     identityModule,
+    consensusModule,
     bucketModule,
     dataNodeModule,
     blobModule,
