@@ -1,12 +1,11 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
-import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
-import { GenericAbortedError } from '@/errors/application.errors';
+import { GenericAlreadyExistsError, GenericNotFoundError } from '@/errors/application.errors';
 import type { UserId } from '@/modules/users/user.domain';
 
-import type { EnsureBucketExistsResult } from './bucket.application';
-import type { Bucket, BucketName } from './bucket.domain';
+import type { CreateBucketRepositoryInput } from './bucket.application';
+import type { Bucket, BucketId, BucketName } from './bucket.domain';
 import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 
 /* contract */
@@ -14,13 +13,24 @@ import { mapPrismaBucketToDomainBucket } from './bucket.mappers';
 type BucketRepositoryContract = {
   listAll(userId: UserId): Promise<Bucket[]>;
   findByName(userId: UserId, name: BucketName): Promise<Bucket | null>;
-  findOrCreate(userId: UserId, name: BucketName): Promise<EnsureBucketExistsResult>;
-  delete(userId: UserId, name: BucketName): Promise<Bucket>;
+  create(input: CreateBucketRepositoryInput): Promise<Bucket>;
+  deleteById(id: BucketId): Promise<Bucket | null>;
 };
 
 /* repository */
 
-const errorMap: PrismaErrorMapperOverrides = {};
+const errorMap: PrismaErrorMapperOverrides = {
+  errors: {
+    uniqueConstraintViolation: {
+      createError: (message, cause) => new GenericAlreadyExistsError(message, { cause }),
+      message: 'Bucket already exists'
+    },
+    requiredRecordNotFound: {
+      createError: (message, cause) => new GenericNotFoundError(message, { cause }),
+      message: 'Bucket not found'
+    }
+  }
+};
 
 class BucketRepository implements BucketRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
@@ -63,56 +73,46 @@ class BucketRepository implements BucketRepositoryContract {
     return bucket ? mapPrismaBucketToDomainBucket(bucket) : null;
   }
 
-  async findOrCreate(userId: UserId, bucketName: BucketName): Promise<EnsureBucketExistsResult> {
+  async create(input: CreateBucketRepositoryInput): Promise<Bucket> {
     let bucket;
 
     try {
       bucket = await this.prisma.bucket.create({
         data: {
-          name: bucketName,
+          id: input.id,
+          name: input.name,
 
-          user_id: userId,
+          user_id: input.userId,
 
-          state: 'active'
+          state: input.state,
+
+          revision: input.revision
         }
       });
     } catch (err) {
-      if (!isUniqueConstraintError(err)) {
-        throw mapPrismaError(err, errorMap) ?? err;
-      }
-
-      const existingBucket = await this.findByName(userId, bucketName);
-
-      if (!existingBucket) {
-        throw new GenericAbortedError('Bucket resolution was aborted by a concurrent change', { cause: err });
-      }
-
-      return {
-        bucket: existingBucket,
-        status: 'existing'
-      };
+      throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return {
-      bucket: mapPrismaBucketToDomainBucket(bucket),
-      status: 'created'
-    };
+    return mapPrismaBucketToDomainBucket(bucket);
   }
 
-  async delete(userId: UserId, bucketName: BucketName): Promise<Bucket> {
+  async deleteById(id: BucketId): Promise<Bucket | null> {
     let bucket;
 
     try {
       bucket = await this.prisma.bucket.delete({
         where: {
-          user_id_name: {
-            user_id: userId,
-            name: bucketName
-          }
+          id
         }
       });
     } catch (err) {
-      throw mapPrismaError(err, errorMap) ?? err;
+      const mappedError = mapPrismaError(err, errorMap) ?? err;
+
+      if (mappedError instanceof GenericNotFoundError) {
+        return null;
+      }
+
+      throw mappedError;
     }
 
     return mapPrismaBucketToDomainBucket(bucket);

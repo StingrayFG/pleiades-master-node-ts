@@ -81,7 +81,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
 
   const bucketModule = createBucketModule({
-    prisma
+    prisma,
+    taskService: taskModule.service
   });
 
   const dataNodeModule = createDataNodeModule({

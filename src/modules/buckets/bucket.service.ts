@@ -1,9 +1,18 @@
+import { randomUUID } from 'node:crypto';
+
 import { GenericNotFoundError } from '@/errors/application.errors';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 import type { UserId } from '@/modules/users/user.domain';
 
 import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
 import type { BucketRepositoryContract } from './bucket.repository';
+import {
+  createBucketTaskDefinition,
+  deleteBucketTaskDefinition,
+  type CreateBucketTaskData,
+  type DeleteBucketTaskData
+} from './bucket.tasks';
 
 /* contract */
 
@@ -17,7 +26,10 @@ type BucketServiceContract = {
 /* service */
 
 class BucketService implements BucketServiceContract {
-  constructor(private readonly repository: BucketRepositoryContract) {}
+  constructor(
+    private readonly repository: BucketRepositoryContract,
+    private readonly taskService: TaskServiceContract
+  ) {}
 
   async listBuckets(userId: UserId): Promise<Bucket[]> {
     const buckets = await this.repository.listAll(userId);
@@ -36,15 +48,51 @@ class BucketService implements BucketServiceContract {
   }
 
   async ensureBucketExists(userId: UserId, bucketName: BucketName): Promise<EnsureBucketExistsResult> {
-    const bucketResolution = await this.repository.findOrCreate(userId, bucketName);
+    const existingBucket = await this.repository.findByName(userId, bucketName);
 
-    return bucketResolution;
+    if (existingBucket) {
+      return {
+        bucket: existingBucket,
+        status: 'existing'
+      };
+    }
+
+    const taskData: CreateBucketTaskData = {
+      bucketId: randomUUID(),
+      bucketName,
+
+      userId,
+
+      state: 'active',
+
+      revision: 0n
+    };
+
+    const bucket = await this.taskService.executeTaskByDefinition(createBucketTaskDefinition, taskData);
+
+    return {
+      bucket,
+      status: 'created'
+    };
   }
 
   async deleteBucket(userId: UserId, bucketName: BucketName): Promise<Bucket> {
-    const bucket = await this.repository.delete(userId, bucketName);
+    const existingBucket = await this.repository.findByName(userId, bucketName);
 
-    return bucket;
+    if (!existingBucket) {
+      throw new GenericNotFoundError();
+    }
+
+    const taskData: DeleteBucketTaskData = {
+      bucketId: existingBucket.id,
+      bucketName,
+
+      userId
+    };
+
+    await this.taskService.executeTaskByDefinition(deleteBucketTaskDefinition, taskData);
+
+    return existingBucket;
   }
 }
 

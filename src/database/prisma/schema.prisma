@@ -130,6 +130,9 @@ model Bucket {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  // concurrency
+  revision BigInt @default(0)
+
   // database metadata
   @@unique([user_id, name])
   @@map("buckets")
@@ -200,7 +203,7 @@ model ObjectVersionPart {
   part_number Int
   blob_id     String @id @default(uuid())
 
-  // placement 
+  // placement
   placement_group Int
 
   // metadata

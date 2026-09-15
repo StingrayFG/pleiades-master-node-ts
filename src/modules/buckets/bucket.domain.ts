@@ -25,7 +25,9 @@ export const bucketSchema = z.object({
   state: bucketStateSchema,
 
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
+
+  revision: z.bigint().nonnegative()
 });
 
 /* types */
