@@ -1,15 +1,18 @@
 import { InternodeApplicationError } from '@/errors/internode.errors';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
-import type {
-  RecordDataNodeHealthCheckRepositoryInput,
-  UpdateDataNodeStateRepositoryInput
-} from '../data-node.application';
 import type { DataNode, DataNodeState } from '../data-node.domain';
 import { resolveDataNodeState } from '../data-node.domain-policies';
 import type { DataNodeGrpcClientContract } from '../data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from '../data-node.mappers';
 import type { DataNodeRepositoryContract } from '../data-node.repository';
-import { resolveDataNodeStateFromContactSilence, shouldCheckDataNodeHealth } from './data-node-lifecycle.policies';
+import {
+  recordDataNodeHealthCheckTaskDefinition,
+  updateDataNodeStateTaskDefinition,
+  type RecordDataNodeHealthCheckTaskData,
+  type UpdateDataNodeStateTaskData
+} from '../data-node.tasks';
+import { resolveDataNodeStateFromContactSilence, shouldCheckDataNodeHealth } from './data-node.lifecycle-policies';
 
 /* contract */
 
@@ -22,7 +25,8 @@ type DataNodeLifecycleHandlerContract = {
 class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
   constructor(
     private readonly repository: DataNodeRepositoryContract,
-    private readonly grpcClient: DataNodeGrpcClientContract
+    private readonly grpcClient: DataNodeGrpcClientContract,
+    private readonly taskService: TaskServiceContract
   ) {}
 
   async run(): Promise<void> {
@@ -39,7 +43,7 @@ class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
     let expectedRevision = dataNode.revision;
 
     if (shouldCheckDataNodeHealth(dataNode, now)) {
-      const healthCheckInput: RecordDataNodeHealthCheckRepositoryInput = {
+      const taskData: RecordDataNodeHealthCheckTaskData = {
         id: dataNode.id,
 
         lastHealthCheckAt: now,
@@ -47,22 +51,25 @@ class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
         expectedRevision
       };
 
-      const healthCheckResult = await this.repository.applyHealthCheck(healthCheckInput);
+      const healthCheckResult = await this.taskService.executeTaskByDefinition(
+        recordDataNodeHealthCheckTaskDefinition,
+        taskData
+      );
 
-      if (!healthCheckResult) {
+      if (healthCheckResult === false) {
         return;
       }
 
       expectedRevision += 1n;
 
-      nextState = await this.resolveStateFromHealthCheck(dataNode);
+      nextState = await this.resolveSilentDataNodeStateFromHealthCheck(dataNode);
     }
 
     if (nextState === dataNode.state) {
       return;
     }
 
-    const stateUpdateInput: UpdateDataNodeStateRepositoryInput = {
+    const taskData: UpdateDataNodeStateTaskData = {
       id: dataNode.id,
 
       state: nextState,
@@ -70,10 +77,10 @@ class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
       expectedRevision
     };
 
-    await this.repository.updateStateIfRevisionUnchanged(stateUpdateInput);
+    await this.taskService.executeTaskByDefinition(updateDataNodeStateTaskDefinition, taskData);
   }
 
-  private async resolveStateFromHealthCheck(dataNode: DataNode): Promise<DataNodeState> {
+  private async resolveSilentDataNodeStateFromHealthCheck(dataNode: DataNode): Promise<DataNodeState> {
     const endpoint = mapDataNodeToDataNodeEndpoint(dataNode);
 
     try {

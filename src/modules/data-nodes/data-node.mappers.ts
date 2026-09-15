@@ -125,6 +125,7 @@ export const mapPrismaDataNodeToDomainDataNode = (dataNode: PrismaDataNode): Dat
 
       certificateFingerprint: dataNode.certificate_fingerprint,
       sessionId: dataNode.session_id,
+      lastHeartbeatSequence: dataNode.last_heartbeat_sequence,
       state: dataNode.state,
       mode: dataNode.mode,
 

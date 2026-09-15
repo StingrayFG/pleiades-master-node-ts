@@ -33,6 +33,7 @@ export const dataNodeSchema = z.object({
 
   certificateFingerprint: dataNodeCertificateFingerprintSchema,
   sessionId: dataNodeSessionIdSchema,
+  lastHeartbeatSequence: z.bigint().nonnegative(),
   state: dataNodeStateSchema,
   mode: dataNodeModeSchema,
 

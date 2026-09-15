@@ -87,6 +87,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const dataNodeModule = createDataNodeModule({
     prisma,
+    taskService: taskModule.service,
     grpcClientCredentials
   });
 
