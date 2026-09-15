@@ -256,6 +256,98 @@ model ObjectVersionPartReplica {
   @@map("replicas")
 }
 
+// tasks
+
+enum TaskState {
+  pending
+  completed
+  partially_completed
+  failed
+}
+
+enum TaskExecutionScope {
+  local
+  cluster
+}
+
+enum TaskExecutionState {
+  pending
+  executing
+  completed
+  failed
+}
+
+model Task {
+  // identity
+  id String @id @default(uuid())
+
+  // origin and order
+  origin_master_id String
+  epoch            BigInt
+  sequence         BigInt
+
+  // definition
+  type            String
+  data            Json
+  execution_scope TaskExecutionScope
+
+  // lifecycle
+  state TaskState @default(pending)
+
+  // relations
+  origin_master MasterNode      @relation(fields: [origin_master_id], references: [id])
+  executions    TaskExecution[]
+
+  // timestamps
+  // assigned by task creation flow for cluster consistency
+  created_at DateTime
+  updated_at DateTime
+
+  // concurrency
+  revision BigInt @default(0)
+
+  // database metadata
+  @@unique([epoch, sequence])
+  @@index([origin_master_id])
+  @@index([type])
+  @@index([state])
+  @@map("tasks")
+}
+
+model TaskExecution {
+  // identity
+  id String @id @default(uuid())
+
+  // ownership
+  task_id String
+
+  // target
+  target_master_id String
+
+  // lifecycle
+  state          TaskExecutionState @default(pending)
+  failure_reason String?
+
+  // relations
+  task          Task       @relation(fields: [task_id], references: [id])
+  target_master MasterNode @relation(fields: [target_master_id], references: [id])
+
+  // timestamps
+  created_at   DateTime
+  started_at   DateTime?
+  completed_at DateTime?
+  updated_at   DateTime
+
+  // concurrency
+  revision BigInt @default(0)
+
+  // database metadata
+  @@index([task_id])
+  @@index([target_master_id])
+  @@index([state])
+  @@map("task_executions")
+}
+
 // cluster and nodes
 
 enum DataNodeState {

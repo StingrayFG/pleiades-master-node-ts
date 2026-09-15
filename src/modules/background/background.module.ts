@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
+import type { TaskApplyHandlerContract } from '@/modules/tasks/task.apply-handler';
 
 import { backgroundConfig } from './background.config';
 import type { BackgroundWorkerContract } from './background-worker.contract';
@@ -11,6 +12,7 @@ import { IntervalBackgroundWorker } from './interval-background.worker';
 /* contract */
 
 type BackgroundModuleDependencies = {
+  taskApplyHandler: TaskApplyHandlerContract;
   dataNodeLifecycleHandler: DataNodeLifecycleHandlerContract;
   objectVersionPartLifecycleHandler: ObjectVersionPartLifecycleHandlerContract;
   objectLifecycleHandler: ObjectLifecycleHandlerContract;
@@ -41,11 +43,17 @@ const createLoggedBackgroundHandler = (
 /* module */
 
 const createBackgroundModule = ({
+  taskApplyHandler,
   dataNodeLifecycleHandler,
   objectVersionPartLifecycleHandler,
   objectLifecycleHandler,
   logger
 }: BackgroundModuleDependencies): BackgroundModule => {
+  const taskApplyWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.taskApplyIntervalMs,
+    createLoggedBackgroundHandler(() => taskApplyHandler.run(), logger, 'Task apply sweep failed')
+  );
+
   const dataNodeLifecycleWorker = new IntervalBackgroundWorker(
     backgroundConfig.worker.dataNodeLifecycleIntervalMs,
     createLoggedBackgroundHandler(() => dataNodeLifecycleHandler.run(), logger, 'Data node lifecycle sweep failed')
@@ -66,6 +74,7 @@ const createBackgroundModule = ({
   );
 
   const workers: readonly BackgroundWorkerContract[] = [
+    taskApplyWorker,
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,
     objectLifecycleWorker

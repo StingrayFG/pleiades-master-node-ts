@@ -20,6 +20,8 @@ import { createIdentityModule } from '@/modules/identity/identity.module';
 import { partConfig } from '@/modules/object-version-parts/object-version-part.config';
 import { createObjectVersionPartModule } from '@/modules/object-version-parts/object-version-part.module';
 import { createObjectModule } from '@/modules/objects/object.module';
+import { taskConfig } from '@/modules/tasks/task.config';
+import { createTaskModule } from '@/modules/tasks/task.module';
 
 /* contract */
 
@@ -33,6 +35,7 @@ type CompositionRoot = {
   identityModule: ReturnType<typeof createIdentityModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
+  taskModule: ReturnType<typeof createTaskModule>;
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
   blobModule: ReturnType<typeof createBlobModule>;
@@ -54,13 +57,22 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     identityConfig
   });
 
+  const selfMasterNodeId = identityModule.service.getNodeId();
+
   const consensusModule = createConsensusModule({
     prisma
   });
 
   const bootstrapModule = createBootstrapModule({
     consensusService: consensusModule.service,
-    selfMasterNodeId: identityModule.service.getNodeId()
+    selfMasterNodeId
+  });
+
+  const taskModule = createTaskModule({
+    prisma,
+    taskConfig,
+    selfMasterNodeId,
+    consensusService: consensusModule.service
   });
 
   const grpcMtlsConfig = loadGrpcMtlsConfig();
@@ -99,6 +111,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   });
 
   const backgroundModule = createBackgroundModule({
+    taskApplyHandler: taskModule.applyHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
     objectLifecycleHandler: objectModule.lifecycleHandler,
@@ -117,6 +130,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     identityModule,
     consensusModule,
     bootstrapModule,
+    taskModule,
     bucketModule,
     dataNodeModule,
     blobModule,
