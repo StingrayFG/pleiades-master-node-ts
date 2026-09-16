@@ -1,13 +1,20 @@
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
+
 import type { DataNodeBlobInput, DataNodeBlobWithBytesInput } from './blob.application';
 import type { BlobConfig } from './blob.config';
 import type { BlobMetadata, BlobMetadataWithBytes } from './blob.domain';
 import type { BlobGrpcClientContract } from './blob.grpc-client';
 import {
-  verifyBlobResult,
-  verifyEnsureBlobExistsInput,
-  verifyEnsureBlobExistsResult,
-  verifyGetBlobMetadataResult,
-  verifyGetBlobResult
+  deleteBlobTaskDefinition,
+  ensureBlobExistsTaskDefinition,
+  type DeleteBlobTaskData,
+  type EnsureBlobExistsTaskData
+} from './blob.tasks';
+import {
+  verifyBlobIntegrity,
+  verifyBlobMetadataIdentity,
+  verifyBlobMetadataMatch,
+  verifySuppliedBlobIntegrity
 } from './blob.verifiers';
 
 /* contract */
@@ -25,7 +32,8 @@ type BlobServiceContract = {
 class BlobService implements BlobServiceContract {
   constructor(
     private readonly grpcClient: BlobGrpcClientContract,
-    private readonly blobConfig: BlobConfig
+    private readonly blobConfig: BlobConfig,
+    private readonly taskService: TaskServiceContract
   ) {}
 
   async getBlobMetadata(input: DataNodeBlobInput): Promise<BlobMetadata> {
@@ -35,11 +43,11 @@ class BlobService implements BlobServiceContract {
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    const blob = await this.grpcClient.headBlob(headBlobClientInput);
+    const blobMetadata = await this.grpcClient.headBlob(headBlobClientInput);
 
-    verifyGetBlobMetadataResult(input, blob);
+    verifyBlobMetadataIdentity(input.blobId, blobMetadata);
 
-    return blob;
+    return blobMetadata;
   }
 
   async getBlob(input: DataNodeBlobInput): Promise<BlobMetadataWithBytes> {
@@ -51,7 +59,7 @@ class BlobService implements BlobServiceContract {
 
     const blob = await this.grpcClient.getBlob(getBlobClientInput);
 
-    verifyGetBlobResult(input, blob);
+    verifyBlobIntegrity(input.blobId, blob);
 
     return blob;
   }
@@ -65,35 +73,35 @@ class BlobService implements BlobServiceContract {
 
     const blob = await this.grpcClient.verifyBlob(verifyBlobClientInput);
 
-    verifyBlobResult(input, blob);
+    verifyBlobMetadataIdentity(input.blobId, blob);
 
     return blob;
   }
 
   async ensureBlobExists(input: DataNodeBlobWithBytesInput): Promise<BlobMetadata> {
-    verifyEnsureBlobExistsInput(input, this.blobConfig.maxSizeBytes);
+    verifySuppliedBlobIntegrity(input.blob, this.blobConfig.maxSizeBytes);
 
-    const putBlobClientInput: DataNodeBlobWithBytesInput = {
+    const taskData: EnsureBlobExistsTaskData = {
       blob: input.blob,
 
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    const blob = await this.grpcClient.putBlob(putBlobClientInput);
+    const blobMetadata = await this.taskService.executeTaskByDefinition(ensureBlobExistsTaskDefinition, taskData);
 
-    verifyEnsureBlobExistsResult(input, blob);
+    verifyBlobMetadataMatch(input.blob, blobMetadata);
 
-    return blob;
+    return blobMetadata;
   }
 
   async deleteBlob(input: DataNodeBlobInput): Promise<void> {
-    const deleteBlobClientInput: DataNodeBlobInput = {
+    const taskData: DeleteBlobTaskData = {
       blobId: input.blobId,
 
       dataNodeEndpoint: input.dataNodeEndpoint
     };
 
-    await this.grpcClient.deleteBlob(deleteBlobClientInput);
+    await this.taskService.executeTaskByDefinition(deleteBlobTaskDefinition, taskData);
   }
 }
 

@@ -93,6 +93,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const blobModule = createBlobModule({
     blobConfig,
+    taskService: taskModule.service,
     grpcClientCredentials,
     grpcConfig: blobGrpcConfig
   });
