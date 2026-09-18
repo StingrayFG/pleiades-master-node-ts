@@ -1,5 +1,6 @@
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
+import type { RegisterMasterNodeInput } from '@/modules/master-nodes/master-node.application';
+import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
 import { BootstrapController } from './bootstrap.http-controller';
 import { BootstrapService } from './bootstrap.service';
@@ -8,7 +9,8 @@ import { BootstrapService } from './bootstrap.service';
 
 type BootstrapModuleDependencies = {
   consensusService: ConsensusServiceContract;
-  selfMasterNodeId: MasterNodeId;
+  masterNodeService: MasterNodeServiceContract;
+  selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'>;
 };
 
 type BootstrapModule = {
@@ -20,9 +22,10 @@ type BootstrapModule = {
 
 const createBootstrapModule = ({
   consensusService,
-  selfMasterNodeId
+  masterNodeService,
+  selfMasterNode
 }: BootstrapModuleDependencies): BootstrapModule => {
-  const service = new BootstrapService(consensusService, selfMasterNodeId);
+  const service = new BootstrapService(consensusService, masterNodeService, selfMasterNode);
 
   const controller = new BootstrapController(service);
 

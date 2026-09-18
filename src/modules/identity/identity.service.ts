@@ -1,8 +1,8 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
 
-import { nodeIdSchema, type NodeId } from './identity.domain';
+import { nodeIdSchema, nodeSessionIdSchema, type NodeId, type NodeSessionId } from './identity.domain';
 import type { IdentityRepositoryContract } from './identity.repository';
 
 /* constants */
@@ -14,12 +14,14 @@ const NODE_ID_RANDOM_SIZE_BYTES = 6;
 
 type IdentityServiceContract = {
   getNodeId(): NodeId;
+  getNodeSessionId(): NodeSessionId;
 };
 
 /* service */
 
 class IdentityService implements IdentityServiceContract {
   private nodeId: NodeId | null = null;
+  private readonly nodeSessionId = nodeSessionIdSchema.parse(randomUUID());
 
   constructor(private readonly repository: IdentityRepositoryContract) {}
 
@@ -53,6 +55,10 @@ class IdentityService implements IdentityServiceContract {
     this.nodeId = concurrentlyCreatedNodeId;
 
     return concurrentlyCreatedNodeId;
+  }
+
+  getNodeSessionId(): NodeSessionId {
+    return this.nodeSessionId;
   }
 
   private generateNodeId(): NodeId {

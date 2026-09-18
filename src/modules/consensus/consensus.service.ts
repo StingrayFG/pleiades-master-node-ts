@@ -103,11 +103,14 @@ class ConsensusService implements ConsensusServiceContract {
       return state;
     }
 
-    return this.repository.claimLeadership({
+    // the claim only lands when no leader exists, so re-read to return the actual outcome either way
+    await this.repository.claimLeadership({
       id: CONSENSUS_STATE_ID,
       epoch: state.currentEpoch + 1n,
       leaderMasterId: selfMasterNodeId
     });
+
+    return this.getConsensusState();
   }
 }
 

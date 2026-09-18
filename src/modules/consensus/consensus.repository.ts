@@ -34,7 +34,7 @@ type ConsensusStateRepositoryContract = {
   ): Promise<TResult>;
 
   // membership
-  claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<ConsensusState>;
+  claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
 };
 
 /* repository */
@@ -191,13 +191,19 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
   /* membership methods */
 
-  async claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<ConsensusState> {
-    let state;
+  async claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean> {
+    let claimResult;
 
     try {
-      state = await this.prisma.consensusState.update({
+      // the claim only lands if no leader exists and the stored epoch has not moved past the read
+      // it was based on, so a concurrent winner is never overwritten
+      claimResult = await this.prisma.consensusState.updateMany({
         where: {
-          id: input.id
+          id: input.id,
+          leader_master_id: null,
+          current_epoch: {
+            lt: input.epoch
+          }
         },
         data: {
           current_epoch: input.epoch,
@@ -211,7 +217,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return mapPrismaConsensusStateToDomainConsensusState(state);
+    return claimResult.count === 1;
   }
 }
 

@@ -17,6 +17,8 @@ import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
+import { createMasterNodeModule } from '@/modules/master-nodes/master-node.module';
+import { calculateMasterNodeCertificateFingerprint } from '@/modules/master-nodes/master-node.processors';
 import { partConfig } from '@/modules/object-version-parts/object-version-part.config';
 import { createObjectVersionPartModule } from '@/modules/object-version-parts/object-version-part.module';
 import { createObjectModule } from '@/modules/objects/object.module';
@@ -33,6 +35,7 @@ type CompositionRoot = {
   grpcServerCredentials: GrpcServerCredentialsContract;
 
   identityModule: ReturnType<typeof createIdentityModule>;
+  masterNodeModule: ReturnType<typeof createMasterNodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
   taskModule: ReturnType<typeof createTaskModule>;
@@ -58,6 +61,13 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   });
 
   const selfMasterNodeId = identityModule.service.getNodeId();
+  const selfMasterNodeSessionId = identityModule.service.getNodeSessionId();
+
+  const grpcMtlsConfig = loadGrpcMtlsConfig();
+
+  const masterNodeModule = createMasterNodeModule({
+    prisma
+  });
 
   const consensusModule = createConsensusModule({
     prisma
@@ -65,7 +75,19 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const bootstrapModule = createBootstrapModule({
     consensusService: consensusModule.service,
-    selfMasterNodeId
+    masterNodeService: masterNodeModule.service,
+    selfMasterNode: {
+      id: selfMasterNodeId,
+
+      certificateFingerprint: calculateMasterNodeCertificateFingerprint(grpcMtlsConfig.certificate),
+      sessionId: selfMasterNodeSessionId,
+
+      endpoint: {
+        hostname: env.PUBLIC_HOST,
+        port: env.PUBLIC_PORT,
+        scheme: 'grpcs'
+      }
+    }
   });
 
   const taskModule = createTaskModule({
@@ -74,8 +96,6 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     selfMasterNodeId,
     consensusService: consensusModule.service
   });
-
-  const grpcMtlsConfig = loadGrpcMtlsConfig();
 
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
   const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
@@ -131,6 +151,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   return {
     grpcServerCredentials,
     identityModule,
+    masterNodeModule,
     consensusModule,
     bootstrapModule,
     taskModule,

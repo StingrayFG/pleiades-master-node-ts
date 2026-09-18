@@ -412,8 +412,7 @@ enum MasterNodeState {
 }
 
 enum MasterNodeMode {
-  leader
-  follower
+  serving
   draining
 }
 
@@ -425,7 +424,7 @@ model MasterNode {
   certificate_fingerprint String          @unique
   session_id              String
   state                   MasterNodeState @default(joining)
-  mode                    MasterNodeMode  @default(follower)
+  mode                    MasterNodeMode  @default(serving)
 
   // connection metadata
   hostname String

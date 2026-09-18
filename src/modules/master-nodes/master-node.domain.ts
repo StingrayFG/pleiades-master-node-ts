@@ -1,16 +1,18 @@
 import { z } from 'zod';
 
+import { nodeSessionIdSchema } from '@/modules/identity/identity.domain';
+
 /* field schemas */
 
 export const MASTER_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
-export const MASTER_NODE_MODES = ['leader', 'follower', 'draining'];
+export const MASTER_NODE_MODES = ['serving', 'draining'] as const;
 export const MASTER_NODE_SCHEMES = ['grpcs'] as const;
 export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
 
 export const masterNodeIdSchema = z.string().min(1);
 
 export const masterNodeCertificateFingerprintSchema = z.string().min(1);
-export const masterNodeSessionIdSchema = z.string().uuid();
+export const masterNodeSessionIdSchema = nodeSessionIdSchema;
 export const masterNodeStateSchema = z.enum(MASTER_NODE_STATES);
 export const masterNodeModeSchema = z.enum(MASTER_NODE_MODES);
 
