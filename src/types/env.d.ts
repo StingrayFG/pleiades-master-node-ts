@@ -12,6 +12,8 @@ declare global {
 
       NODE_ID_PATH: string;
 
+      BYTE_STORAGE_ROOT_PATH: string;
+
       JWT_TOKEN_SECRET: string;
       JWT_TOKEN_TTL: string;
 

@@ -259,6 +259,40 @@ model ObjectVersionPartReplica {
   @@map("replicas")
 }
 
+// byte storage
+
+enum ByteStorageChecksumAlgorithm {
+  sha256
+}
+
+enum ByteStorageObjectState {
+  pending
+  active
+  deleting
+}
+
+model ByteStorageObject {
+  // identity
+  id String @id
+
+  // metadata
+  size_bytes         BigInt
+  checksum           String
+  checksum_algorithm ByteStorageChecksumAlgorithm
+
+  // lifecycle
+  state ByteStorageObjectState @default(pending)
+
+  // timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // database metadata
+  @@index([state])
+  @@index([created_at])
+  @@map("byte_storage_objects")
+}
+
 // tasks
 
 enum TaskState {

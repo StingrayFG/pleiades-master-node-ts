@@ -4,6 +4,7 @@ const defaultEnv = {
   LISTEN_GRPC_PORT: '4410',
   PUBLIC_HOST: 'localhost',
   NODE_ID_PATH: 'data/node-id',
+  BYTE_STORAGE_ROOT_PATH: 'data/byte-storage',
   JWT_TOKEN_TTL: '30m'
 } as const;
 
@@ -64,6 +65,8 @@ const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['
 
 const NODE_ID_PATH = getEnvValue('NODE_ID_PATH', defaultEnv.NODE_ID_PATH);
 
+const BYTE_STORAGE_ROOT_PATH = getEnvValue('BYTE_STORAGE_ROOT_PATH', defaultEnv.BYTE_STORAGE_ROOT_PATH);
+
 const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
 const JWT_TOKEN_TTL = getEnvValue('JWT_TOKEN_TTL', defaultEnv.JWT_TOKEN_TTL);
 
@@ -84,6 +87,8 @@ export const env = {
   DATABASE_URL,
 
   NODE_ID_PATH,
+
+  BYTE_STORAGE_ROOT_PATH,
 
   JWT_TOKEN_SECRET,
   JWT_TOKEN_TTL,

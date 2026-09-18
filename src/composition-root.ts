@@ -8,6 +8,9 @@ import type { GrpcServerCredentialsContract } from '@/transports/grpc/server/cre
 import { MtlsGrpcServerCredentials } from '@/transports/grpc/server/credentials/mtls-grpc-server-credentials';
 
 import { createBackgroundModule } from '@/modules/background/background.module';
+import { byteStorageConfig } from '@/modules/byte-storage/byte-storage.config';
+import { createByteStorageModule } from '@/modules/byte-storage/byte-storage.module';
+import type { DiskByteStorageConfig } from '@/modules/byte-storage/disk-byte-storage.config';
 import { blobConfig } from '@/modules/blobs/blob.config';
 import { blobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
 import { createBlobModule } from '@/modules/blobs/blob.module';
@@ -38,6 +41,7 @@ type CompositionRoot = {
   masterNodeModule: ReturnType<typeof createMasterNodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
+  byteStorageModule: ReturnType<typeof createByteStorageModule>;
   taskModule: ReturnType<typeof createTaskModule>;
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
@@ -90,6 +94,16 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     }
   });
 
+  const diskByteStorageConfig: DiskByteStorageConfig = {
+    rootPath: env.BYTE_STORAGE_ROOT_PATH
+  };
+
+  const byteStorageModule = createByteStorageModule({
+    prisma,
+    diskByteStorageConfig,
+    byteStorageConfig
+  });
+
   const taskModule = createTaskModule({
     prisma,
     taskConfig,
@@ -135,6 +149,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const backgroundModule = createBackgroundModule({
     taskApplyHandler: taskModule.applyHandler,
+    byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
     objectLifecycleHandler: objectModule.lifecycleHandler,
@@ -154,6 +169,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     masterNodeModule,
     consensusModule,
     bootstrapModule,
+    byteStorageModule,
     taskModule,
     bucketModule,
     dataNodeModule,
