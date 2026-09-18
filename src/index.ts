@@ -7,8 +7,8 @@ const main = async (): Promise<void> => {
 
   startGrpcApp(
     {
-      port: env.GRPC_PORT,
-      host: '0.0.0.0'
+      port: env.LISTEN_GRPC_PORT,
+      host: env.LISTEN_HOST
     },
     (err, address) => {
       if (err) {
@@ -22,8 +22,8 @@ const main = async (): Promise<void> => {
 
   app.listen(
     {
-      port: env.PORT,
-      host: '0.0.0.0'
+      port: env.LISTEN_PORT,
+      host: env.LISTEN_HOST
     },
     (err, address) => {
       if (err) {

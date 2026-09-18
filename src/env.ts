@@ -1,6 +1,8 @@
 const defaultEnv = {
-  PORT: '4400',
-  GRPC_PORT: '4410',
+  LISTEN_HOST: '0.0.0.0',
+  LISTEN_PORT: '4400',
+  LISTEN_GRPC_PORT: '4410',
+  PUBLIC_HOST: 'localhost',
   NODE_ID_PATH: 'data/node-id',
   JWT_TOKEN_TTL: '30m'
 } as const;
@@ -51,8 +53,12 @@ const validateUrl = (name: string, value: string, allowedProtocols: readonly str
   return value;
 };
 
-const PORT = parsePort('PORT', getEnvValue('PORT', defaultEnv.PORT));
-const GRPC_PORT = parsePort('GRPC_PORT', getEnvValue('GRPC_PORT', defaultEnv.GRPC_PORT));
+const LISTEN_HOST = getEnvValue('LISTEN_HOST', defaultEnv.LISTEN_HOST);
+const LISTEN_PORT = parsePort('LISTEN_PORT', getEnvValue('LISTEN_PORT', defaultEnv.LISTEN_PORT));
+const LISTEN_GRPC_PORT = parsePort('LISTEN_GRPC_PORT', getEnvValue('LISTEN_GRPC_PORT', defaultEnv.LISTEN_GRPC_PORT));
+
+const PUBLIC_HOST = getEnvValue('PUBLIC_HOST', defaultEnv.PUBLIC_HOST);
+const PUBLIC_PORT = parsePort('PUBLIC_PORT', getEnvValue('PUBLIC_PORT', String(LISTEN_GRPC_PORT)));
 
 const DATABASE_URL = validateUrl('DATABASE_URL', getEnvValue('DATABASE_URL'), ['postgres:', 'postgresql:']);
 
@@ -68,8 +74,12 @@ const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
 const GRPC_PRIVATE_KEY_PATH = getEnvValue('GRPC_PRIVATE_KEY_PATH');
 
 export const env = {
-  PORT,
-  GRPC_PORT,
+  LISTEN_HOST,
+  LISTEN_PORT,
+  LISTEN_GRPC_PORT,
+
+  PUBLIC_HOST,
+  PUBLIC_PORT,
 
   DATABASE_URL,
 
