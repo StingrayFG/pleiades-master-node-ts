@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
 
+import type { ByteStorageLifecycleHandlerContract } from '@/modules/byte-storage/lifecycle/byte-storage.lifecycle-handler';
 import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
@@ -13,6 +14,7 @@ import { IntervalBackgroundWorker } from './interval-background.worker';
 
 type BackgroundModuleDependencies = {
   taskApplyHandler: TaskApplyHandlerContract;
+  byteStorageLifecycleHandler: ByteStorageLifecycleHandlerContract;
   dataNodeLifecycleHandler: DataNodeLifecycleHandlerContract;
   objectVersionPartLifecycleHandler: ObjectVersionPartLifecycleHandlerContract;
   objectLifecycleHandler: ObjectLifecycleHandlerContract;
@@ -44,6 +46,7 @@ const createLoggedBackgroundHandler = (
 
 const createBackgroundModule = ({
   taskApplyHandler,
+  byteStorageLifecycleHandler,
   dataNodeLifecycleHandler,
   objectVersionPartLifecycleHandler,
   objectLifecycleHandler,
@@ -52,6 +55,11 @@ const createBackgroundModule = ({
   const taskApplyWorker = new IntervalBackgroundWorker(
     backgroundConfig.worker.taskApplyIntervalMs,
     createLoggedBackgroundHandler(() => taskApplyHandler.run(), logger, 'Task apply sweep failed')
+  );
+
+  const byteStorageLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.byteStorageLifecycleIntervalMs,
+    createLoggedBackgroundHandler(() => byteStorageLifecycleHandler.run(), logger, 'Byte storage lifecycle sweep failed')
   );
 
   const dataNodeLifecycleWorker = new IntervalBackgroundWorker(
@@ -75,6 +83,7 @@ const createBackgroundModule = ({
 
   const workers: readonly BackgroundWorkerContract[] = [
     taskApplyWorker,
+    byteStorageLifecycleWorker,
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,
     objectLifecycleWorker
