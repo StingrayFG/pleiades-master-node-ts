@@ -1,3 +1,5 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
+
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskExecution, TaskExecutionScope, TaskState } from './task.domain';
@@ -37,5 +39,7 @@ export const resolveTaskTargetsFromScope = (
       return [selfMasterNodeId];
     case 'cluster':
       return [selfMasterNodeId];
+    default:
+      throw new GenericInternalServerError(`Unsupported task execution scope: ${String(scope)}`);
   }
 };

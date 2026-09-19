@@ -108,7 +108,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     prisma,
     taskConfig,
     selfMasterNodeId,
-    consensusService: consensusModule.service
+    consensusService: consensusModule.service,
+    byteStorageService: byteStorageModule.service
   });
 
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);

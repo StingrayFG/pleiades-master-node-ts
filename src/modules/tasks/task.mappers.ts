@@ -23,6 +23,8 @@ export const mapPrismaTaskToDomainTask = (task: PrismaTask): PersistedTask => {
       data: task.data,
       executionScope: task.execution_scope,
 
+      payloadId: task.payload_id,
+
       createdAt: task.created_at,
       updatedAt: task.updated_at
     });

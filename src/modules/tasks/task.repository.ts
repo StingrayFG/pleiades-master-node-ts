@@ -131,6 +131,8 @@ class TaskRepository implements TaskRepositoryContract {
           execution_scope: input.executionScope,
           data: input.data,
 
+          payload_id: input.payloadId,
+
           state: 'pending',
 
           created_at: input.createdAt,

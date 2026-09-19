@@ -328,6 +328,9 @@ model Task {
   data            Json
   execution_scope TaskExecutionScope
 
+  // payload
+  payload_id String?
+
   // lifecycle
   state TaskState @default(pending)
 

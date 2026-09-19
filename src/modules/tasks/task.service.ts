@@ -1,17 +1,24 @@
+import type { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import { GenericAbortedError, GenericFailedPreconditionError, GenericNotFoundError } from '@/errors/application.errors';
+import {
+  GenericAbortedError,
+  GenericFailedPreconditionError,
+  GenericInternalServerError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
+import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskApplyHandlerContract } from './task.apply-handler';
 import type { TaskConfig } from './task.config';
-import type { TaskDefinitionContract } from './task.definition';
-import type { PersistedTask, TaskExecutionScope, TaskId } from './task.domain';
+import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
+import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId } from './task.domain';
 import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskTargetsFromScope } from './task.resolvers';
@@ -21,20 +28,26 @@ import type { TaskResultWaiterContract } from './task.result-waiter';
 
 type TaskServiceContract = {
   getTaskById(id: TaskId): Promise<PersistedTask>;
-  registerHandler<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void;
-  submitTask<TType extends string, TData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TData, TScope>,
+  submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData
   ): Promise<PersistedTask>;
-  executeTaskByDefinition<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     data: TData
   ): Promise<TResult>;
-  executeTaskByDefinitionAndTargets<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  executeTaskByDefinitionAndTargets<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope,
+    TResult
+  >(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     data: TData,
     targetMasterIds: MasterNodeId[]
   ): Promise<TResult>;
@@ -47,6 +60,7 @@ class TaskService implements TaskServiceContract {
     private readonly repository: TaskRepositoryContract,
     private readonly handlerRegistry: TaskHandlerRegistryContract,
     private readonly consensusService: ConsensusServiceContract,
+    private readonly byteStorageService: ByteStorageServiceContract,
     private readonly applyHandler: TaskApplyHandlerContract,
     private readonly resultWaiter: TaskResultWaiterContract,
     private readonly selfMasterNodeId: MasterNodeId,
@@ -54,6 +68,8 @@ class TaskService implements TaskServiceContract {
   ) {}
 
   /* public methods */
+
+  // query
 
   async getTaskById(id: TaskId): Promise<PersistedTask> {
     const task = await this.repository.findById(id);
@@ -65,15 +81,19 @@ class TaskService implements TaskServiceContract {
     return task;
   }
 
-  registerHandler<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  // registration
+
+  registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void {
     this.handlerRegistry.register(definition, handler);
   }
 
-  async submitTask<TType extends string, TData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TData, TScope>,
+  // submission
+
+  async submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData
   ): Promise<PersistedTask> {
     const id = randomUUID();
@@ -85,8 +105,10 @@ class TaskService implements TaskServiceContract {
     return task;
   }
 
-  async executeTaskByDefinition<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  // execution
+
+  async executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     data: TData
   ): Promise<TResult> {
     const targetMasterIds = resolveTaskTargetsFromScope(definition.executionScope, this.selfMasterNodeId);
@@ -98,8 +120,14 @@ class TaskService implements TaskServiceContract {
     return this.executeTaskByDefinitionAndTargets(definition, data, targetMasterIds);
   }
 
-  async executeTaskByDefinitionAndTargets<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  async executeTaskByDefinitionAndTargets<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope,
+    TResult
+  >(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     data: TData,
     targetMasterIds: MasterNodeId[]
   ): Promise<TResult> {
@@ -138,14 +166,77 @@ class TaskService implements TaskServiceContract {
 
   /* private methods */
 
-  private requireTaskHandlerRegistration<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>
-  ): void {
+  // validation / guards
+
+  private requireTaskHandlerRegistration<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope,
+    TResult
+  >(definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>): void {
     this.handlerRegistry.resolve(definition);
   }
 
-  private async submitTaskWithId<TType extends string, TData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TData, TScope>,
+  private async requireLeadershipState(): Promise<ConsensusState> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
+      throw new GenericFailedPreconditionError(
+        'Task submission was rejected because this node is not the cluster leader'
+      );
+    }
+
+    return consensusState;
+  }
+
+  // data transformation
+
+  private dehydrateTaskDataIfNeeded<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope,
+    TResult
+  >(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
+    data: TData
+  ): { data: TPersistedData; payloadId: TaskPayloadId | null; payload?: Buffer } {
+    if (isDehydratedTaskDefinition(definition)) {
+      const dehydratedData = definition.dehydrateData(data);
+
+      return {
+        data: dehydratedData.data,
+        payloadId: randomUUID(),
+        payload: dehydratedData.payload
+      };
+    }
+
+    return { data: data as unknown as TPersistedData, payloadId: null };
+  }
+
+  private async storeTaskDataPayloadIfNeeded(payloadId: TaskPayloadId | null, payload?: Buffer): Promise<void> {
+    if (payloadId === null) {
+      return;
+    }
+
+    if (payload === undefined) {
+      throw new GenericInternalServerError('Dehydrated task data is missing its payload');
+    }
+
+    // always called after the task row is created, so a failed store never leaves an unreferenced payload behind
+    await this.byteStorageService.store(payloadId, payload);
+  }
+
+  // task creation flows
+
+  private async submitTaskWithId<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope
+  >(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData,
     id: TaskId
   ): Promise<PersistedTask> {
@@ -153,7 +244,9 @@ class TaskService implements TaskServiceContract {
 
     const consensusState = await this.requireLeadershipState();
 
-    return this.consensusService.withAdvancedLastAllocatedSequence(consensusState.currentEpoch, (tx, sequence) =>
+    const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
+
+    const task = await this.consensusService.withAdvancedLastAllocatedSequence(consensusState.currentEpoch, (tx, sequence) =>
       this.repository.create(
         {
           id,
@@ -164,7 +257,9 @@ class TaskService implements TaskServiceContract {
 
           type: definition.type,
           executionScope: definition.executionScope,
-          data: z.encode(definition.dataSchema, data) as Prisma.InputJsonValue,
+          data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
+
+          payloadId: dehydratedData.payloadId,
 
           createdAt: now,
           updatedAt: now
@@ -172,10 +267,19 @@ class TaskService implements TaskServiceContract {
         tx
       )
     );
+
+    await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
+
+    return task;
   }
 
-  private async submitTaskWithExecutions<TType extends string, TData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TData, TScope>,
+  private async submitTaskWithExecutions<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope
+  >(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData,
     targetMasterIds: MasterNodeId[],
     id: TaskId
@@ -184,7 +288,9 @@ class TaskService implements TaskServiceContract {
 
     const consensusState = await this.requireLeadershipState();
 
-    return this.consensusService.withAdvancedLastAllocatedSequence(
+    const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
+
+    const task = await this.consensusService.withAdvancedLastAllocatedSequence(
       consensusState.currentEpoch,
       async (tx, sequence) => {
         const createdTask = await this.repository.create(
@@ -197,7 +303,9 @@ class TaskService implements TaskServiceContract {
 
             type: definition.type,
             executionScope: definition.executionScope,
-            data: z.encode(definition.dataSchema, data) as Prisma.InputJsonValue,
+            data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
+
+            payloadId: dehydratedData.payloadId,
 
             createdAt: now,
             updatedAt: now
@@ -221,18 +329,10 @@ class TaskService implements TaskServiceContract {
         return createdTask;
       }
     );
-  }
 
-  private async requireLeadershipState(): Promise<ConsensusState> {
-    const consensusState = await this.consensusService.getConsensusState();
+    await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
 
-    if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
-      throw new GenericFailedPreconditionError(
-        'Task submission was rejected because this node is not the cluster leader'
-      );
-    }
-
-    return consensusState;
+    return task;
   }
 }
 

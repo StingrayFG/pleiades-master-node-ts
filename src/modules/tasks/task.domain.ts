@@ -18,6 +18,7 @@ export const taskRevisionSchema = z.bigint().nonnegative();
 export const taskTypeSchema = z.string().min(1);
 export const taskExecutionScopeSchema = z.enum(TASK_EXECUTION_SCOPES);
 export const taskDataSchema = z.unknown();
+export const taskPayloadIdSchema = z.uuid();
 
 export const taskExecutionIdSchema = z.uuid();
 export const taskExecutionStateSchema = z.enum(TASK_EXECUTION_STATES);
@@ -43,6 +44,8 @@ export const taskDefinitionSchema = z.object({
 });
 
 export const persistedTaskSchema = taskBaseSchema.extend(taskDefinitionSchema.shape).extend({
+  payloadId: taskPayloadIdSchema.nullable(),
+
   createdAt: z.date(),
   updatedAt: z.date()
 });
@@ -74,6 +77,7 @@ export type TaskRevision = z.infer<typeof taskRevisionSchema>;
 
 export type TaskType = z.infer<typeof taskTypeSchema>;
 export type TaskExecutionScope = z.infer<typeof taskExecutionScopeSchema>;
+export type TaskPayloadId = z.infer<typeof taskPayloadIdSchema>;
 
 export type TaskExecutionId = z.infer<typeof taskExecutionIdSchema>;
 export type TaskExecutionState = z.infer<typeof taskExecutionStateSchema>;

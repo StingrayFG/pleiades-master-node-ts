@@ -8,11 +8,13 @@ import {
   taskDefinitionSchema,
   taskExecutionIdSchema,
   taskIdSchema,
+  taskPayloadIdSchema,
   taskRevisionSchema,
   taskSequenceSchema,
   taskStateSchema,
   type TaskBase,
-  type TaskExecutionScope
+  type TaskExecutionScope,
+  type TaskPayloadId
 } from './task.domain';
 
 /* schemas */
@@ -21,6 +23,8 @@ export const createTaskRepositoryInputSchema = taskBaseSchema
   .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
   .extend(taskDefinitionSchema.shape)
   .extend({
+    payloadId: taskPayloadIdSchema.nullable(),
+
     createdAt: z.date(),
     updatedAt: z.date()
   });
@@ -67,6 +71,8 @@ export type CreateTaskRepositoryInput<
   type: TType;
   data: Prisma.InputJsonValue;
   executionScope: TScope;
+
+  payloadId: TaskPayloadId | null;
 
   createdAt: Date;
   updatedAt: Date;

@@ -3,11 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 import { GenericAbortedError, GenericInternalServerError, GenericNotFoundError } from '@/errors/application.errors';
+import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskConfig } from './task.config';
-import type { PersistedTask, Task, TaskExecution, TaskId, TaskState } from './task.domain';
+import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
+import type { PersistedTask, Task, TaskExecution, TaskExecutionScope, TaskId, TaskState } from './task.domain';
 import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskStateFromExecutions, resolveTaskTargetsFromScope } from './task.resolvers';
@@ -22,9 +24,7 @@ type TaskApplyHandlerContract = {
 /* types */
 
 type TaskExecutionOutcome =
-  | { status: 'completed'; result: unknown }
-  | { status: 'failed'; error: unknown }
-  | { status: 'aborted' };
+  { status: 'completed'; result: unknown } | { status: 'failed'; error: unknown } | { status: 'aborted' };
 
 /* handler */
 
@@ -35,10 +35,13 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
     private readonly repository: TaskRepositoryContract,
     private readonly handlerRegistry: TaskHandlerRegistryContract,
     private readonly consensusService: ConsensusServiceContract,
+    private readonly byteStorageService: ByteStorageServiceContract,
     private readonly resultWaiter: TaskResultWaiterContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly config: TaskConfig
   ) {}
+
+  /* public methods */
 
   run(): Promise<void> {
     const run = this.queue.then(() => this.runPendingTasks());
@@ -47,6 +50,10 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
 
     return run;
   }
+
+  /* private methods */
+
+  /* apply lifecycle */
 
   private async runPendingTasks(): Promise<void> {
     const consensusState = await this.consensusService.getConsensusState();
@@ -87,18 +94,6 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       return true;
     }
 
-    let data: unknown;
-
-    try {
-      data = z.decode(registration.definition.dataSchema, task.data);
-    } catch (err) {
-      await this.failTaskWithoutExecutions(task, err);
-
-      return true;
-    }
-
-    const typedTask: Task = { ...task, data };
-
     let executions = await this.repository.listExecutionsByTaskId(task.id);
 
     if (executions.length === 0) {
@@ -119,13 +114,28 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       );
     }
 
+    const runnableExecutions = executions.filter(
+      (execution) => execution.state !== 'completed' && execution.state !== 'failed'
+    );
+
+    // hydration may fetch a payload from storage, so skip it when every execution is already finalized
+    let data: unknown;
+
+    if (runnableExecutions.length > 0) {
+      try {
+        data = await this.hydrateTaskDataIfNeeded(task, registration.definition);
+      } catch (err) {
+        await this.failTaskWithoutExecutions(task, err);
+
+        return true;
+      }
+    }
+
+    const typedTask: Task = { ...task, data };
+
     const outcomes: TaskExecutionOutcome[] = [];
 
-    for (const execution of executions) {
-      if (execution.state === 'completed' || execution.state === 'failed') {
-        continue;
-      }
-
+    for (const execution of runnableExecutions) {
       const outcome = await this.runExecution(typedTask, execution, registration.handler);
 
       if (outcome.status === 'aborted') {
@@ -150,6 +160,8 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       at: new Date()
     });
 
+    // result delivery is best-effort and only applies to in-memory waiters
+    // completed task state is the durable source of truth
     this.deliverOutcome(task.id, state, outcomes);
 
     await this.consensusService.advanceLastAppliedSequence(task.sequence);
@@ -157,35 +169,28 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
     return true;
   }
 
-  private deliverOutcome(id: TaskId, state: TaskState, outcomes: TaskExecutionOutcome[]): void {
-    if (state === 'completed') {
-      const completedOutcome = outcomes.find((outcome) => outcome.status === 'completed');
+  // task data restoration
 
-      this.resultWaiter.deliver(id, completedOutcome?.status === 'completed' ? completedOutcome.result : undefined);
-
-      return;
+  private async hydrateTaskDataIfNeeded(
+    task: PersistedTask,
+    definition: TaskDefinitionContract<string, unknown, unknown, TaskExecutionScope, unknown>
+  ): Promise<unknown> {
+    if (!isDehydratedTaskDefinition(definition)) {
+      return z.decode(definition.dataSchema, task.data);
     }
 
-    const failedOutcome = outcomes.find((outcome) => outcome.status === 'failed');
+    const persistedData = z.decode(definition.persistedDataSchema, task.data);
 
-    this.resultWaiter.fail(
-      id,
-      failedOutcome?.status === 'failed' ? failedOutcome.error : new GenericInternalServerError('Task execution failed')
-    );
+    if (task.payloadId === null) {
+      throw new GenericInternalServerError('Dehydrated task is missing its payload reference');
+    }
+
+    const payload = await this.byteStorageService.retrieve(task.payloadId);
+
+    return definition.hydrateData(persistedData, payload);
   }
 
-  private async failTaskWithoutExecutions(task: PersistedTask, error: unknown): Promise<void> {
-    await this.repository.updateTaskState({
-      id: task.id,
-      revision: task.revision,
-      state: 'failed',
-      at: new Date()
-    });
-
-    this.resultWaiter.fail(task.id, error);
-
-    await this.consensusService.advanceLastAppliedSequence(task.sequence);
-  }
+  // execution lifecycle
 
   private async runExecution(
     task: Task,
@@ -228,6 +233,40 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
 
       return { status: 'failed', error: err };
     }
+  }
+
+  // completion handling
+
+  private deliverOutcome(id: TaskId, state: TaskState, outcomes: TaskExecutionOutcome[]): void {
+    if (state === 'completed') {
+      const completedOutcome = outcomes.find((outcome) => outcome.status === 'completed');
+
+      this.resultWaiter.deliver(id, completedOutcome?.status === 'completed' ? completedOutcome.result : undefined);
+
+      return;
+    }
+
+    const failedOutcome = outcomes.find((outcome) => outcome.status === 'failed');
+
+    this.resultWaiter.fail(
+      id,
+      failedOutcome?.status === 'failed' ? failedOutcome.error : new GenericInternalServerError('Task execution failed')
+    );
+  }
+
+  // failure handling
+
+  private async failTaskWithoutExecutions(task: PersistedTask, error: unknown): Promise<void> {
+    await this.repository.updateTaskState({
+      id: task.id,
+      revision: task.revision,
+      state: 'failed',
+      at: new Date()
+    });
+
+    this.resultWaiter.fail(task.id, error);
+
+    await this.consensusService.advanceLastAppliedSequence(task.sequence);
   }
 }
 

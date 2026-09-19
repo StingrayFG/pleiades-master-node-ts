@@ -15,17 +15,17 @@ type TaskHandler<
 > = (task: Task<TType, TData, TScope>) => Promise<TResult>;
 
 type RegisteredTaskHandler = {
-  definition: TaskDefinitionContract<string, unknown, TaskExecutionScope, unknown>;
+  definition: TaskDefinitionContract<string, unknown, unknown, TaskExecutionScope, unknown>;
   handler: TaskHandler;
 };
 
 type TaskHandlerRegistryContract = {
-  register<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  register<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void;
-  resolve<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>
+  resolve<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>
   ): TaskHandler<TType, TData, TScope, TResult>;
   resolveByType(type: TaskType): RegisteredTaskHandler;
 };
@@ -35,8 +35,8 @@ type TaskHandlerRegistryContract = {
 class InMemoryTaskHandlerRegistry implements TaskHandlerRegistryContract {
   private readonly registrations = new Map<TaskType, RegisteredTaskHandler>();
 
-  register<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>,
+  register<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void {
     if (this.registrations.has(definition.type)) {
@@ -44,13 +44,13 @@ class InMemoryTaskHandlerRegistry implements TaskHandlerRegistryContract {
     }
 
     this.registrations.set(definition.type, {
-      definition: definition as TaskDefinitionContract<string, unknown, TaskExecutionScope, unknown>,
+      definition: definition as TaskDefinitionContract<string, unknown, unknown, TaskExecutionScope, unknown>,
       handler: handler as TaskHandler
     });
   }
 
-  resolve<TType extends string, TData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TScope, TResult>
+  resolve<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
+    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>
   ): TaskHandler<TType, TData, TScope, TResult> {
     const registration = this.resolveByType(definition.type);
 

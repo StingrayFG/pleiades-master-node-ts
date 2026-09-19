@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 
+import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
@@ -17,6 +18,7 @@ type TaskModuleDependencies = {
   taskConfig: TaskConfig;
   selfMasterNodeId: MasterNodeId;
   consensusService: ConsensusServiceContract;
+  byteStorageService: ByteStorageServiceContract;
 };
 
 type TaskModule = {
@@ -31,7 +33,8 @@ const createTaskModule = ({
   prisma,
   taskConfig,
   selfMasterNodeId,
-  consensusService
+  consensusService,
+  byteStorageService
 }: TaskModuleDependencies): TaskModule => {
   const repository = new TaskRepository(prisma);
 
@@ -43,6 +46,7 @@ const createTaskModule = ({
     repository,
     handlerRegistry,
     consensusService,
+    byteStorageService,
     resultWaiter,
     selfMasterNodeId,
     taskConfig
@@ -52,6 +56,7 @@ const createTaskModule = ({
     repository,
     handlerRegistry,
     consensusService,
+    byteStorageService,
     applyHandler,
     resultWaiter,
     selfMasterNodeId,
