@@ -67,6 +67,12 @@ export const listPayloadCleanupCandidatesRepositoryInputSchema = z.object({
   limit: z.number().int().positive()
 });
 
+export const listUncommittedCleanupCandidatesRepositoryInputSchema = z.object({
+  afterSequence: taskSequenceSchema,
+  updatedBefore: z.date(),
+  limit: z.number().int().positive()
+});
+
 export const clearTaskPayloadIdRepositoryInputSchema = z.object({
   id: taskIdSchema,
   revision: taskRevisionSchema
@@ -98,5 +104,7 @@ export type UpdateTaskStateRepositoryInput = z.infer<typeof updateTaskStateRepos
 export type ListTasksInSequenceRangeRepositoryInput = z.infer<typeof listTasksInSequenceRangeRepositoryInputSchema>;
 
 export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<typeof listPayloadCleanupCandidatesRepositoryInputSchema>;
+
+export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<typeof listUncommittedCleanupCandidatesRepositoryInputSchema>;
 
 export type ClearTaskPayloadIdRepositoryInput = z.infer<typeof clearTaskPayloadIdRepositoryInputSchema>;

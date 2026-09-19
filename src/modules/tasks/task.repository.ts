@@ -10,6 +10,7 @@ import type {
   FailTaskExecutionRepositoryInput,
   ListPayloadCleanupCandidatesRepositoryInput,
   ListTasksInSequenceRangeRepositoryInput,
+  ListUncommittedCleanupCandidatesRepositoryInput,
   TransitionTaskExecutionRepositoryInput,
   UpdateTaskStateRepositoryInput
 } from './task.application';
@@ -21,6 +22,7 @@ import { mapPrismaTaskExecutionToDomainTaskExecution, mapPrismaTaskToDomainTask 
 type TaskRepositoryContract = {
   listTasksInSequenceRange(input: ListTasksInSequenceRangeRepositoryInput): Promise<PersistedTask[]>;
   listPayloadCleanupCandidates(input: ListPayloadCleanupCandidatesRepositoryInput): Promise<PersistedTask[]>;
+  listUncommittedCleanupCandidates(input: ListUncommittedCleanupCandidatesRepositoryInput): Promise<PersistedTask[]>;
   listExecutionsByTaskId(taskId: TaskId): Promise<TaskExecution[]>;
   findById(id: TaskId): Promise<PersistedTask | null>;
   create<TType extends string, TScope extends TaskExecutionScope>(
@@ -90,6 +92,32 @@ class TaskRepository implements TaskRepositoryContract {
           },
           payload_id: {
             not: null
+          },
+          updated_at: {
+            lte: input.updatedBefore
+          }
+        },
+        orderBy: {
+          updated_at: 'asc'
+        },
+        take: input.limit
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return tasks.map(mapPrismaTaskToDomainTask);
+  }
+
+  async listUncommittedCleanupCandidates(input: ListUncommittedCleanupCandidatesRepositoryInput): Promise<PersistedTask[]> {
+    let tasks;
+
+    try {
+      tasks = await this.prisma.task.findMany({
+        where: {
+          state: 'pending',
+          sequence: {
+            gt: input.afterSequence
           },
           updated_at: {
             lte: input.updatedBefore

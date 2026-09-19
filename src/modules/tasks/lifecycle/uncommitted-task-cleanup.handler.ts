@@ -1,0 +1,58 @@
+import { GenericAbortedError } from '@/errors/application.errors';
+import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+
+import type { ListUncommittedCleanupCandidatesRepositoryInput } from '../task.application';
+import type { TaskConfig } from '../task.config';
+import type { PersistedTask } from '../task.domain';
+import type { TaskRepositoryContract } from '../task.repository';
+
+/* handler */
+
+class UncommittedTaskCleanupHandler {
+  constructor(
+    private readonly repository: TaskRepositoryContract,
+    private readonly consensusService: ConsensusServiceContract,
+    private readonly taskConfig: TaskConfig
+  ) {}
+
+  async run(now: Date): Promise<void> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    const updatedBefore = new Date(now.getTime() - this.taskConfig.lifecycle.uncommittedCleanup.afterMs);
+
+    const listCandidatesInput: ListUncommittedCleanupCandidatesRepositoryInput = {
+      afterSequence: consensusState.lastCommittedSequence,
+      updatedBefore,
+      limit: this.taskConfig.lifecycle.uncommittedCleanup.batchSize
+    };
+
+    const tasks = await this.repository.listUncommittedCleanupCandidates(listCandidatesInput);
+
+    await Promise.all(tasks.map((task) => this.failTask(task, now)));
+  }
+
+  private async failTask(task: PersistedTask, now: Date): Promise<void> {
+    if (task.state !== 'pending') {
+      return;
+    }
+
+    // the submission that created this row never finished, so the task is failed
+    // without executions; a concurrent change means someone else got to it first
+    try {
+      await this.repository.updateTaskState({
+        id: task.id,
+        revision: task.revision,
+        state: 'failed',
+        at: now
+      });
+    } catch (err) {
+      if (!(err instanceof GenericAbortedError)) {
+        throw err;
+      }
+    }
+  }
+}
+
+/* exports */
+
+export { UncommittedTaskCleanupHandler };
