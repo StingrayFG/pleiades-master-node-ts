@@ -12,7 +12,7 @@ import env from '@/env';
 // http infrastructure
 import jwtMiddleware from '@/plugins/jwt/jwt.middleware';
 import adminJwtMiddleware from '@/plugins/admin-jwt/admin-jwt.middleware';
-import indexRoute from '@/routes/indexRoute';
+import livenessRoute from '@/routes/liveness.route';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
 // module routes
@@ -65,7 +65,7 @@ const compositionRoot = createCompositionRoot({
 
 /* routes */
 
-app.register(indexRoute);
+app.register(livenessRoute);
 
 app.register(createUserHttpRoutes({ controller: compositionRoot.userModule.controller }));
 
