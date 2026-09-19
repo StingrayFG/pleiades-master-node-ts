@@ -162,6 +162,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const backgroundModule = createBackgroundModule({
     taskApplyHandler: taskModule.applyHandler,
+    taskLifecycleHandler: taskModule.lifecycleHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,

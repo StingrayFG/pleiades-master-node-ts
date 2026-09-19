@@ -4,6 +4,8 @@ import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-sto
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
+import { TaskLifecycleHandler, type TaskLifecycleHandlerContract } from './lifecycle/task.lifecycle-handler';
+import { TaskPayloadCleanupHandler } from './lifecycle/task-payload-cleanup.handler';
 import { TaskApplyHandler } from './task.apply-handler';
 import type { TaskConfig } from './task.config';
 import { InMemoryTaskHandlerRegistry } from './task.handler-registry';
@@ -25,6 +27,7 @@ type TaskModule = {
   repository: TaskRepository;
   applyHandler: TaskApplyHandler;
   service: TaskService;
+  lifecycleHandler: TaskLifecycleHandlerContract;
 };
 
 /* module */
@@ -63,10 +66,15 @@ const createTaskModule = ({
     taskConfig
   );
 
+  const taskPayloadCleanupHandler = new TaskPayloadCleanupHandler(repository, byteStorageService, taskConfig);
+
+  const lifecycleHandler = new TaskLifecycleHandler(taskPayloadCleanupHandler);
+
   return {
     repository,
     applyHandler,
-    service
+    service,
+    lifecycleHandler
   };
 };
 

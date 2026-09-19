@@ -4,9 +4,11 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
+  ClearTaskPayloadIdRepositoryInput,
   CreateTaskExecutionRepositoryInput,
   CreateTaskRepositoryInput,
   FailTaskExecutionRepositoryInput,
+  ListPayloadCleanupCandidatesRepositoryInput,
   ListTasksInSequenceRangeRepositoryInput,
   TransitionTaskExecutionRepositoryInput,
   UpdateTaskStateRepositoryInput
@@ -18,6 +20,7 @@ import { mapPrismaTaskExecutionToDomainTaskExecution, mapPrismaTaskToDomainTask 
 
 type TaskRepositoryContract = {
   listTasksInSequenceRange(input: ListTasksInSequenceRangeRepositoryInput): Promise<PersistedTask[]>;
+  listPayloadCleanupCandidates(input: ListPayloadCleanupCandidatesRepositoryInput): Promise<PersistedTask[]>;
   listExecutionsByTaskId(taskId: TaskId): Promise<TaskExecution[]>;
   findById(id: TaskId): Promise<PersistedTask | null>;
   create<TType extends string, TScope extends TaskExecutionScope>(
@@ -32,6 +35,7 @@ type TaskRepositoryContract = {
   markExecutionCompleted(input: TransitionTaskExecutionRepositoryInput): Promise<TaskExecution>;
   markExecutionFailed(input: FailTaskExecutionRepositoryInput): Promise<TaskExecution>;
   updateTaskState(input: UpdateTaskStateRepositoryInput): Promise<PersistedTask>;
+  clearPayloadId(input: ClearTaskPayloadIdRepositoryInput): Promise<boolean>;
 };
 
 /* repository */
@@ -65,6 +69,34 @@ class TaskRepository implements TaskRepositoryContract {
         },
         orderBy: {
           sequence: 'asc'
+        },
+        take: input.limit
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return tasks.map(mapPrismaTaskToDomainTask);
+  }
+
+  async listPayloadCleanupCandidates(input: ListPayloadCleanupCandidatesRepositoryInput): Promise<PersistedTask[]> {
+    let tasks;
+
+    try {
+      tasks = await this.prisma.task.findMany({
+        where: {
+          state: {
+            in: ['completed', 'partially_completed', 'failed']
+          },
+          payload_id: {
+            not: null
+          },
+          updated_at: {
+            lte: input.updatedBefore
+          }
+        },
+        orderBy: {
+          updated_at: 'asc'
         },
         take: input.limit
       });
@@ -282,6 +314,32 @@ class TaskRepository implements TaskRepositoryContract {
     }
 
     return mapPrismaTaskToDomainTask(task);
+  }
+
+  async clearPayloadId(input: ClearTaskPayloadIdRepositoryInput): Promise<boolean> {
+    let clearResult;
+
+    try {
+      clearResult = await this.prisma.task.updateMany({
+        where: {
+          id: input.id,
+          revision: input.revision,
+          payload_id: {
+            not: null
+          }
+        },
+        data: {
+          payload_id: null,
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return clearResult.count === 1;
   }
 }
 

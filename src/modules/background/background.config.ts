@@ -2,6 +2,7 @@
 
 export type BackgroundWorkerConfig = {
   taskApplyIntervalMs: number;
+  taskLifecycleIntervalMs: number;
   byteStorageLifecycleIntervalMs: number;
   dataNodeLifecycleIntervalMs: number;
   objectVersionPartLifecycleIntervalMs: number;
@@ -17,6 +18,7 @@ export type BackgroundConfig = {
 export const backgroundConfig: BackgroundConfig = {
   worker: {
     taskApplyIntervalMs: 5_000,
+    taskLifecycleIntervalMs: 60_000,
 
     byteStorageLifecycleIntervalMs: 60_000,
     dataNodeLifecycleIntervalMs: 60_000,

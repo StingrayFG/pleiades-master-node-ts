@@ -4,6 +4,7 @@ import type { ByteStorageLifecycleHandlerContract } from '@/modules/byte-storage
 import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
+import type { TaskLifecycleHandlerContract } from '@/modules/tasks/lifecycle/task.lifecycle-handler';
 import type { TaskApplyHandlerContract } from '@/modules/tasks/task.apply-handler';
 
 import { backgroundConfig } from './background.config';
@@ -14,6 +15,7 @@ import { IntervalBackgroundWorker } from './interval-background.worker';
 
 type BackgroundModuleDependencies = {
   taskApplyHandler: TaskApplyHandlerContract;
+  taskLifecycleHandler: TaskLifecycleHandlerContract;
   byteStorageLifecycleHandler: ByteStorageLifecycleHandlerContract;
   dataNodeLifecycleHandler: DataNodeLifecycleHandlerContract;
   objectVersionPartLifecycleHandler: ObjectVersionPartLifecycleHandlerContract;
@@ -46,6 +48,7 @@ const createLoggedBackgroundHandler = (
 
 const createBackgroundModule = ({
   taskApplyHandler,
+  taskLifecycleHandler,
   byteStorageLifecycleHandler,
   dataNodeLifecycleHandler,
   objectVersionPartLifecycleHandler,
@@ -55,6 +58,11 @@ const createBackgroundModule = ({
   const taskApplyWorker = new IntervalBackgroundWorker(
     backgroundConfig.worker.taskApplyIntervalMs,
     createLoggedBackgroundHandler(() => taskApplyHandler.run(), logger, 'Task apply sweep failed')
+  );
+
+  const taskLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.taskLifecycleIntervalMs,
+    createLoggedBackgroundHandler(() => taskLifecycleHandler.run(), logger, 'Task lifecycle sweep failed')
   );
 
   const byteStorageLifecycleWorker = new IntervalBackgroundWorker(
@@ -83,6 +91,7 @@ const createBackgroundModule = ({
 
   const workers: readonly BackgroundWorkerContract[] = [
     taskApplyWorker,
+    taskLifecycleWorker,
     byteStorageLifecycleWorker,
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,
