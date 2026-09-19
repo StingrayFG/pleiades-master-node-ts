@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
 import type { BlobConfig } from '@/modules/blobs/blob.config';
+import type { BlobGrpcClientContract } from '@/modules/blobs/blob.grpc-client';
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
 import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.service';
 
@@ -12,6 +13,7 @@ import { PendingPartReplicaReconciliationHandler } from './lifecycle/pending-par
 import type { PartConfig } from './object-version-part.config';
 import { ObjectVersionPartRepository } from './object-version-part.repository';
 import { ObjectVersionPartService } from './object-version-part.service';
+import { ObjectVersionPartTaskHandler } from './object-version-part.task-handler';
 
 /* module */
 
@@ -21,11 +23,13 @@ type ObjectVersionPartModuleDependencies = {
   partConfig: PartConfig;
   dataNodeService: DataNodeServiceContract;
   blobService: BlobServiceContract;
+  blobGrpcClient: BlobGrpcClientContract;
 };
 
 type ObjectVersionPartModule = {
   repository: ObjectVersionPartRepository;
   service: ObjectVersionPartService;
+  taskHandler: ObjectVersionPartTaskHandler;
   lifecycleHandler: ObjectVersionPartLifecycleHandler;
 };
 
@@ -34,11 +38,14 @@ const createObjectVersionPartModule = ({
   blobConfig,
   partConfig,
   dataNodeService,
-  blobService
+  blobService,
+  blobGrpcClient
 }: ObjectVersionPartModuleDependencies): ObjectVersionPartModule => {
   const repository = new ObjectVersionPartRepository(prisma);
 
-  const service = new ObjectVersionPartService(repository, dataNodeService, blobService, blobConfig, partConfig);
+  const service = new ObjectVersionPartService(repository, dataNodeService, blobService);
+
+  const taskHandler = new ObjectVersionPartTaskHandler(repository, dataNodeService, blobGrpcClient, blobConfig, partConfig);
 
   const partReplicaVerificationHandler = new PartReplicaVerificationHandler(
     repository,
@@ -73,6 +80,7 @@ const createObjectVersionPartModule = ({
   return {
     repository,
     service,
+    taskHandler,
     lifecycleHandler
   };
 };

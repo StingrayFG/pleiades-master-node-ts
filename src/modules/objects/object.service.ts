@@ -1,5 +1,6 @@
 import type { Buffer } from 'node:buffer';
 import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 
 import {
   GenericDataLossError,
@@ -8,24 +9,21 @@ import {
 } from '@/errors/application.errors';
 
 import type { BucketServiceContract } from '@/modules/buckets/bucket.service';
-import type {
-  CreatePartsInput,
-  ListPartsByObjectVersionInput
-} from '@/modules/object-version-parts/object-version-part.application';
+import type { ListPartsByObjectVersionInput } from '@/modules/object-version-parts/object-version-part.application';
 import type { Part } from '@/modules/object-version-parts/object-version-part.domain';
 import type { ObjectVersionPartServiceContract } from '@/modules/object-version-parts/object-version-part.service';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
-  CommitObjectVersionRepositoryInput,
   CreateObjectInput,
   CreateObjectResult,
   GetObjectInput,
   GetObjectMetadataInput,
-  GetObjectResult,
-  UpsertObjectAndCreateVersionRepositoryInput
+  GetObjectResult
 } from './object.application';
 import type { ObjectVersion } from './object.domain';
 import type { ObjectRepositoryContract } from './object.repository';
+import { createObjectTaskDefinition, type CreateObjectTaskData } from './object.tasks';
 import { verifyObjectVersionParts } from './object.verifiers';
 
 /* contract */
@@ -42,7 +40,8 @@ class ObjectService implements ObjectServiceContract {
   constructor(
     private readonly bucketService: BucketServiceContract,
     private readonly objectRepository: ObjectRepositoryContract,
-    private readonly objectVersionPartService: ObjectVersionPartServiceContract
+    private readonly objectVersionPartService: ObjectVersionPartServiceContract,
+    private readonly taskService: TaskServiceContract
   ) {}
 
   /* public */
@@ -109,38 +108,17 @@ class ObjectService implements ObjectServiceContract {
       throw new GenericFailedPreconditionError('Bucket is not active');
     }
 
-    const upsertObjectInput: UpsertObjectAndCreateVersionRepositoryInput = {
+    const taskData: CreateObjectTaskData = {
       objectKey: input.objectKey,
       bucketId: bucket.id,
 
       totalSizeBytes: input.totalSizeBytes,
-      contentType: input.contentType
+      contentType: input.contentType,
+
+      data: await buffer(input.data)
     };
 
-    const objectVersionAllocation = await this.objectRepository.upsertObjectAndCreateVersion(upsertObjectInput);
-
-    const createPartsInput: CreatePartsInput = {
-      objectId: objectVersionAllocation.object.id,
-      version: objectVersionAllocation.objectVersion.version,
-
-      totalSizeBytes: input.totalSizeBytes,
-
-      data: input.data
-    };
-
-    await this.objectVersionPartService.createPartsFromData(createPartsInput);
-
-    const commitObjectVersionInput: CommitObjectVersionRepositoryInput = {
-      objectId: objectVersionAllocation.object.id,
-      version: objectVersionAllocation.objectVersion.version
-    };
-
-    const objectVersionCommit = await this.objectRepository.commitObjectVersion(commitObjectVersionInput);
-
-    return {
-      object: objectVersionCommit.object,
-      objectVersion: objectVersionCommit.objectVersion
-    };
+    return this.taskService.executeTaskByDefinition(createObjectTaskDefinition, taskData);
   }
 
   /* private */

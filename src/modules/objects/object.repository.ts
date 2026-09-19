@@ -198,7 +198,7 @@ class ObjectRepository implements ObjectRepositoryContract {
       objectVersionAllocation = await this.prisma.$transaction(async (tx) => {
         const activeBuckets = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT id
-          FROM "Bucket"
+          FROM "buckets"
           WHERE id = ${input.bucketId}
             AND state = 'active'
           FOR UPDATE

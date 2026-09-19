@@ -138,14 +138,17 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     blobConfig,
     partConfig,
     dataNodeService: dataNodeModule.service,
-    blobService: blobModule.service
+    blobService: blobModule.service,
+    blobGrpcClient: blobModule.grpcClient
   });
 
   const objectModule = createObjectModule({
     prisma,
+    taskService: taskModule.service,
     bucketService: bucketModule.service,
     objectVersionPartRepository: objectVersionPartModule.repository,
-    objectVersionPartService: objectVersionPartModule.service
+    objectVersionPartService: objectVersionPartModule.service,
+    objectVersionPartTaskHandler: objectVersionPartModule.taskHandler
   });
 
   const backgroundModule = createBackgroundModule({
