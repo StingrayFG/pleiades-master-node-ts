@@ -72,7 +72,7 @@ export const mapGrpcRecordDataNodeHeartbeatRequestToHeartbeatDataNodeInput = (
 
       certificateFingerprint,
       sessionId: request.session_id,
-      heartbeatSequence: request.heartbeat_sequence,
+      heartbeatSequence: parseByteCount(request.heartbeat_sequence),
 
       healthSnapshot: mapGrpcHealthSnapshotToDomainDataNodeHealthSnapshot(request.health_snapshot)
     });
