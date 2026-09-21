@@ -2,10 +2,14 @@ import { Buffer } from 'node:buffer';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import argon2 from 'argon2';
 
-import { userApiKeyIdSchema, type UserApiKeyId, type UserRefreshTokenId } from './user.domain';
+import { userApiKeyIdSchema, type UserApiKeyId, type UserRefreshTokenId, type UserUsername } from './user.domain';
 import { userConfig } from './user.config';
 
-/* constants */
+/* user processors */
+
+export const normalizeUserUsername = (username: UserUsername): UserUsername => {
+  return username.toLowerCase();
+};
 
 /* password processors */
 

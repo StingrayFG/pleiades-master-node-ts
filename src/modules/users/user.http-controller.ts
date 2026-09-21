@@ -64,11 +64,11 @@ class UserController implements UserHttpControllerContract {
 
     const authenticatedUser = await this.service.authenticatePassword(serviceInput);
 
+    const refreshToken = await this.service.createRefreshToken(authenticatedUser.id);
+
     const accessToken = await reply.jwtSign({
       userId: authenticatedUser.id
     });
-
-    const refreshToken = await this.service.createRefreshToken(authenticatedUser.id);
 
     await reply.code(200).send({
       accessToken,

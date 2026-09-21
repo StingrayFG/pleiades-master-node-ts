@@ -14,10 +14,12 @@ declare global {
 
       BYTE_STORAGE_ROOT_PATH: string;
 
-      JWT_TOKEN_SECRET: string;
-      JWT_TOKEN_TTL: string;
+      USER_JWT_SECRET: string;
+      USER_JWT_TTL: string;
+      USER_API_KEY_HASH_SECRET: string;
+      USER_REFRESH_TOKEN_HASH_SECRET: string;
 
-      ADMIN_TOKEN_SECRET: string;
+      ADMIN_JWT_SECRET: string;
 
       GRPC_CA_CERT_PATH: string;
       GRPC_CERT_PATH: string;

@@ -5,7 +5,7 @@ const defaultEnv = {
   PUBLIC_HOST: 'localhost',
   NODE_ID_PATH: 'data/node-id',
   BYTE_STORAGE_ROOT_PATH: 'data/byte-storage',
-  JWT_TOKEN_TTL: '30m'
+  USER_JWT_TTL: '30m'
 } as const;
 
 const getEnvValue = (name: string, fallback?: string): string => {
@@ -67,10 +67,13 @@ const NODE_ID_PATH = getEnvValue('NODE_ID_PATH', defaultEnv.NODE_ID_PATH);
 
 const BYTE_STORAGE_ROOT_PATH = getEnvValue('BYTE_STORAGE_ROOT_PATH', defaultEnv.BYTE_STORAGE_ROOT_PATH);
 
-const JWT_TOKEN_SECRET = getEnvValue('JWT_TOKEN_SECRET');
-const JWT_TOKEN_TTL = getEnvValue('JWT_TOKEN_TTL', defaultEnv.JWT_TOKEN_TTL);
+const USER_JWT_SECRET = getEnvValue('USER_JWT_SECRET');
+const USER_JWT_TTL = getEnvValue('USER_JWT_TTL', defaultEnv.USER_JWT_TTL);
 
-const ADMIN_TOKEN_SECRET = getEnvValue('ADMIN_TOKEN_SECRET');
+const USER_API_KEY_HASH_SECRET = getEnvValue('USER_API_KEY_HASH_SECRET');
+const USER_REFRESH_TOKEN_HASH_SECRET = getEnvValue('USER_REFRESH_TOKEN_HASH_SECRET');
+
+const ADMIN_JWT_SECRET = getEnvValue('ADMIN_JWT_SECRET');
 
 const GRPC_CA_CERT_PATH = getEnvValue('GRPC_CA_CERT_PATH');
 const GRPC_CERT_PATH = getEnvValue('GRPC_CERT_PATH');
@@ -90,10 +93,12 @@ export const env = {
 
   BYTE_STORAGE_ROOT_PATH,
 
-  JWT_TOKEN_SECRET,
-  JWT_TOKEN_TTL,
+  USER_JWT_SECRET,
+  USER_JWT_TTL,
+  USER_API_KEY_HASH_SECRET,
+  USER_REFRESH_TOKEN_HASH_SECRET,
 
-  ADMIN_TOKEN_SECRET,
+  ADMIN_JWT_SECRET,
 
   GRPC_CA_CERT_PATH,
   GRPC_CERT_PATH,

@@ -78,7 +78,9 @@ export const findRefreshTokenAuthenticationByIdRepositoryResultSchema = z.object
 });
 
 export const createUserRepositoryInputSchema = z.object({
+  id: userIdSchema,
   username: userUsernameSchema,
+
   passwordHash: z.string()
 });
 

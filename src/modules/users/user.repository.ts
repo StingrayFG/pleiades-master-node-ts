@@ -182,6 +182,7 @@ class UserRepository implements UserRepositoryContract {
     try {
       user = await this.prisma.user.create({
         data: {
+          id: input.id,
           username: input.username,
           password_hash: input.passwordHash,
 

@@ -19,6 +19,7 @@ import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 import { createBootstrapHttpRoutes } from '@/modules/bootstrap/bootstrap.http-routes';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
+import { createUserHttpRoutes } from '@/modules/users/user.http-routes';
 
 /* app */
 
@@ -42,14 +43,14 @@ app.register(cors, {
 });
 
 app.register(fastifyJwt, {
-  secret: env.JWT_TOKEN_SECRET,
+  secret: env.USER_JWT_SECRET,
   sign: {
-    expiresIn: env.JWT_TOKEN_TTL
+    expiresIn: env.USER_JWT_TTL
   }
 });
 app.register(fastifyJwt, {
   namespace: 'admin',
-  secret: env.ADMIN_TOKEN_SECRET
+  secret: env.ADMIN_JWT_SECRET
 });
 
 app.register(jwtMiddleware);
@@ -65,6 +66,8 @@ const compositionRoot = createCompositionRoot({
 /* routes */
 
 app.register(indexRoute);
+
+app.register(createUserHttpRoutes({ controller: compositionRoot.userModule.controller }));
 
 app.register(
   createBootstrapHttpRoutes({

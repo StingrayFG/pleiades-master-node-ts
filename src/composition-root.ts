@@ -27,6 +27,7 @@ import { createObjectVersionPartModule } from '@/modules/object-version-parts/ob
 import { createObjectModule } from '@/modules/objects/object.module';
 import { taskConfig } from '@/modules/tasks/task.config';
 import { createTaskModule } from '@/modules/tasks/task.module';
+import { createUserModule } from '@/modules/users/user.module';
 
 /* contract */
 
@@ -43,6 +44,7 @@ type CompositionRoot = {
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
   byteStorageModule: ReturnType<typeof createByteStorageModule>;
   taskModule: ReturnType<typeof createTaskModule>;
+  userModule: ReturnType<typeof createUserModule>;
   bucketModule: ReturnType<typeof createBucketModule>;
   dataNodeModule: ReturnType<typeof createDataNodeModule>;
   blobModule: ReturnType<typeof createBlobModule>;
@@ -112,6 +114,13 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     byteStorageService: byteStorageModule.service
   });
 
+  const userModule = createUserModule({
+    prisma,
+    taskService: taskModule.service,
+    apiKeyHashKey: Buffer.from(env.USER_API_KEY_HASH_SECRET, 'utf8'),
+    refreshTokenHashKey: Buffer.from(env.USER_REFRESH_TOKEN_HASH_SECRET, 'utf8')
+  });
+
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
   const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
 
@@ -175,6 +184,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     bootstrapModule,
     byteStorageModule,
     taskModule,
+    userModule,
     bucketModule,
     dataNodeModule,
     blobModule,

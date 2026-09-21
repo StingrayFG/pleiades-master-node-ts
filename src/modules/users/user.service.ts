@@ -1,24 +1,24 @@
 import type { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
 
 import { GenericForbiddenError, GenericUnauthorizedError } from '@/errors/application.errors';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
   CreateUserInput,
-  CreateUserRepositoryInput,
   CreateUserApiKeyInput,
   CreateApiKeyResult,
-  CreateUserApiKeyRepositoryInput,
   AuthenticatePasswordInput,
   ApiKeyAuthenticationPrincipal,
   RefreshAuthenticationResult,
-  RevokeUserApiKeyInput,
-  RevokeUserApiKeyRepositoryInput
+  RevokeUserApiKeyInput
 } from './user.application';
 import type { User, UserApiKey, UserId, UserRefreshToken } from './user.domain';
 import {
   createUserApiKeyCredentials,
   createUserRefreshTokenCredentials,
   hashUserPassword,
+  normalizeUserUsername,
   parseUserApiKeyToken,
   verifyUserApiKeySecret,
   verifyUserPassword,
@@ -27,6 +27,20 @@ import {
 import type { UserRepositoryContract } from './user.repository';
 import { userConfig } from './user.config';
 import { parseUserRefreshToken } from './user.parsers';
+import {
+  createUserApiKeyTaskDefinition,
+  createUserRefreshTokenTaskDefinition,
+  createUserTaskDefinition,
+  revokeUserApiKeyTaskDefinition,
+  revokeUserRefreshTokenTaskDefinition,
+  rotateUserRefreshTokenTaskDefinition,
+  type CreateUserApiKeyTaskData,
+  type CreateUserRefreshTokenTaskData,
+  type CreateUserTaskData,
+  type RevokeUserApiKeyTaskData,
+  type RevokeUserRefreshTokenTaskData,
+  type RotateUserRefreshTokenTaskData
+} from './user.tasks';
 
 /* contract */
 
@@ -48,7 +62,8 @@ class UserService implements UserServiceContract {
   constructor(
     private readonly repository: UserRepositoryContract,
     private readonly apiKeyHashKey: Buffer,
-    private readonly refreshTokenHashKey: Buffer
+    private readonly refreshTokenHashKey: Buffer,
+    private readonly taskService: TaskServiceContract
   ) {}
 
   async listApiKeys(userId: UserId): Promise<UserApiKey[]> {
@@ -56,23 +71,25 @@ class UserService implements UserServiceContract {
   }
 
   async createUser(input: CreateUserInput): Promise<User> {
-    const username = input.username.toLowerCase();
+    const username = normalizeUserUsername(input.username);
 
     const passwordHash = await hashUserPassword(input.password);
 
-    const createUserRepositoryInput: CreateUserRepositoryInput = {
+    const taskData: CreateUserTaskData = {
+      userId: randomUUID(),
       username,
+
       passwordHash
     };
 
-    return this.repository.create(createUserRepositoryInput);
+    return this.taskService.executeTaskByDefinition(createUserTaskDefinition, taskData);
   }
 
   async createApiKey(input: CreateUserApiKeyInput): Promise<CreateApiKeyResult> {
     const apiKeyCredentials = createUserApiKeyCredentials(this.apiKeyHashKey);
 
-    const createApiKeyRepositoryInput: CreateUserApiKeyRepositoryInput = {
-      id: apiKeyCredentials.id,
+    const taskData: CreateUserApiKeyTaskData = {
+      apiKeyId: apiKeyCredentials.id,
 
       userId: input.userId,
 
@@ -83,7 +100,7 @@ class UserService implements UserServiceContract {
       expiresAt: input.expiresAt
     };
 
-    const apiKey = await this.repository.createApiKey(createApiKeyRepositoryInput);
+    const apiKey = await this.taskService.executeTaskByDefinition(createUserApiKeyTaskDefinition, taskData);
 
     return {
       apiKey,
@@ -94,21 +111,23 @@ class UserService implements UserServiceContract {
   async createRefreshToken(userId: UserId): Promise<string> {
     const credentials = createUserRefreshTokenCredentials(this.refreshTokenHashKey);
 
-    await this.repository.createRefreshToken({
-      id: credentials.id,
+    const taskData: CreateUserRefreshTokenTaskData = {
+      refreshTokenId: credentials.id,
 
       userId,
 
       secretHash: credentials.secretHash,
 
       expiresAt: new Date(Date.now() + userConfig.refreshToken.ttlMs)
-    });
+    };
+
+    await this.taskService.executeTaskByDefinition(createUserRefreshTokenTaskDefinition, taskData);
 
     return credentials.token;
   }
 
   async authenticatePassword(input: AuthenticatePasswordInput): Promise<User> {
-    const username = input.username.toLowerCase();
+    const username = normalizeUserUsername(input.username);
 
     const authentication = await this.repository.findAuthenticationByUsername(username);
 
@@ -201,9 +220,8 @@ class UserService implements UserServiceContract {
 
     const credentials = createUserRefreshTokenCredentials(this.refreshTokenHashKey);
 
-    const rotated = await this.repository.rotateRefreshToken({
+    const taskData: RotateUserRefreshTokenTaskData = {
       currentRefreshTokenId: storedRefreshToken.id,
-
       newRefreshTokenId: credentials.id,
 
       userId: user.id,
@@ -211,11 +229,9 @@ class UserService implements UserServiceContract {
       secretHash: credentials.secretHash,
 
       expiresAt: new Date(Date.now() + userConfig.refreshToken.ttlMs)
-    });
+    };
 
-    if (!rotated) {
-      throw new GenericUnauthorizedError('Invalid refresh token');
-    }
+    await this.taskService.executeTaskByDefinition(rotateUserRefreshTokenTaskDefinition, taskData);
 
     return {
       userId: user.id,
@@ -225,13 +241,12 @@ class UserService implements UserServiceContract {
   }
 
   async revokeApiKey(input: RevokeUserApiKeyInput): Promise<UserApiKey> {
-    const revokeApiKeyRepositoryInput: RevokeUserApiKeyRepositoryInput = {
+    const taskData: RevokeUserApiKeyTaskData = {
       userId: input.userId,
-
       apiKeyId: input.apiKeyId
     };
 
-    return this.repository.revokeApiKey(revokeApiKeyRepositoryInput);
+    return this.taskService.executeTaskByDefinition(revokeUserApiKeyTaskDefinition, taskData);
   }
 
   async revokeRefreshToken(refreshToken: string): Promise<UserRefreshToken> {
@@ -249,7 +264,9 @@ class UserService implements UserServiceContract {
 
     const validSecret = verifyUserRefreshTokenSecret(
       authentication.secretHash,
+
       parsedToken.secret,
+
       this.refreshTokenHashKey
     );
 
@@ -257,7 +274,11 @@ class UserService implements UserServiceContract {
       throw new GenericUnauthorizedError('Invalid refresh token');
     }
 
-    return this.repository.revokeRefreshToken(authentication.refreshToken.id);
+    const taskData: RevokeUserRefreshTokenTaskData = {
+      refreshTokenId: authentication.refreshToken.id
+    };
+
+    return this.taskService.executeTaskByDefinition(revokeUserRefreshTokenTaskDefinition, taskData);
   }
 }
 
