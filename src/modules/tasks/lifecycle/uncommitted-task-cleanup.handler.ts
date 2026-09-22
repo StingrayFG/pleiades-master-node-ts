@@ -1,4 +1,5 @@
-import { GenericAbortedError } from '@/errors/application.errors';
+import { GenericAbortedError, GenericInternalServerError } from '@/errors/application.errors';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import type { ListUncommittedCleanupCandidatesRepositoryInput } from '../task.application';
@@ -28,7 +29,26 @@ class UncommittedTaskCleanupHandler {
 
     const tasks = await this.repository.listUncommittedCleanupCandidates(listCandidatesInput);
 
-    await Promise.all(tasks.map((task) => this.failTask(task, now)));
+    const results = await Promise.allSettled(tasks.map((task) => this.failTask(task, now)));
+
+    const errors: ErrorCauseEntry[] = [];
+
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+
+      if (result.status === 'rejected') {
+        errors.push({
+          source: tasks[index].id,
+          error: result.reason
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      const cause = createAggregateErrorCause(errors);
+
+      throw new GenericInternalServerError('Uncommitted task cleanup failed', { cause });
+    }
   }
 
   private async failTask(task: PersistedTask, now: Date): Promise<void> {

@@ -1,3 +1,6 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+
 import type { ListDeletingCleanupCandidatesRepositoryInput } from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';
 import type { ByteStorageObject } from '../byte-storage.domain';
@@ -24,7 +27,26 @@ class DeletingByteStorageObjectCleanupHandler {
 
     const objects = await this.repository.listDeletingCleanupCandidates(listCandidatesInput);
 
-    await Promise.all(objects.map((object) => this.cleanupObject(object)));
+    const results = await Promise.allSettled(objects.map((object) => this.cleanupObject(object)));
+
+    const errors: ErrorCauseEntry[] = [];
+
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+
+      if (result.status === 'rejected') {
+        errors.push({
+          source: objects[index].id,
+          error: result.reason
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      const cause = createAggregateErrorCause(errors);
+
+      throw new GenericInternalServerError('Deleting byte storage object cleanup failed', { cause });
+    }
   }
 
   private async cleanupObject(object: ByteStorageObject): Promise<void> {

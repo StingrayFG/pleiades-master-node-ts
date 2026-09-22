@@ -1,3 +1,5 @@
+import { GenericInternalServerError } from '@/errors/application.errors';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 
 import type { ListPayloadCleanupCandidatesRepositoryInput } from '../task.application';
@@ -24,7 +26,26 @@ class TaskPayloadCleanupHandler {
 
     const tasks = await this.repository.listPayloadCleanupCandidates(listCandidatesInput);
 
-    await Promise.all(tasks.map((task) => this.cleanupPayload(task)));
+    const results = await Promise.allSettled(tasks.map((task) => this.cleanupPayload(task)));
+
+    const errors: ErrorCauseEntry[] = [];
+
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+
+      if (result.status === 'rejected') {
+        errors.push({
+          source: tasks[index].id,
+          error: result.reason
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      const cause = createAggregateErrorCause(errors);
+
+      throw new GenericInternalServerError('Task payload cleanup failed', { cause });
+    }
   }
 
   private async cleanupPayload(task: PersistedTask): Promise<void> {
