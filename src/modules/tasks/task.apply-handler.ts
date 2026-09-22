@@ -96,6 +96,24 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
 
     let executions = await this.repository.listExecutionsByTaskId(task.id);
 
+    const hasRunnableExecutions =
+      executions.length === 0 ||
+      executions.some((execution) => execution.state !== 'completed' && execution.state !== 'failed');
+
+    // hydration may fetch a payload from storage, so skip it when every execution is already finalized;
+    // it runs before execution creation so a task that cannot be decoded never spawns executions
+    let data: unknown;
+
+    if (hasRunnableExecutions) {
+      try {
+        data = await this.hydrateTaskDataIfNeeded(task, registration.definition);
+      } catch (err) {
+        await this.failTaskWithoutExecutions(task, err);
+
+        return true;
+      }
+    }
+
     if (executions.length === 0) {
       const targetMasterIds = resolveTaskTargetsFromScope(task.executionScope, this.selfMasterNodeId);
 
@@ -117,19 +135,6 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
     const runnableExecutions = executions.filter(
       (execution) => execution.state !== 'completed' && execution.state !== 'failed'
     );
-
-    // hydration may fetch a payload from storage, so skip it when every execution is already finalized
-    let data: unknown;
-
-    if (runnableExecutions.length > 0) {
-      try {
-        data = await this.hydrateTaskDataIfNeeded(task, registration.definition);
-      } catch (err) {
-        await this.failTaskWithoutExecutions(task, err);
-
-        return true;
-      }
-    }
 
     const typedTask: Task = { ...task, data };
 

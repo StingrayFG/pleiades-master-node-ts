@@ -15,6 +15,10 @@ export const resolveTaskStateFromExecutions = (executions: TaskExecution[]): Tas
 
   const failed = executions.filter((execution) => execution.state === 'failed').length;
 
+  if (completed + failed < executions.length) {
+    return 'pending';
+  }
+
   if (completed === executions.length) {
     return 'completed';
   }
