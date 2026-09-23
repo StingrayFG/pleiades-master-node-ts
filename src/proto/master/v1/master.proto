@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package master.v1;
+
+option go_package = "app/internal/gen/master/v1;masterv1";
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum TaskExecutionScope {
+  TASK_EXECUTION_SCOPE_UNSPECIFIED = 0;
+  TASK_EXECUTION_SCOPE_LOCAL = 1;
+  TASK_EXECUTION_SCOPE_CLUSTER = 2;
+}
+
+message TaskEntry {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string origin_master_id = 2;
+  int64 epoch = 3;
+  int64 sequence = 4;
+  string type = 5;
+  TaskExecutionScope execution_scope = 6;
+  bytes data = 7;
+  optional string payload_id = 8 [(buf.validate.field).string.uuid = true];
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message FetchTaskEntriesRequest {
+  int64 after_sequence = 1 [(buf.validate.field).int64.gte = -1];
+  uint32 limit = 2 [(buf.validate.field).uint32 = { gt: 0, lte: 128 }];
+}
+
+message FetchTaskEntriesResponse {
+  int64 epoch = 1;
+  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  repeated TaskEntry entries = 3;
+}
+
+message FetchTaskPayloadRequest {
+  string payload_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message FetchTaskPayloadResponse {
+  bytes payload = 1;
+}
+
+service Master {
+  rpc FetchTaskEntries(FetchTaskEntriesRequest) returns (FetchTaskEntriesResponse);
+  rpc FetchTaskPayload(FetchTaskPayloadRequest) returns (FetchTaskPayloadResponse);
+}

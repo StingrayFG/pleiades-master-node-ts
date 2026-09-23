@@ -71,29 +71,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const grpcMtlsConfig = loadGrpcMtlsConfig();
 
-  const masterNodeModule = createMasterNodeModule({
-    prisma
-  });
-
   const consensusModule = createConsensusModule({
     prisma
-  });
-
-  const bootstrapModule = createBootstrapModule({
-    consensusService: consensusModule.service,
-    masterNodeService: masterNodeModule.service,
-    selfMasterNode: {
-      id: selfMasterNodeId,
-
-      certificateFingerprint: calculateMasterNodeCertificateFingerprint(grpcMtlsConfig.certificate),
-      sessionId: selfMasterNodeSessionId,
-
-      endpoint: {
-        hostname: env.PUBLIC_HOST,
-        port: env.PUBLIC_PORT,
-        scheme: 'grpcs'
-      }
-    }
   });
 
   const diskByteStorageConfig: DiskByteStorageConfig = {
@@ -123,6 +102,32 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
   const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
+
+  const masterNodeModule = createMasterNodeModule({
+    prisma,
+    taskRepository: taskModule.repository,
+    consensusService: consensusModule.service,
+    byteStorageService: byteStorageModule.service,
+    grpcConfig: blobGrpcConfig,
+    grpcClientCredentials
+  });
+
+  const bootstrapModule = createBootstrapModule({
+    consensusService: consensusModule.service,
+    masterNodeService: masterNodeModule.service,
+    selfMasterNode: {
+      id: selfMasterNodeId,
+
+      certificateFingerprint: calculateMasterNodeCertificateFingerprint(grpcMtlsConfig.certificate),
+      sessionId: selfMasterNodeSessionId,
+
+      endpoint: {
+        hostname: env.PUBLIC_HOST,
+        port: env.PUBLIC_PORT,
+        scheme: 'grpcs'
+      }
+    }
+  });
 
   const bucketModule = createBucketModule({
     prisma,
@@ -173,6 +178,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const close = async (): Promise<void> => {
     dataNodeModule.grpcClient.close();
     blobModule.grpcClient.close();
+    masterNodeModule.grpcClient.close();
 
     await prisma.$disconnect();
   };

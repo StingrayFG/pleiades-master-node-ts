@@ -5,6 +5,7 @@ import { Server } from '@grpc/grpc-js';
 import app, { compositionRoot } from '@/app';
 
 // generated grpc contracts
+import { MasterService } from '@/gen/proto/master/v1/master';
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
 
 // grpc infrastructure
@@ -13,6 +14,7 @@ import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/g
 
 // module grpc surfaces
 import { createDataNodeGrpcRoutes } from '@/modules/data-nodes/data-node.grpc-routes';
+import { createMasterNodeGrpcRoutes } from '@/modules/master-nodes/master-node.grpc-routes';
 
 /* contract */
 
@@ -43,6 +45,17 @@ registerGrpcServiceWithErrorHandling(
   grpcServer,
   DataNodeMembershipService,
   dataNodeGrpcRoutes.dataNodeMembershipService,
+  grpcErrorHandlerOptions
+);
+
+const masterNodeGrpcRoutes = createMasterNodeGrpcRoutes({
+  controller: compositionRoot.masterNodeModule.controller
+});
+
+registerGrpcServiceWithErrorHandling(
+  grpcServer,
+  MasterService,
+  masterNodeGrpcRoutes.masterService,
   grpcErrorHandlerOptions
 );
 

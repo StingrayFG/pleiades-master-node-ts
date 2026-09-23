@@ -1,0 +1,270 @@
+import { Buffer } from 'node:buffer';
+
+import type { ChannelCredentials, ServiceError } from '@grpc/grpc-js';
+import { Metadata, status } from '@grpc/grpc-js';
+import { afterAll, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
+
+import { GenericMapperError } from '@/errors/application.errors';
+import { InternodeUnavailableError } from '@/errors/internode.errors';
+import type {
+  FetchTaskEntriesResponse,
+  FetchTaskPayloadResponse,
+  MasterClient as GrpcMasterClient,
+  TaskExecutionScope
+} from '@/gen/proto/master/v1/master';
+import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
+import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
+
+import type { MasterNodeEndpoint } from '../master-node.domain';
+
+/* fixtures */
+
+const endpoint: MasterNodeEndpoint = {
+  hostname: 'master-node.internal',
+  port: 50051,
+  scheme: 'grpcs'
+};
+
+const grpcConfig: GrpcClientConfig = {
+  maxMessageSizeBytes: 4 * 1024 * 1024
+};
+
+const payloadId = '00000000-0000-4000-8000-000000000003';
+const createdAt = new Date('2026-01-01T00:00:00.000Z');
+
+const entriesResponse: FetchTaskEntriesResponse = {
+  epoch: '2',
+  last_committed_sequence: '4',
+  entries: [
+    {
+      id: '00000000-0000-4000-8000-000000000002',
+      origin_master_id: 'master-node-a',
+      epoch: '2',
+      sequence: '4',
+      type: 'bucket.create',
+      execution_scope: 2 as TaskExecutionScope,
+      data: Buffer.from(JSON.stringify({ bucketName: 'test-bucket' })),
+      payload_id: payloadId,
+      created_at: createdAt
+    }
+  ]
+};
+
+const payloadResponse: FetchTaskPayloadResponse = {
+  payload: Buffer.from('task payload')
+};
+
+/* mocks */
+
+type EntriesCallback = (error: ServiceError | null, response: FetchTaskEntriesResponse) => void;
+type PayloadCallback = (error: ServiceError | null, response: FetchTaskPayloadResponse) => void;
+
+type GrpcMasterClientMock = {
+  fetchTaskEntries: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: EntriesCallback) => void
+  >;
+  fetchTaskPayload: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: PayloadCallback) => void
+  >;
+  close: jest.Mock<() => void>;
+};
+
+const grpcMasterClientConstructorMock = jest.fn();
+
+let MasterNodeGrpcClient: typeof import('../master-node.grpc-client').MasterNodeGrpcClient;
+
+const createCredentialsMock = () => {
+  const credentials = {} as ChannelCredentials;
+  const provider: jest.Mocked<GrpcClientCredentialsContract> = {
+    get: jest.fn<GrpcClientCredentialsContract['get']>().mockReturnValue(credentials)
+  };
+
+  return {
+    credentials,
+    provider
+  };
+};
+
+/* tests */
+
+describe('MasterNodeGrpcClient', () => {
+  let createdClients: GrpcMasterClientMock[];
+
+  beforeAll(async () => {
+    jest.doMock('@/gen/proto/master/v1/master', () => {
+      const actual = jest.requireActual<typeof import('@/gen/proto/master/v1/master')>('@/gen/proto/master/v1/master');
+
+      return {
+        ...actual,
+        MasterClient: grpcMasterClientConstructorMock
+      };
+    });
+
+    ({ MasterNodeGrpcClient } = await import('../master-node.grpc-client'));
+  });
+
+  afterAll(() => {
+    jest.dontMock('@/gen/proto/master/v1/master');
+  });
+
+  beforeEach(() => {
+    createdClients = [];
+    grpcMasterClientConstructorMock.mockReset();
+
+    grpcMasterClientConstructorMock.mockImplementation(() => {
+      const client: GrpcMasterClientMock = {
+        fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
+          callback(null, entriesResponse);
+        }),
+        fetchTaskPayload: jest.fn((_request, _metadata, _options, callback: PayloadCallback) => {
+          callback(null, payloadResponse);
+        }),
+        close: jest.fn()
+      };
+
+      createdClients.push(client);
+
+      return client as unknown as InstanceType<typeof GrpcMasterClient>;
+    });
+  });
+
+  test('fetches and maps task entries', async () => {
+    const { credentials, provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+
+    await expect(
+      client.fetchTaskEntries({
+        masterNodeEndpoint: endpoint,
+        afterSequence: -1n,
+        limit: 32
+      })
+    ).resolves.toEqual({
+      epoch: 2n,
+      lastCommittedSequence: 4n,
+      entries: [
+        {
+          id: entriesResponse.entries[0].id,
+          originMasterNodeId: entriesResponse.entries[0].origin_master_id,
+          epoch: 2n,
+          sequence: 4n,
+          type: entriesResponse.entries[0].type,
+          executionScope: 'cluster',
+          data: { bucketName: 'test-bucket' },
+          payloadId,
+          createdAt
+        }
+      ]
+    });
+    expect(grpcMasterClientConstructorMock).toHaveBeenCalledWith('master-node.internal:50051', credentials, {
+      'grpc.max_receive_message_length': grpcConfig.maxMessageSizeBytes,
+      'grpc.max_send_message_length': grpcConfig.maxMessageSizeBytes
+    });
+    expect(createdClients[0].fetchTaskEntries).toHaveBeenCalledWith(
+      { after_sequence: '-1', limit: 32 },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('fetches task payload bytes', async () => {
+    const { provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+
+    await expect(client.fetchTaskPayload({ masterNodeEndpoint: endpoint, payloadId })).resolves.toEqual(
+      payloadResponse.payload
+    );
+    expect(createdClients[0].fetchTaskPayload).toHaveBeenCalledWith(
+      { payload_id: payloadId },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('reuses a client for task entries and payloads from the same endpoint', async () => {
+    const { provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+
+    await client.fetchTaskEntries({ masterNodeEndpoint: endpoint, afterSequence: -1n, limit: 32 });
+    await client.fetchTaskPayload({ masterNodeEndpoint: endpoint, payloadId });
+
+    expect(grpcMasterClientConstructorMock).toHaveBeenCalledTimes(1);
+    expect(provider.get).toHaveBeenCalledTimes(1);
+  });
+
+  test('maps gRPC failures to internode application errors', async () => {
+    const { provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+    const grpcError = {
+      name: 'Error',
+      message: '14 UNAVAILABLE: master node unavailable',
+      code: status.UNAVAILABLE,
+      details: 'master node unavailable',
+      metadata: new Metadata()
+    } as ServiceError;
+
+    grpcMasterClientConstructorMock.mockImplementationOnce(() => {
+      const grpcClient: GrpcMasterClientMock = {
+        fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
+          callback(grpcError, entriesResponse);
+        }),
+        fetchTaskPayload: jest.fn(),
+        close: jest.fn()
+      };
+
+      createdClients.push(grpcClient);
+
+      return grpcClient as unknown as InstanceType<typeof GrpcMasterClient>;
+    });
+
+    await expect(
+      client.fetchTaskEntries({ masterNodeEndpoint: endpoint, afterSequence: -1n, limit: 32 })
+    ).rejects.toBeInstanceOf(InternodeUnavailableError);
+  });
+
+  test('rejects malformed task entries returned by a peer', async () => {
+    const { provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+
+    grpcMasterClientConstructorMock.mockImplementationOnce(() => {
+      const grpcClient: GrpcMasterClientMock = {
+        fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
+          callback(null, {
+            ...entriesResponse,
+            entries: [
+              {
+                ...entriesResponse.entries[0],
+                data: Buffer.from('invalid json')
+              }
+            ]
+          });
+        }),
+        fetchTaskPayload: jest.fn(),
+        close: jest.fn()
+      };
+
+      createdClients.push(grpcClient);
+
+      return grpcClient as unknown as InstanceType<typeof GrpcMasterClient>;
+    });
+
+    await expect(
+      client.fetchTaskEntries({ masterNodeEndpoint: endpoint, afterSequence: -1n, limit: 32 })
+    ).rejects.toBeInstanceOf(GenericMapperError);
+  });
+
+  test('closes cached clients and creates a new one for later requests', async () => {
+    const { provider } = createCredentialsMock();
+    const client = new MasterNodeGrpcClient(grpcConfig, provider);
+
+    await client.fetchTaskEntries({ masterNodeEndpoint: endpoint, afterSequence: -1n, limit: 32 });
+    client.close();
+
+    expect(createdClients[0].close).toHaveBeenCalledTimes(1);
+
+    await client.fetchTaskEntries({ masterNodeEndpoint: endpoint, afterSequence: -1n, limit: 32 });
+
+    expect(grpcMasterClientConstructorMock).toHaveBeenCalledTimes(2);
+  });
+});

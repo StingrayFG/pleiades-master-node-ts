@@ -2,6 +2,12 @@ import { describe, expect, test } from '@jest/globals';
 
 import {
   applyMasterNodeRegistrationRepositoryInputSchema,
+  fetchTaskEntriesClientInputSchema,
+  fetchTaskEntriesInternodeInputSchema,
+  fetchTaskEntriesInternodeResultSchema,
+  fetchTaskPayloadClientInputSchema,
+  fetchTaskPayloadInternodeInputSchema,
+  internodeTaskEntrySchema,
   registerMasterNodeInputSchema
 } from '../master-node.application';
 
@@ -20,6 +26,18 @@ const registrationInput = {
     port: 50051,
     scheme: 'grpcs'
   }
+} as const;
+
+const taskEntry = {
+  id: '00000000-0000-4000-8000-000000000002',
+  originMasterNodeId: registrationInput.id,
+  epoch: 1n,
+  sequence: 0n,
+  type: 'bucket.create',
+  executionScope: 'cluster',
+  data: { bucketName: 'test-bucket' },
+  payloadId: '00000000-0000-4000-8000-000000000003',
+  createdAt: new Date('2026-01-02T00:00:00.000Z')
 } as const;
 
 /* tests */
@@ -57,5 +75,62 @@ describe('master node application schemas', () => {
       ...registrationInput,
       lastContactAt
     });
+  });
+
+  test('accepts an internode task entry', () => {
+    expect(internodeTaskEntrySchema.parse(taskEntry)).toEqual(taskEntry);
+  });
+
+  test('accepts the initial task-entry range and an empty uncommitted result', () => {
+    expect(
+      fetchTaskEntriesInternodeInputSchema.parse({
+        afterSequence: -1n,
+        limit: 32
+      })
+    ).toEqual({
+      afterSequence: -1n,
+      limit: 32
+    });
+    expect(
+      fetchTaskEntriesInternodeResultSchema.parse({
+        epoch: 0n,
+        lastCommittedSequence: -1n,
+        entries: []
+      })
+    ).toEqual({
+      epoch: 0n,
+      lastCommittedSequence: -1n,
+      entries: []
+    });
+  });
+
+  test('rejects invalid task-entry range bounds', () => {
+    expect(fetchTaskEntriesInternodeInputSchema.safeParse({ afterSequence: -2n, limit: 32 }).success).toBe(false);
+    expect(fetchTaskEntriesInternodeInputSchema.safeParse({ afterSequence: -1n, limit: 0 }).success).toBe(false);
+  });
+
+  test('accepts internode and client payload requests', () => {
+    const payloadInput = { payloadId: taskEntry.payloadId };
+
+    expect(fetchTaskPayloadInternodeInputSchema.parse(payloadInput)).toEqual(payloadInput);
+    expect(
+      fetchTaskPayloadClientInputSchema.parse({
+        masterNodeEndpoint: registrationInput.endpoint,
+        ...payloadInput
+      })
+    ).toEqual({
+      masterNodeEndpoint: registrationInput.endpoint,
+      ...payloadInput
+    });
+  });
+
+  test('accepts client task-entry requests with a secure master endpoint', () => {
+    const input = {
+      masterNodeEndpoint: registrationInput.endpoint,
+      afterSequence: -1n,
+      limit: 32
+    };
+
+    expect(fetchTaskEntriesClientInputSchema.parse(input)).toEqual(input);
   });
 });

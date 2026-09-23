@@ -1,10 +1,22 @@
+import { Buffer } from 'node:buffer';
+
 import type { MasterNode as PrismaMasterNode } from '@prisma/client';
 import { describe, expect, test } from '@jest/globals';
 
 import { GenericMapperError } from '@/errors/application.errors';
+import { TaskExecutionScope } from '@/gen/proto/master/v1/master';
 
+import type { InternodeTaskEntry } from '../master-node.application';
 import type { MasterNode } from '../master-node.domain';
-import { mapPrismaMasterNodeToDomainMasterNode } from '../master-node.mappers';
+import {
+  mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
+  mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
+  mapGrpcTaskEntryToInternodeTaskEntry,
+  mapGrpcTaskExecutionScopeToTaskExecutionScope,
+  mapInternodeTaskEntryToGrpcTaskEntry,
+  mapPrismaMasterNodeToDomainMasterNode,
+  mapTaskExecutionScopeToGrpcTaskExecutionScope
+} from '../master-node.mappers';
 
 /* fixtures */
 
@@ -50,6 +62,18 @@ const domainMasterNode: MasterNode = {
   revision: prismaMasterNode.revision
 };
 
+const taskEntry: InternodeTaskEntry = {
+  id: '00000000-0000-4000-8000-000000000002',
+  originMasterNodeId: domainMasterNode.id,
+  epoch: 2n,
+  sequence: 4n,
+  type: 'bucket.create',
+  executionScope: 'cluster',
+  data: { bucketName: 'test-bucket' },
+  payloadId: '00000000-0000-4000-8000-000000000003',
+  createdAt: new Date('2026-01-03T00:00:00.000Z')
+};
+
 /* tests */
 
 describe('master node mappers', () => {
@@ -64,5 +88,81 @@ describe('master node mappers', () => {
     };
 
     expect(() => mapPrismaMasterNodeToDomainMasterNode(invalidMasterNode)).toThrow(GenericMapperError);
+  });
+
+  test('maps task-entry and payload gRPC requests to internode inputs', () => {
+    expect(
+      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput({
+        after_sequence: '-1',
+        limit: 32
+      })
+    ).toEqual({
+      afterSequence: -1n,
+      limit: 32
+    });
+    expect(
+      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput({
+        payload_id: taskEntry.payloadId!
+      })
+    ).toEqual({
+      payloadId: taskEntry.payloadId
+    });
+  });
+
+  test('maps task entries between application and gRPC representations', () => {
+    const grpcEntry = mapInternodeTaskEntryToGrpcTaskEntry(taskEntry);
+
+    expect(grpcEntry).toEqual({
+      id: taskEntry.id,
+      origin_master_id: taskEntry.originMasterNodeId,
+      epoch: '2',
+      sequence: '4',
+      type: taskEntry.type,
+      execution_scope: TaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER,
+      data: Buffer.from(JSON.stringify(taskEntry.data)),
+      payload_id: taskEntry.payloadId,
+      created_at: taskEntry.createdAt
+    });
+    expect(mapGrpcTaskEntryToInternodeTaskEntry(grpcEntry)).toEqual(taskEntry);
+  });
+
+  test('maps local and cluster execution scopes in both directions', () => {
+    expect(mapTaskExecutionScopeToGrpcTaskExecutionScope('local')).toBe(TaskExecutionScope.TASK_EXECUTION_SCOPE_LOCAL);
+    expect(mapTaskExecutionScopeToGrpcTaskExecutionScope('cluster')).toBe(
+      TaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER
+    );
+    expect(mapGrpcTaskExecutionScopeToTaskExecutionScope(TaskExecutionScope.TASK_EXECUTION_SCOPE_LOCAL)).toBe('local');
+    expect(mapGrpcTaskExecutionScopeToTaskExecutionScope(TaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER)).toBe(
+      'cluster'
+    );
+  });
+
+  test('rejects unspecified and unrecognized execution scopes', () => {
+    expect(() =>
+      mapGrpcTaskExecutionScopeToTaskExecutionScope(TaskExecutionScope.TASK_EXECUTION_SCOPE_UNSPECIFIED)
+    ).toThrow(GenericMapperError);
+    expect(() => mapGrpcTaskExecutionScopeToTaskExecutionScope(TaskExecutionScope.UNRECOGNIZED)).toThrow(
+      GenericMapperError
+    );
+  });
+
+  test('wraps malformed task-entry requests and payload data in mapper errors', () => {
+    expect(() =>
+      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput({
+        after_sequence: 'invalid',
+        limit: 32
+      })
+    ).toThrow(GenericMapperError);
+    expect(() =>
+      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput({
+        payload_id: 'invalid'
+      })
+    ).toThrow(GenericMapperError);
+    expect(() =>
+      mapGrpcTaskEntryToInternodeTaskEntry({
+        ...mapInternodeTaskEntryToGrpcTaskEntry(taskEntry),
+        data: Buffer.from('invalid json')
+      })
+    ).toThrow(GenericMapperError);
   });
 });
