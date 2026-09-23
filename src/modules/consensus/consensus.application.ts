@@ -28,6 +28,11 @@ export const claimLeadershipRepositoryInputSchema = z.object({
   leaderMasterId: masterNodeIdSchema
 });
 
+export const acceptFollowershipRepositoryInputSchema = z.object({
+  id: consensusStateIdSchema,
+  leaderMasterId: masterNodeIdSchema
+});
+
 /* types */
 
 export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
@@ -35,6 +40,7 @@ export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
 >;
 export type AdvanceLastAppliedSequenceRepositoryInput = z.infer<typeof advanceLastAppliedSequenceRepositoryInputSchema>;
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
+export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
 
 // runs within the sequence-allocation transaction; all database work must use the provided transaction client.
 export type AllocatedSequenceTransactionAction<TResult> = (

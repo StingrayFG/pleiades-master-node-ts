@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 /* schemas */
 
-export const masterBootstrapRoleSchema = z.literal('leader');
+export const MASTER_BOOTSTRAP_ROLES = ['leader', 'follower'] as const;
+
+export const masterBootstrapRoleSchema = z.enum(MASTER_BOOTSTRAP_ROLES);
 
 /* types */
 

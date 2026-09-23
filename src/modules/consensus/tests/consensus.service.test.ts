@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import {
   GenericAlreadyExistsError,
+  GenericConflictError,
   GenericFailedPreconditionError,
   GenericInternalServerError
 } from '@/errors/application.errors';
@@ -50,7 +51,8 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     advanceLastCommittedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastCommittedSequence']>(),
     advanceLastAppliedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastAppliedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withAdvancedLastAllocatedSequence']>(),
-    claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>()
+    claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
+    acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>()
   };
 
   repository.findState.mockResolvedValue(state);
@@ -61,6 +63,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     return action(transaction, 5n);
   });
   repository.claimLeadership.mockResolvedValue(true);
+  repository.acceptFollowership.mockResolvedValue(true);
 
   return repository as unknown as jest.Mocked<ConsensusStateRepositoryContract>;
 };
@@ -195,5 +198,48 @@ describe('ConsensusService', () => {
     repository.claimLeadership.mockResolvedValue(false);
 
     await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(winningState);
+  });
+
+  test('returns immediately when already following the requested leader', async () => {
+    const followerState = { ...state, leaderMasterId: otherMasterNodeId };
+
+    repository.findState.mockResolvedValue(followerState);
+
+    await expect(service.acceptFollowership(otherMasterNodeId)).resolves.toBe(followerState);
+    expect(repository.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('accepts a leader while the local consensus state is unclaimed', async () => {
+    const followerState = {
+      ...unclaimedState,
+      leaderMasterId: otherMasterNodeId,
+      revision: 1n
+    };
+
+    repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(followerState);
+
+    await expect(service.acceptFollowership(otherMasterNodeId)).resolves.toBe(followerState);
+    expect(repository.acceptFollowership).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      leaderMasterId: otherMasterNodeId
+    });
+  });
+
+  test('rejects followership when already following a different leader', async () => {
+    const followerState = { ...state, leaderMasterId: 'master-node-c' };
+
+    repository.findState.mockResolvedValue(followerState);
+
+    await expect(service.acceptFollowership(otherMasterNodeId)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(repository.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('rejects followership when another leader wins the acceptance race', async () => {
+    const winningState = { ...unclaimedState, leaderMasterId: 'master-node-c' };
+
+    repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(winningState);
+    repository.acceptFollowership.mockResolvedValue(false);
+
+    await expect(service.acceptFollowership(otherMasterNodeId)).rejects.toBeInstanceOf(GenericConflictError);
   });
 });

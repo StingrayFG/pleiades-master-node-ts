@@ -2,7 +2,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import type { BootstrapHttpControllerContract } from './bootstrap.http-controller';
-import { bootstrapLeaderHttpSchema, type BootstrapLeaderHttpRoute } from './bootstrap.http-contracts';
+import {
+  bootstrapFollowerHttpSchema,
+  bootstrapLeaderHttpSchema,
+  type BootstrapFollowerHttpRoute,
+  type BootstrapLeaderHttpRoute
+} from './bootstrap.http-contracts';
 
 /* contract */
 
@@ -24,6 +29,14 @@ const createBootstrapHttpRoutes = ({ controller }: BootstrapHttpRoutesDependenci
         schema: bootstrapLeaderHttpSchema
       },
       (req, reply) => controller.bootstrapLeader(req, reply)
+    );
+
+    typedApp.post<BootstrapFollowerHttpRoute>(
+      '/follower',
+      {
+        schema: bootstrapFollowerHttpSchema
+      },
+      (req, reply) => controller.bootstrapFollower(req, reply)
     );
   };
 };

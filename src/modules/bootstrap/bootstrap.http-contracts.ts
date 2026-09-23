@@ -6,11 +6,24 @@ import {
   internalServerErrorHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
-import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
+import {
+  masterNodeCertificateFingerprintSchema,
+  masterNodeHostnameSchema,
+  masterNodeIdSchema,
+  masterNodePortSchema
+} from '@/modules/master-nodes/master-node.domain';
 
 import { masterBootstrapRoleSchema } from './bootstrap.domain';
 
 /* schemas */
+
+export const bootstrapFollowerBodySchema = z.object({
+  leaderEndpoint: z.object({
+    hostname: masterNodeHostnameSchema,
+    port: masterNodePortSchema
+  }),
+  leaderCertificateFingerprint: masterNodeCertificateFingerprintSchema
+});
 
 export const bootstrapResultResponseSchema = z.object({
   role: masterBootstrapRoleSchema,
@@ -26,8 +39,19 @@ export const bootstrapLeaderHttpSchema = {
   }
 };
 
+export const bootstrapFollowerHttpSchema = {
+  body: bootstrapFollowerBodySchema,
+  response: {
+    200: bootstrapResultResponseSchema,
+    409: conflictHttpErrorResponseSchema,
+    500: internalServerErrorHttpErrorResponseSchema
+  }
+};
+
 /* types */
 
+export type BootstrapFollowerBody = z.infer<typeof bootstrapFollowerBodySchema>;
 export type BootstrapResultResponse = z.infer<typeof bootstrapResultResponseSchema>;
 
 export type BootstrapLeaderHttpRoute = InferHttpRoute<typeof bootstrapLeaderHttpSchema>;
+export type BootstrapFollowerHttpRoute = InferHttpRoute<typeof bootstrapFollowerHttpSchema>;

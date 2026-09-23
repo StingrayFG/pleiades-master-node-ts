@@ -260,6 +260,36 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
+  test('accepts followership only while no leader exists', async () => {
+    await expect(
+      repository.acceptFollowership({
+        id: CONSENSUS_STATE_ID,
+        leaderMasterId: 'master-node-b'
+      })
+    ).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        leader_master_id: null
+      },
+      data: {
+        leader_master_id: 'master-node-b',
+        revision: { increment: 1 }
+      }
+    });
+  });
+
+  test('reports a lost followership acceptance gate', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.acceptFollowership({
+        id: CONSENSUS_STATE_ID,
+        leaderMasterId: 'master-node-b'
+      })
+    ).resolves.toBe(false);
+  });
+
   test('propagates mapper errors from invalid persisted state', async () => {
     delegate.findUnique.mockResolvedValue({
       ...prismaState,

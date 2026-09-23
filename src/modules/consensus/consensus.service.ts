@@ -1,4 +1,8 @@
-import { GenericAlreadyExistsError, GenericFailedPreconditionError } from '@/errors/application.errors';
+import {
+  GenericAlreadyExistsError,
+  GenericConflictError,
+  GenericFailedPreconditionError
+} from '@/errors/application.errors';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskSequence } from '@/modules/tasks/task.domain';
 
@@ -22,6 +26,7 @@ type ConsensusServiceContract = {
 
   // membership
   bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
+  acceptFollowership(leaderMasterId: MasterNodeId): Promise<ConsensusState>;
 };
 
 /* service */
@@ -111,6 +116,31 @@ class ConsensusService implements ConsensusServiceContract {
     });
 
     return this.getConsensusState();
+  }
+
+  async acceptFollowership(leaderMasterId: MasterNodeId): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+
+    if (state.leaderMasterId === leaderMasterId) {
+      return state;
+    }
+
+    if (state.leaderMasterId !== null) {
+      throw new GenericConflictError('This master node already belongs to a different leader');
+    }
+
+    await this.repository.acceptFollowership({
+      id: CONSENSUS_STATE_ID,
+      leaderMasterId
+    });
+
+    const followerState = await this.getConsensusState();
+
+    if (followerState.leaderMasterId !== leaderMasterId) {
+      throw new GenericConflictError('Another master node was accepted as the cluster leader first');
+    }
+
+    return followerState;
   }
 }
 

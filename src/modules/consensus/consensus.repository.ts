@@ -4,6 +4,7 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
+  AcceptFollowershipRepositoryInput,
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastCommittedSequenceRepositoryInput,
   ClaimLeadershipRepositoryInput,
@@ -35,6 +36,7 @@ type ConsensusStateRepositoryContract = {
 
   // membership
   claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
+  acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean>;
 };
 
 /* repository */
@@ -218,6 +220,29 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     }
 
     return claimResult.count === 1;
+  }
+
+  async acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean> {
+    let acceptanceResult;
+
+    try {
+      acceptanceResult = await this.prisma.consensusState.updateMany({
+        where: {
+          id: input.id,
+          leader_master_id: null
+        },
+        data: {
+          leader_master_id: input.leaderMasterId,
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return acceptanceResult.count === 1;
   }
 }
 
