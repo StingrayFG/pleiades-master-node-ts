@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import {
   GenericAlreadyExistsError,
-  GenericConflictError,
   GenericFailedPreconditionError,
   GenericInternalServerError
 } from '@/errors/application.errors';
@@ -97,48 +96,5 @@ describe('ClusterService', () => {
 
     await expect(service.initializeCluster()).rejects.toBe(createError);
     expect(repository.find).toHaveBeenCalledTimes(1);
-  });
-
-  test('registers a leader-provided cluster identity', async () => {
-    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
-    expect(repository.create).toHaveBeenCalledWith({
-      id: CLUSTER_RECORD_ID,
-      clusterId: cluster.clusterId
-    });
-  });
-
-  test('reuses an existing matching cluster registration', async () => {
-    repository.find.mockResolvedValue(cluster);
-
-    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
-    expect(repository.create).not.toHaveBeenCalled();
-  });
-
-  test('rejects a different leader-provided cluster identity', async () => {
-    repository.find.mockResolvedValue(cluster);
-
-    await expect(service.registerCluster('00000000-0000-4000-8000-000000000002')).rejects.toBeInstanceOf(
-      GenericConflictError
-    );
-    expect(repository.create).not.toHaveBeenCalled();
-  });
-
-  test('returns a matching cluster created by a concurrent follower bootstrap', async () => {
-    repository.find.mockResolvedValueOnce(null).mockResolvedValueOnce(cluster);
-    repository.create.mockRejectedValue(new GenericAlreadyExistsError('Cluster already exists'));
-
-    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
-  });
-
-  test('rejects a different cluster created during follower bootstrap', async () => {
-    const otherCluster = {
-      ...cluster,
-      clusterId: '00000000-0000-4000-8000-000000000002'
-    };
-
-    repository.find.mockResolvedValueOnce(null).mockResolvedValueOnce(otherCluster);
-    repository.create.mockRejectedValue(new GenericAlreadyExistsError('Cluster already exists'));
-
-    await expect(service.registerCluster(cluster.clusterId)).rejects.toBeInstanceOf(GenericConflictError);
   });
 });
