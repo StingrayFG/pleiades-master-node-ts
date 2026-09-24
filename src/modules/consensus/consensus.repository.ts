@@ -5,6 +5,7 @@ import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
   AcceptFollowershipRepositoryInput,
+  AdvanceLastAllocatedSequenceRepositoryInput,
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastCommittedSequenceRepositoryInput,
   ClaimLeadershipRepositoryInput,
@@ -28,6 +29,7 @@ type ConsensusStateRepositoryContract = {
   // sequence
   advanceLastCommittedSequence(input: AdvanceLastCommittedSequenceRepositoryInput): Promise<ConsensusState>;
   advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
@@ -96,6 +98,39 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           },
           data: {
             last_committed_sequence: input.sequence,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        return tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaConsensusStateToDomainConsensusState(state);
+  }
+
+  async advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState> {
+    let state;
+
+    try {
+      state = await this.prisma.$transaction(async (tx) => {
+        await tx.consensusState.updateMany({
+          where: {
+            id: input.id,
+            last_allocated_sequence: {
+              lt: input.sequence
+            }
+          },
+          data: {
+            last_allocated_sequence: input.sequence,
             revision: {
               increment: 1
             }

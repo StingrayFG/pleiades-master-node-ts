@@ -19,6 +19,7 @@ type ConsensusServiceContract = {
   // sequence
   advanceLastCommittedSequence(sequence: TaskSequence): Promise<ConsensusState>;
   advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(sequence: TaskSequence): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     epoch: ConsensusEpoch,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -81,6 +82,15 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     return this.repository.advanceLastAppliedSequence({
+      id: CONSENSUS_STATE_ID,
+      sequence
+    });
+  }
+
+  async advanceLastAllocatedSequence(sequence: TaskSequence): Promise<ConsensusState> {
+    await this.getConsensusState();
+
+    return this.repository.advanceLastAllocatedSequence({
       id: CONSENSUS_STATE_ID,
       sequence
     });

@@ -22,6 +22,11 @@ export const advanceLastAppliedSequenceRepositoryInputSchema = z.object({
   sequence: consensusSequenceSchema
 });
 
+export const advanceLastAllocatedSequenceRepositoryInputSchema = z.object({
+  id: consensusStateIdSchema,
+  sequence: consensusSequenceSchema
+});
+
 export const claimLeadershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   epoch: consensusEpochSchema,
@@ -40,6 +45,7 @@ export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
   typeof advanceLastCommittedSequenceRepositoryInputSchema
 >;
 export type AdvanceLastAppliedSequenceRepositoryInput = z.infer<typeof advanceLastAppliedSequenceRepositoryInputSchema>;
+export type AdvanceLastAllocatedSequenceRepositoryInput = z.infer<typeof advanceLastAllocatedSequenceRepositoryInputSchema>;
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
 export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
 
