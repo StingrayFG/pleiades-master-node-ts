@@ -26,7 +26,7 @@ type ConsensusServiceContract = {
 
   // membership
   bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
-  acceptFollowership(leaderMasterId: MasterNodeId): Promise<ConsensusState>;
+  acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
 };
 
 /* service */
@@ -118,25 +118,30 @@ class ConsensusService implements ConsensusServiceContract {
     return this.getConsensusState();
   }
 
-  async acceptFollowership(leaderMasterId: MasterNodeId): Promise<ConsensusState> {
+  async acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (state.leaderMasterId === leaderMasterId) {
-      return state;
+    if (state.leaderMasterId !== null && state.leaderMasterId !== leaderMasterId) {
+      throw new GenericConflictError('This master node already belongs to a different leader');
     }
 
-    if (state.leaderMasterId !== null) {
-      throw new GenericConflictError('This master node already belongs to a different leader');
+    if (state.currentEpoch > epoch) {
+      throw new GenericConflictError('The leader epoch is older than the local consensus epoch');
+    }
+
+    if (state.leaderMasterId === leaderMasterId && state.currentEpoch === epoch) {
+      return state;
     }
 
     await this.repository.acceptFollowership({
       id: CONSENSUS_STATE_ID,
+      epoch,
       leaderMasterId
     });
 
     const followerState = await this.getConsensusState();
 
-    if (followerState.leaderMasterId !== leaderMasterId) {
+    if (followerState.leaderMasterId !== leaderMasterId || followerState.currentEpoch < epoch) {
       throw new GenericConflictError('Another master node was accepted as the cluster leader first');
     }
 

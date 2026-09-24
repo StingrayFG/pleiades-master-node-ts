@@ -1,6 +1,8 @@
 import { GenericConflictError } from '@/errors/application.errors';
+import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { RegisterMasterNodeInput } from '@/modules/master-nodes/master-node.application';
+import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
 import type { BootstrapAsFollowerInput, MasterBootstrapResult } from './bootstrap.application';
@@ -16,8 +18,10 @@ type BootstrapServiceContract = {
 
 class BootstrapService implements BootstrapServiceContract {
   constructor(
+    private readonly clusterService: ClusterServiceContract,
     private readonly consensusService: ConsensusServiceContract,
     private readonly masterNodeService: MasterNodeServiceContract,
+    private readonly masterNodeGrpcClient: MasterNodeGrpcClientContract,
     private readonly selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'>
   ) {}
 
@@ -31,6 +35,8 @@ class BootstrapService implements BootstrapServiceContract {
     if (state.leaderMasterId !== null) {
       throw new GenericConflictError('Another master node is already the cluster leader');
     }
+
+    await this.clusterService.initializeCluster();
 
     await this.masterNodeService.registerMasterNode({
       ...this.selfMasterNode,
@@ -64,11 +70,9 @@ class BootstrapService implements BootstrapServiceContract {
       throw new GenericConflictError('This master node is the cluster leader and cannot become a follower');
     }
 
-    // temporary until bootstrap resolves leader identity through the internode client
-    const leaderInfo = {
-      masterId: 'temporary-leader-master-node-id',
-      sessionId: '00000000-0000-4000-8000-000000000000'
-    };
+    const leaderInfo = await this.masterNodeGrpcClient.fetchMasterInfo({
+      masterNodeEndpoint: input.leaderEndpoint
+    });
 
     if (leaderInfo.masterId === this.selfMasterNode.id) {
       throw new GenericConflictError('A master node cannot follow itself');
@@ -77,6 +81,8 @@ class BootstrapService implements BootstrapServiceContract {
     if (state.leaderMasterId !== null && state.leaderMasterId !== leaderInfo.masterId) {
       throw new GenericConflictError('This master node already belongs to a different leader');
     }
+
+    await this.clusterService.registerCluster(leaderInfo.clusterId);
 
     // the leader's row must exist locally so replicated entries can reference it
     await this.masterNodeService.registerMasterNode({
@@ -96,7 +102,7 @@ class BootstrapService implements BootstrapServiceContract {
       mode: 'serving'
     });
 
-    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId);
+    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
 
     await this.masterNodeService.registerMasterNode({
       ...this.selfMasterNode,

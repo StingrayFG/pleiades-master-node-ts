@@ -205,22 +205,46 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId)).resolves.toBe(followerState);
+    await expect(service.acceptFollowership(otherMasterNodeId, followerState.currentEpoch)).resolves.toBe(followerState);
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 
-  test('accepts a leader while the local consensus state is unclaimed', async () => {
+  test('accepts a leader and its epoch while the local consensus state is unclaimed', async () => {
     const followerState = {
       ...unclaimedState,
+      currentEpoch: 2n,
       leaderMasterId: otherMasterNodeId,
       revision: 1n
     };
 
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId)).resolves.toBe(followerState);
+    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(followerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
+      epoch: 2n,
+      leaderMasterId: otherMasterNodeId
+    });
+  });
+
+  test('advances the epoch while continuing to follow the same leader', async () => {
+    const existingFollowerState = {
+      ...unclaimedState,
+      currentEpoch: 1n,
+      leaderMasterId: otherMasterNodeId
+    };
+    const advancedFollowerState = {
+      ...existingFollowerState,
+      currentEpoch: 2n,
+      revision: 1n
+    };
+
+    repository.findState.mockResolvedValueOnce(existingFollowerState).mockResolvedValueOnce(advancedFollowerState);
+
+    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(advancedFollowerState);
+    expect(repository.acceptFollowership).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 2n,
       leaderMasterId: otherMasterNodeId
     });
   });
@@ -230,7 +254,27 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(repository.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('rejects a leader epoch older than an unclaimed local epoch', async () => {
+    repository.findState.mockResolvedValue({
+      ...unclaimedState,
+      currentEpoch: 3n
+    });
+
+    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(repository.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('rejects a stale epoch from the current leader', async () => {
+    repository.findState.mockResolvedValue({
+      ...state,
+      leaderMasterId: otherMasterNodeId
+    });
+
+    await expect(service.acceptFollowership(otherMasterNodeId, 1n)).rejects.toBeInstanceOf(GenericConflictError);
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 
@@ -240,6 +284,6 @@ describe('ConsensusService', () => {
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(winningState);
     repository.acceptFollowership.mockResolvedValue(false);
 
-    await expect(service.acceptFollowership(otherMasterNodeId)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
   });
 });

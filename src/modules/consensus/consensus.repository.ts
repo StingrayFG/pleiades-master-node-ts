@@ -229,9 +229,13 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       acceptanceResult = await this.prisma.consensusState.updateMany({
         where: {
           id: input.id,
-          leader_master_id: null
+          current_epoch: {
+            lte: input.epoch
+          },
+          OR: [{ leader_master_id: null }, { leader_master_id: input.leaderMasterId }]
         },
         data: {
+          current_epoch: input.epoch,
           leader_master_id: input.leaderMasterId,
           revision: {
             increment: 1

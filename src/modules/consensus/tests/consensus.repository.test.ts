@@ -264,15 +264,18 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.acceptFollowership({
         id: CONSENSUS_STATE_ID,
+        epoch: 3n,
         leaderMasterId: 'master-node-b'
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
-        leader_master_id: null
+        current_epoch: { lte: 3n },
+        OR: [{ leader_master_id: null }, { leader_master_id: 'master-node-b' }]
       },
       data: {
+        current_epoch: 3n,
         leader_master_id: 'master-node-b',
         revision: { increment: 1 }
       }
@@ -285,6 +288,7 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.acceptFollowership({
         id: CONSENSUS_STATE_ID,
+        epoch: 3n,
         leaderMasterId: 'master-node-b'
       })
     ).resolves.toBe(false);

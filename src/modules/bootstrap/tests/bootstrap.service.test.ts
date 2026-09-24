@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericConflictError } from '@/errors/application.errors';
+import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
+import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { RegisterMasterNodeInput } from '@/modules/master-nodes/master-node.application';
+import type {
+  FetchMasterInfoInternodeResult,
+  RegisterMasterNodeInput
+} from '@/modules/master-nodes/master-node.application';
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
+import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
 import { BootstrapService } from '../bootstrap.service';
@@ -12,10 +18,15 @@ import { BootstrapService } from '../bootstrap.service';
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
+const cluster: Cluster = {
+  id: CLUSTER_RECORD_ID,
+  clusterId: '00000000-0000-4000-8000-000000000010',
+  createdAt: now,
+  updatedAt: now
+};
 const selfMasterNodeId = 'master-node-a';
 const leaderMasterNodeId = 'master-node-b';
-const temporaryLeaderMasterNodeId = 'temporary-leader-master-node-id';
-const temporaryLeaderSessionId = '00000000-0000-4000-8000-000000000000';
+const leaderMasterNodeSessionId = '00000000-0000-4000-8000-000000000002';
 
 const selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'> = {
   id: selfMasterNodeId,
@@ -51,6 +62,13 @@ const leaderEndpoint = {
 
 const leaderCertificateFingerprint = 'cd'.repeat(32);
 
+const leaderInfo: FetchMasterInfoInternodeResult = {
+  masterId: leaderMasterNodeId,
+  sessionId: leaderMasterNodeSessionId,
+  clusterId: cluster.clusterId,
+  epoch: 4n
+};
+
 const unclaimedState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
@@ -65,7 +83,15 @@ const unclaimedState: ConsensusState = {
 
 const followerState: ConsensusState = {
   ...unclaimedState,
-  leaderMasterId: temporaryLeaderMasterNodeId,
+  currentEpoch: leaderInfo.epoch,
+  leaderMasterId: leaderMasterNodeId,
+  revision: 1n
+};
+
+const leaderState: ConsensusState = {
+  ...unclaimedState,
+  currentEpoch: 3n,
+  leaderMasterId: selfMasterNodeId,
   revision: 1n
 };
 
@@ -75,6 +101,14 @@ const followerInput = {
 };
 
 /* mocks */
+
+const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
+  return {
+    getCluster: jest.fn<ClusterServiceContract['getCluster']>().mockResolvedValue(cluster),
+    initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>().mockResolvedValue(cluster),
+    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>().mockResolvedValue(cluster)
+  };
+};
 
 const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {
   return {
@@ -90,30 +124,69 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
   } as unknown as jest.Mocked<MasterNodeServiceContract>;
 };
 
+const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContract> => {
+  return {
+    fetchMasterInfo: jest.fn<MasterNodeGrpcClientContract['fetchMasterInfo']>().mockResolvedValue(leaderInfo),
+    fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>(),
+    fetchTaskPayload: jest.fn<MasterNodeGrpcClientContract['fetchTaskPayload']>(),
+    close: jest.fn<MasterNodeGrpcClientContract['close']>()
+  };
+};
+
 /* tests */
 
 describe('BootstrapService', () => {
+  let clusterService: jest.Mocked<ClusterServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
+  let masterNodeGrpcClient: jest.Mocked<MasterNodeGrpcClientContract>;
   let service: BootstrapService;
 
   beforeEach(() => {
+    clusterService = createClusterServiceMock();
     consensusService = createConsensusServiceMock();
     masterNodeService = createMasterNodeServiceMock();
-    service = new BootstrapService(consensusService, masterNodeService, selfMasterNode);
+    masterNodeGrpcClient = createMasterNodeGrpcClientMock();
+    service = new BootstrapService(
+      clusterService,
+      consensusService,
+      masterNodeService,
+      masterNodeGrpcClient,
+      selfMasterNode
+    );
   });
 
-  test('accepts the temporary leader information and registers both master rows', async () => {
+  test('initializes the cluster before claiming leadership', async () => {
+    consensusService.bootstrapLeadership.mockResolvedValue(leaderState);
+
+    await expect(service.bootstrapAsLeader()).resolves.toEqual({
+      role: 'leader',
+      epoch: leaderState.currentEpoch,
+      leaderMasterId: selfMasterNodeId
+    });
+
+    expect(clusterService.initializeCluster).toHaveBeenCalledWith();
+    expect(clusterService.initializeCluster.mock.invocationCallOrder[0]).toBeLessThan(
+      masterNodeService.registerMasterNode.mock.invocationCallOrder[0]
+    );
+    expect(consensusService.bootstrapLeadership).toHaveBeenCalledWith(selfMasterNodeId);
+  });
+
+  test('fetches the leader information and registers the cluster and both master rows', async () => {
     await expect(service.bootstrapAsFollower(followerInput)).resolves.toEqual({
       role: 'follower',
       epoch: followerState.currentEpoch,
-      leaderMasterId: temporaryLeaderMasterNodeId
+      leaderMasterId: leaderMasterNodeId
     });
 
+    expect(masterNodeGrpcClient.fetchMasterInfo).toHaveBeenCalledWith({
+      masterNodeEndpoint: leaderEndpoint
+    });
+    expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
     expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(1, {
-      id: temporaryLeaderMasterNodeId,
+      id: leaderMasterNodeId,
       certificateFingerprint: leaderCertificateFingerprint,
-      sessionId: temporaryLeaderSessionId,
+      sessionId: leaderMasterNodeSessionId,
       state: 'active',
       mode: 'serving',
       endpoint: leaderEndpoint
@@ -123,7 +196,7 @@ describe('BootstrapService', () => {
       state: 'joining',
       mode: 'serving'
     });
-    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(temporaryLeaderMasterNodeId);
+    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, leaderInfo.epoch);
     expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(3, {
       ...selfMasterNode,
       state: 'active',
@@ -131,6 +204,9 @@ describe('BootstrapService', () => {
     });
     expect(masterNodeService.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
       consensusService.acceptFollowership.mock.invocationCallOrder[0]
+    );
+    expect(clusterService.registerCluster.mock.invocationCallOrder[0]).toBeLessThan(
+      masterNodeService.registerMasterNode.mock.invocationCallOrder[0]
     );
   });
 
@@ -141,6 +217,7 @@ describe('BootstrapService', () => {
     });
 
     await expect(service.bootstrapAsLeader()).rejects.toBeInstanceOf(GenericConflictError);
+    expect(clusterService.initializeCluster).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
     expect(consensusService.bootstrapLeadership).not.toHaveBeenCalled();
   });
@@ -154,6 +231,7 @@ describe('BootstrapService', () => {
     await expect(service.bootstrapAsLeader()).rejects.toMatchObject({
       message: 'This master node is already the cluster leader'
     });
+    expect(clusterService.initializeCluster).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
     expect(consensusService.bootstrapLeadership).not.toHaveBeenCalled();
   });
@@ -165,6 +243,7 @@ describe('BootstrapService', () => {
     });
 
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(masterNodeGrpcClient.fetchMasterInfo).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
@@ -176,6 +255,8 @@ describe('BootstrapService', () => {
     });
 
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(masterNodeGrpcClient.fetchMasterInfo).toHaveBeenCalled();
+    expect(clusterService.registerCluster).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
@@ -186,6 +267,7 @@ describe('BootstrapService', () => {
     masterNodeService.registerMasterNode.mockRejectedValueOnce(registrationError);
 
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(registrationError);
+    expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledTimes(1);
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });

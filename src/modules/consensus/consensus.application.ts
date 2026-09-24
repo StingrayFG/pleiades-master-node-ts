@@ -30,6 +30,7 @@ export const claimLeadershipRepositoryInputSchema = z.object({
 
 export const acceptFollowershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
+  epoch: consensusEpochSchema,
   leaderMasterId: masterNodeIdSchema
 });
 
