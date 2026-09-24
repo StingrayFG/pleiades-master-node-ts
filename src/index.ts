@@ -1,10 +1,8 @@
-import app, { compositionRoot } from '@/app';
+import app from '@/app';
 import env from '@/env';
 import { startGrpcApp } from '@/grpc-app';
 
 const main = async (): Promise<void> => {
-  await compositionRoot.bootstrapModule.service.bootstrapAsLeader();
-
   startGrpcApp(
     {
       port: env.LISTEN_GRPC_PORT,
