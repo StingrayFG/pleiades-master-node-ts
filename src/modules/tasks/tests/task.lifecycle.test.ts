@@ -73,10 +73,12 @@ const consensusState: ConsensusState = {
 const createTaskRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
   const repository = {
     listTasksInSequenceRange: jest.fn<TaskRepositoryContract['listTasksInSequenceRange']>(),
+    listTasksFromSequence: jest.fn<TaskRepositoryContract['listTasksFromSequence']>(),
     listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
     listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
+    findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
     markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),

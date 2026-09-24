@@ -4,7 +4,13 @@ import type { Prisma } from '@prisma/client';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { z } from 'zod';
 
-import { GenericAbortedError, GenericFailedPreconditionError, GenericNotFoundError } from '@/errors/application.errors';
+import {
+  GenericAbortedError,
+  GenericConflictError,
+  GenericFailedPreconditionError,
+  GenericInternalServerError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
@@ -98,20 +104,25 @@ const dehydratedDefinition = createDehydratedTaskDefinition<
 const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
   const repository = {
     listTasksInSequenceRange: jest.fn<TaskRepositoryContract['listTasksInSequenceRange']>(),
+    listTasksFromSequence: jest.fn<TaskRepositoryContract['listTasksFromSequence']>(),
     listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
     listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
+    findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
     markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),
     markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
     markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
     updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
-    clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>()
+    clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>(),
+    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>()
   };
 
   repository.findById.mockResolvedValue(null);
+  repository.findBySequence.mockResolvedValue(null);
+  repository.listTasksFromSequence.mockResolvedValue([]);
   repository.create.mockResolvedValue(task);
   repository.createExecutions.mockResolvedValue([execution]);
 
@@ -132,14 +143,20 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
     getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>(),
     advanceLastCommittedSequence: jest.fn<ConsensusServiceContract['advanceLastCommittedSequence']>(),
     advanceLastAppliedSequence: jest.fn<ConsensusServiceContract['advanceLastAppliedSequence']>(),
+    advanceLastAllocatedSequence: jest.fn<ConsensusServiceContract['advanceLastAllocatedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusServiceContract['withAdvancedLastAllocatedSequence']>(),
+    withRewoundLastAllocatedSequence: jest.fn<ConsensusServiceContract['withRewoundLastAllocatedSequence']>(),
     bootstrapLeadership: jest.fn<ConsensusServiceContract['bootstrapLeadership']>()
   };
 
   service.getConsensusState.mockResolvedValue(consensusState);
   service.advanceLastCommittedSequence.mockResolvedValue(consensusState);
+  service.advanceLastAllocatedSequence.mockResolvedValue(consensusState);
   service.withAdvancedLastAllocatedSequence.mockImplementation(async (_epoch, action) => {
     return action(transaction, task.sequence);
+  });
+  service.withRewoundLastAllocatedSequence.mockImplementation(async (_epoch, sequence, action) => {
+    return action(transaction, sequence);
   });
 
   return service as unknown as jest.Mocked<ConsensusServiceContract>;
@@ -205,6 +222,404 @@ describe('TaskService', () => {
 
     await expect(service.getTaskById(task.id)).resolves.toBe(task);
     await expect(service.getTaskById(task.id)).rejects.toBeInstanceOf(GenericNotFoundError);
+  });
+
+  test('lists task ranges and retrieves task payloads through the task boundary', async () => {
+    const payload = Buffer.from('payload');
+
+    repository.listTasksInSequenceRange.mockResolvedValue([task]);
+    byteStorageService.retrieve.mockResolvedValue(payload);
+
+    await expect(service.listTasksInSequenceRange({ afterSequence: 1n, upToSequence: 6n, limit: 10 })).resolves.toEqual(
+      [task]
+    );
+    await expect(service.retrieveTaskPayload(execution.id)).resolves.toEqual(payload);
+
+    expect(repository.listTasksInSequenceRange).toHaveBeenCalledWith({
+      afterSequence: 1n,
+      upToSequence: 6n,
+      limit: 10
+    });
+    expect(byteStorageService.retrieve).toHaveBeenCalledWith(execution.id);
+  });
+
+  test('persists replicated tasks and their payloads through the task module', async () => {
+    const payload = Buffer.from('payload');
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        payload,
+        createdAt: task.createdAt
+      })
+    ).resolves.toBe(task);
+
+    expect(repository.create).toHaveBeenCalledWith({
+      id: task.id,
+      originMasterNodeId: task.originMasterNodeId,
+      epoch: task.epoch,
+      sequence: task.sequence,
+      type: task.type,
+      executionScope: task.executionScope,
+      data: task.data,
+      payloadId: execution.id,
+      createdAt: task.createdAt,
+      updatedAt: task.createdAt
+    });
+    expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence);
+  });
+
+  test('persists next-sequence history from an older consensus epoch', async () => {
+    const historicalTask = {
+      ...task,
+      epoch: consensusState.currentEpoch - 1n
+    };
+
+    repository.create.mockResolvedValue(historicalTask);
+
+    await expect(
+      service.replicateTask({
+        id: historicalTask.id,
+        originMasterNodeId: historicalTask.originMasterNodeId,
+        epoch: historicalTask.epoch,
+        sequence: historicalTask.sequence,
+        type: historicalTask.type,
+        executionScope: historicalTask.executionScope,
+        data: historicalTask.data,
+        payloadId: historicalTask.payloadId,
+        createdAt: historicalTask.createdAt
+      })
+    ).resolves.toBe(historicalTask);
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        epoch: historicalTask.epoch,
+        sequence: historicalTask.sequence
+      })
+    );
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(historicalTask.sequence);
+  });
+
+  test('rejects replicated payload references without bytes before advancing the sequence', async () => {
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        createdAt: task.createdAt
+      })
+    ).rejects.toBeInstanceOf(GenericInternalServerError);
+
+    expect(repository.create).toHaveBeenCalled();
+    expect(byteStorageService.store).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('does not store payloads or advance the sequence when replicated task creation fails', async () => {
+    const creationError = new GenericAbortedError('Task creation failed');
+
+    repository.create.mockRejectedValue(creationError);
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        payload: Buffer.from('payload'),
+        createdAt: task.createdAt
+      })
+    ).rejects.toBe(creationError);
+
+    expect(byteStorageService.store).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('reconciles replicated task replays without creating another task row', async () => {
+    const payload = Buffer.from('payload');
+    const taskWithPayload = { ...task, payloadId: execution.id };
+
+    repository.findBySequence.mockResolvedValue(taskWithPayload);
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        payload,
+        createdAt: task.createdAt
+      })
+    ).resolves.toBe(taskWithPayload);
+
+    expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence);
+  });
+
+  test('accepts an exact replay of an already allocated task without advancing the sequence again', async () => {
+    repository.findBySequence.mockResolvedValue(task);
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastAllocatedSequence: task.sequence
+    });
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: task.payloadId,
+        createdAt: task.createdAt
+      })
+    ).resolves.toBe(task);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('recovers a next-sequence replay from an older consensus epoch', async () => {
+    const historicalTask = {
+      ...task,
+      epoch: consensusState.currentEpoch - 1n
+    };
+
+    repository.findBySequence.mockResolvedValue(historicalTask);
+
+    await expect(
+      service.replicateTask({
+        id: historicalTask.id,
+        originMasterNodeId: historicalTask.originMasterNodeId,
+        epoch: historicalTask.epoch,
+        sequence: historicalTask.sequence,
+        type: historicalTask.type,
+        executionScope: historicalTask.executionScope,
+        data: historicalTask.data,
+        payloadId: historicalTask.payloadId,
+        createdAt: historicalTask.createdAt
+      })
+    ).resolves.toBe(historicalTask);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(historicalTask.sequence);
+  });
+
+  test('rejects a replay whose immutable task data differs', async () => {
+    repository.findBySequence.mockResolvedValue(task);
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: { value: 'different' },
+        payloadId: task.payloadId,
+        createdAt: task.createdAt
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('does not advance a replayed task when its payload cannot be restored', async () => {
+    const storageError = new Error('Payload storage failed');
+    const taskWithPayload = { ...task, payloadId: execution.id };
+
+    repository.findBySequence.mockResolvedValue(taskWithPayload);
+    byteStorageService.store.mockRejectedValue(storageError);
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        payload: Buffer.from('payload'),
+        createdAt: task.createdAt
+      })
+    ).rejects.toBe(storageError);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('rejects a different task at an already occupied sequence', async () => {
+    const divergentTask = {
+      ...task,
+      id: '00000000-0000-4000-8000-000000000003',
+      payloadId: execution.id
+    };
+
+    repository.findBySequence.mockResolvedValue(divergentTask);
+
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: null,
+        createdAt: task.createdAt
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+
+    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  test.each([task.sequence - 1n, task.sequence + 1n])(
+    'rejects a new replicated task at non-next sequence %s',
+    async (sequence) => {
+      await expect(
+        service.replicateTask({
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: null,
+          createdAt: task.createdAt
+        })
+      ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+    }
+  );
+
+  test('rejects a next-sequence task from a future consensus epoch', async () => {
+    await expect(
+      service.replicateTask({
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch + 1n,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: null,
+        createdAt: task.createdAt
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('deletes only uncommitted task tails and their payloads', async () => {
+    const taskWithPayload = { ...task, payloadId: execution.id };
+    const inlineTask = {
+      ...task,
+      id: '00000000-0000-4000-8000-000000000003',
+      sequence: task.sequence + 1n
+    };
+
+    repository.listTasksFromSequence.mockResolvedValue([taskWithPayload, inlineTask]);
+    repository.truncateFromSequence.mockResolvedValue(2);
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastAllocatedSequence: inlineTask.sequence
+    });
+
+    await expect(service.deleteTasksFromSequence(task.sequence)).resolves.toBe(2);
+
+    expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
+      consensusState.currentEpoch,
+      task.sequence - 1n,
+      expect.any(Function)
+    );
+    expect(repository.listTasksFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
+    expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
+    expect(byteStorageService.delete).toHaveBeenCalledWith(execution.id);
+    expect(byteStorageService.delete).toHaveBeenCalledTimes(1);
+    expect(repository.truncateFromSequence.mock.invocationCallOrder[0]).toBeLessThan(
+      byteStorageService.delete.mock.invocationCallOrder[0]
+    );
+  });
+
+  test('preserves a completed sequence rewind when payload cleanup fails', async () => {
+    const cleanupError = new Error('Payload cleanup failed');
+
+    repository.listTasksFromSequence.mockResolvedValue([{ ...task, payloadId: execution.id }]);
+    repository.truncateFromSequence.mockResolvedValue(1);
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastAllocatedSequence: task.sequence
+    });
+    byteStorageService.delete.mockRejectedValue(cleanupError);
+
+    await expect(service.deleteTasksFromSequence(task.sequence)).rejects.toBe(cleanupError);
+
+    expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
+  });
+
+  test('deletes a crash-window row immediately beyond the allocated sequence without lowering the counter', async () => {
+    repository.listTasksFromSequence.mockResolvedValue([task]);
+    repository.truncateFromSequence.mockResolvedValue(1);
+
+    await expect(service.deleteTasksFromSequence(task.sequence)).resolves.toBe(1);
+
+    expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
+      consensusState.currentEpoch,
+      consensusState.lastAllocatedSequence,
+      expect.any(Function)
+    );
+    expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
+  });
+
+  test('returns without rewinding when the requested tail starts beyond the allocated sequence', async () => {
+    await expect(service.deleteTasksFromSequence(task.sequence + 1n)).resolves.toBe(0);
+
+    expect(consensusService.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
+    expect(repository.listTasksFromSequence).not.toHaveBeenCalled();
+    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
+  });
+
+  test('rejects deletion of committed task history', async () => {
+    await expect(service.deleteTasksFromSequence(consensusState.lastCommittedSequence)).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+
+    expect(repository.listTasksFromSequence).not.toHaveBeenCalled();
+    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
   });
 
   test('registers task handlers through the registry', () => {

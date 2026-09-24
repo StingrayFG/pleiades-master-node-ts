@@ -8,7 +8,7 @@ import {
   GenericInternalServerError
 } from '@/errors/application.errors';
 
-import type { AllocatedSequenceTransactionAction } from '../consensus.application';
+import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from '../consensus.application';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '../consensus.domain';
 import type { ConsensusStateRepositoryContract } from '../consensus.repository';
 import { ConsensusService } from '../consensus.service';
@@ -50,7 +50,9 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     createState: jest.fn<ConsensusStateRepositoryContract['createState']>(),
     advanceLastCommittedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastCommittedSequence']>(),
     advanceLastAppliedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastAppliedSequence']>(),
+    advanceLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastAllocatedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withAdvancedLastAllocatedSequence']>(),
+    withRewoundLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withRewoundLastAllocatedSequence']>(),
     claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
     acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>()
   };
@@ -61,6 +63,9 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   repository.advanceLastAppliedSequence.mockResolvedValue(state);
   repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_id, _epoch, action) => {
     return action(transaction, 5n);
+  });
+  repository.withRewoundLastAllocatedSequence.mockImplementation(async (_id, _epoch, sequence, action) => {
+    return action(transaction, sequence);
   });
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
@@ -152,6 +157,40 @@ describe('ConsensusService', () => {
     expect(repository.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, action);
   });
 
+  test('delegates an allowed allocated-sequence rewind through the singleton state', async () => {
+    const action = jest
+      .fn<RewoundSequenceTransactionAction<string>>()
+      .mockImplementation(async (_tx, sequence) => `task-${sequence}`);
+
+    await expect(service.withRewoundLastAllocatedSequence(2n, 3n, action)).resolves.toBe('task-3');
+    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, 3n, action);
+  });
+
+  test('rejects rewinding the allocated sequence below committed history', async () => {
+    const action = jest.fn<RewoundSequenceTransactionAction<void>>();
+
+    await expect(service.withRewoundLastAllocatedSequence(2n, 2n, action)).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+    expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('allows sequence-tail work at the current allocated sequence', async () => {
+    const action = jest.fn<RewoundSequenceTransactionAction<void>>();
+
+    await expect(service.withRewoundLastAllocatedSequence(2n, 4n, action)).resolves.toBeUndefined();
+    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, 4n, action);
+  });
+
+  test('rejects a rewound sequence beyond the last allocated sequence', async () => {
+    const action = jest.fn<RewoundSequenceTransactionAction<void>>();
+
+    await expect(service.withRewoundLastAllocatedSequence(2n, 5n, action)).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+    expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
   test('returns immediately when this master node is already leader', async () => {
     await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(state);
     expect(repository.claimLeadership).not.toHaveBeenCalled();
@@ -205,7 +244,9 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, followerState.currentEpoch)).resolves.toBe(followerState);
+    await expect(service.acceptFollowership(otherMasterNodeId, followerState.currentEpoch)).resolves.toBe(
+      followerState
+    );
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 

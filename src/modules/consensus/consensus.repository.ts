@@ -9,11 +9,13 @@ import type {
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastCommittedSequenceRepositoryInput,
   ClaimLeadershipRepositoryInput,
-  AllocatedSequenceTransactionAction
+  AllocatedSequenceTransactionAction,
+  RewoundSequenceTransactionAction
 } from './consensus.application';
 import {
   CONSENSUS_STATE_ID,
   type ConsensusEpoch,
+  type ConsensusLastSequence,
   type ConsensusState,
   type ConsensusStateId
 } from './consensus.domain';
@@ -34,6 +36,12 @@ type ConsensusStateRepositoryContract = {
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
     action: AllocatedSequenceTransactionAction<TResult>
+  ): Promise<TResult>;
+  withRewoundLastAllocatedSequence<TResult>(
+    id: ConsensusStateId,
+    epoch: ConsensusEpoch,
+    sequence: ConsensusLastSequence,
+    action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
   // membership
@@ -218,6 +226,48 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         });
 
         return action(tx, state.last_allocated_sequence);
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return result;
+  }
+
+  async withRewoundLastAllocatedSequence<TResult>(
+    id: ConsensusStateId,
+    epoch: ConsensusEpoch,
+    sequence: ConsensusLastSequence,
+    action: RewoundSequenceTransactionAction<TResult>
+  ): Promise<TResult> {
+    let result;
+
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.consensusState.updateMany({
+          where: {
+            id,
+            current_epoch: epoch,
+            last_allocated_sequence: {
+              gte: sequence
+            },
+            last_committed_sequence: {
+              lte: sequence
+            }
+          },
+          data: {
+            last_allocated_sequence: sequence,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        if (updated.count !== 1) {
+          throw new GenericAbortedError('The sequence rewind was aborted by a concurrent consensus change');
+        }
+
+        return action(tx, sequence);
       });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;

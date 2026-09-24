@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
@@ -62,6 +64,16 @@ export const listTasksInSequenceRangeRepositoryInputSchema = z.object({
   limit: z.number().int().positive()
 });
 
+export const replicateTaskInputSchema = taskBaseSchema
+  .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
+  .extend(taskDefinitionSchema.shape)
+  .extend({
+    payloadId: taskPayloadIdSchema.nullable(),
+    payload: z.instanceof(Buffer).optional(),
+
+    createdAt: z.date()
+  });
+
 export const listPayloadCleanupCandidatesRepositoryInputSchema = z.object({
   updatedBefore: z.date(),
   limit: z.number().int().positive()
@@ -103,8 +115,16 @@ export type UpdateTaskStateRepositoryInput = z.infer<typeof updateTaskStateRepos
 
 export type ListTasksInSequenceRangeRepositoryInput = z.infer<typeof listTasksInSequenceRangeRepositoryInputSchema>;
 
-export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<typeof listPayloadCleanupCandidatesRepositoryInputSchema>;
+export type ListTasksInSequenceRangeInput = ListTasksInSequenceRangeRepositoryInput;
 
-export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<typeof listUncommittedCleanupCandidatesRepositoryInputSchema>;
+export type ReplicateTaskInput = z.infer<typeof replicateTaskInputSchema>;
+
+export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<
+  typeof listPayloadCleanupCandidatesRepositoryInputSchema
+>;
+
+export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<
+  typeof listUncommittedCleanupCandidatesRepositoryInputSchema
+>;
 
 export type ClearTaskPayloadIdRepositoryInput = z.infer<typeof clearTaskPayloadIdRepositoryInputSchema>;

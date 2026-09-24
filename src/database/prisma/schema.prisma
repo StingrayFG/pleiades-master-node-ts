@@ -321,7 +321,7 @@ model Task {
   // origin and order
   origin_master_id String
   epoch            BigInt
-  sequence         BigInt
+  sequence         BigInt @unique
 
   // definition
   type            String
@@ -347,7 +347,6 @@ model Task {
   revision BigInt @default(0)
 
   // database metadata
-  @@unique([epoch, sequence])
   @@index([origin_master_id])
   @@index([type])
   @@index([state])
@@ -369,7 +368,7 @@ model TaskExecution {
   failure_reason String?
 
   // relations
-  task          Task       @relation(fields: [task_id], references: [id])
+  task          Task       @relation(fields: [task_id], references: [id], onDelete: Cascade)
   target_master MasterNode @relation(fields: [target_master_id], references: [id])
 
   // timestamps

@@ -5,7 +5,8 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 
 import {
   consensusEpochSchema,
-  ConsensusSequence,
+  type ConsensusLastSequence,
+  type ConsensusSequence,
   consensusSequenceSchema,
   consensusStateIdSchema
 } from './consensus.domain';
@@ -45,7 +46,9 @@ export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
   typeof advanceLastCommittedSequenceRepositoryInputSchema
 >;
 export type AdvanceLastAppliedSequenceRepositoryInput = z.infer<typeof advanceLastAppliedSequenceRepositoryInputSchema>;
-export type AdvanceLastAllocatedSequenceRepositoryInput = z.infer<typeof advanceLastAllocatedSequenceRepositoryInputSchema>;
+export type AdvanceLastAllocatedSequenceRepositoryInput = z.infer<
+  typeof advanceLastAllocatedSequenceRepositoryInputSchema
+>;
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
 export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
 
@@ -53,4 +56,10 @@ export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershi
 export type AllocatedSequenceTransactionAction<TResult> = (
   tx: Prisma.TransactionClient,
   allocatedSequence: ConsensusSequence
+) => Promise<TResult>;
+
+// runs within the sequence-rewind transaction; all database work must use the provided transaction client.
+export type RewoundSequenceTransactionAction<TResult> = (
+  tx: Prisma.TransactionClient,
+  rewoundSequence: ConsensusLastSequence
 ) => Promise<TResult>;

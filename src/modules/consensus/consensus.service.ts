@@ -6,8 +6,13 @@ import {
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskSequence } from '@/modules/tasks/task.domain';
 
-import type { AllocatedSequenceTransactionAction } from './consensus.application';
-import { CONSENSUS_STATE_ID, type ConsensusEpoch, type ConsensusState } from './consensus.domain';
+import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from './consensus.application';
+import {
+  CONSENSUS_STATE_ID,
+  type ConsensusEpoch,
+  type ConsensusLastSequence,
+  type ConsensusState
+} from './consensus.domain';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
 
 /* contract */
@@ -23,6 +28,11 @@ type ConsensusServiceContract = {
   withAdvancedLastAllocatedSequence<TResult>(
     epoch: ConsensusEpoch,
     action: AllocatedSequenceTransactionAction<TResult>
+  ): Promise<TResult>;
+  withRewoundLastAllocatedSequence<TResult>(
+    epoch: ConsensusEpoch,
+    sequence: ConsensusLastSequence,
+    action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
   // membership
@@ -103,6 +113,24 @@ class ConsensusService implements ConsensusServiceContract {
     await this.getConsensusState();
 
     return this.repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, epoch, action);
+  }
+
+  async withRewoundLastAllocatedSequence<TResult>(
+    epoch: ConsensusEpoch,
+    sequence: ConsensusLastSequence,
+    action: RewoundSequenceTransactionAction<TResult>
+  ): Promise<TResult> {
+    const state = await this.getConsensusState();
+
+    if (sequence < state.lastCommittedSequence) {
+      throw new GenericFailedPreconditionError('Cannot rewind the allocated sequence below the committed sequence');
+    }
+
+    if (sequence > state.lastAllocatedSequence) {
+      throw new GenericFailedPreconditionError('The rewound sequence cannot exceed the last allocated sequence');
+    }
+
+    return this.repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, epoch, sequence, action);
   }
 
   /* membership methods */

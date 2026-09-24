@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericAbortedError, GenericAlreadyExistsError, GenericMapperError } from '@/errors/application.errors';
 
-import type { AllocatedSequenceTransactionAction } from '../consensus.application';
+import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from '../consensus.application';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '../consensus.domain';
 import { ConsensusStateRepository } from '../consensus.repository';
 
@@ -210,6 +210,68 @@ describe('ConsensusStateRepository', () => {
     const action = jest.fn<AllocatedSequenceTransactionAction<void>>().mockRejectedValue(actionError);
 
     await expect(repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, action)).rejects.toBe(
+      actionError
+    );
+  });
+
+  test('rewinds the allocated sequence under the expected epoch and runs the action in the transaction', async () => {
+    const action = jest
+      .fn<RewoundSequenceTransactionAction<string>>()
+      .mockImplementation(async (_tx, sequence) => `rewound-${sequence}`);
+
+    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)).resolves.toBe(
+      'rewound-3'
+    );
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        last_allocated_sequence: { gte: 3n },
+        last_committed_sequence: { lte: 3n }
+      },
+      data: {
+        last_allocated_sequence: 3n,
+        revision: { increment: 1 }
+      }
+    });
+    expect(action).toHaveBeenCalledWith(transactionClient as unknown as Prisma.TransactionClient, 3n);
+  });
+
+  test('aborts sequence rewind when its consensus gate is lost', async () => {
+    const action = jest.fn<RewoundSequenceTransactionAction<void>>();
+
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)
+    ).rejects.toBeInstanceOf(GenericAbortedError);
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  test('runs sequence-tail work while keeping an already matching allocated sequence', async () => {
+    const action = jest.fn<RewoundSequenceTransactionAction<string>>().mockResolvedValue('deleted-crash-window-row');
+
+    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 4n, action)).resolves.toBe(
+      'deleted-crash-window-row'
+    );
+    expect(delegate.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          last_allocated_sequence: { gte: 4n }
+        }),
+        data: expect.objectContaining({
+          last_allocated_sequence: 4n
+        })
+      })
+    );
+    expect(action).toHaveBeenCalledWith(transactionClient as unknown as Prisma.TransactionClient, 4n);
+  });
+
+  test('propagates failures from the sequence rewind action', async () => {
+    const actionError = new Error('Task truncation failed');
+    const action = jest.fn<RewoundSequenceTransactionAction<void>>().mockRejectedValue(actionError);
+
+    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)).rejects.toBe(
       actionError
     );
   });

@@ -109,6 +109,7 @@ type TaskDelegateMock = {
   findMany: jest.Mock<(...args: unknown[]) => Promise<PrismaTask[]>>;
   findUnique: jest.Mock<(...args: unknown[]) => Promise<PrismaTask | null>>;
   create: jest.Mock<(...args: unknown[]) => Promise<PrismaTask>>;
+  deleteMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
   update: jest.Mock<(...args: unknown[]) => Promise<PrismaTask>>;
   updateMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
 };
@@ -130,6 +131,7 @@ describe('TaskRepository', () => {
       findMany: jest.fn<(...args: unknown[]) => Promise<PrismaTask[]>>().mockResolvedValue([]),
       findUnique: jest.fn<(...args: unknown[]) => Promise<PrismaTask | null>>().mockResolvedValue(null),
       create: jest.fn<(...args: unknown[]) => Promise<PrismaTask>>().mockResolvedValue(prismaTask),
+      deleteMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 1 }),
       update: jest.fn<(...args: unknown[]) => Promise<PrismaTask>>().mockResolvedValue(prismaTask),
       updateMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 1 })
     };
@@ -160,6 +162,38 @@ describe('TaskRepository', () => {
       orderBy: { sequence: 'asc' },
       take: 10
     });
+  });
+
+  test('lists the task tail from a sequence in ascending order', async () => {
+    taskDelegate.findMany.mockResolvedValue([prismaTask]);
+
+    await expect(repository.listTasksFromSequence(task.sequence)).resolves.toEqual([task]);
+    expect(taskDelegate.findMany).toHaveBeenCalledWith({
+      where: { sequence: { gte: task.sequence } },
+      orderBy: { sequence: 'asc' }
+    });
+  });
+
+  test('lists the task tail through an existing transaction when supplied', async () => {
+    const transactionFindMany = jest
+      .fn<(...args: unknown[]) => Promise<PrismaTask[]>>()
+      .mockResolvedValue([prismaTask]);
+    const tx = { task: { findMany: transactionFindMany } } as unknown as Prisma.TransactionClient;
+
+    await expect(repository.listTasksFromSequence(task.sequence, tx)).resolves.toEqual([task]);
+    expect(transactionFindMany).toHaveBeenCalledWith({
+      where: { sequence: { gte: task.sequence } },
+      orderBy: { sequence: 'asc' }
+    });
+    expect(taskDelegate.findMany).not.toHaveBeenCalled();
+  });
+
+  test('propagates task tail query failures', async () => {
+    const queryError = new Error('Task query failed');
+
+    taskDelegate.findMany.mockRejectedValue(queryError);
+
+    await expect(repository.listTasksFromSequence(task.sequence)).rejects.toBe(queryError);
   });
 
   test('lists terminal tasks with payloads for cleanup', async () => {
@@ -207,6 +241,17 @@ describe('TaskRepository', () => {
     await expect(repository.findById(taskId)).resolves.toEqual(task);
     await expect(repository.findById(taskId)).resolves.toBeNull();
     expect(taskDelegate.findUnique).toHaveBeenCalledWith({ where: { id: taskId } });
+  });
+
+  test('finds a task by sequence', async () => {
+    taskDelegate.findUnique.mockResolvedValue(prismaTask);
+
+    await expect(repository.findBySequence(task.sequence)).resolves.toEqual(task);
+    expect(taskDelegate.findUnique).toHaveBeenCalledWith({
+      where: {
+        sequence: task.sequence
+      }
+    });
   });
 
   test('creates a pending task with explicit ordering and timestamps', async () => {
@@ -291,6 +336,42 @@ describe('TaskRepository', () => {
     taskDelegate.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(repository.clearPayloadId({ id: taskId, revision: 1n })).resolves.toBe(false);
+  });
+
+  test('truncates a task tail from the requested sequence', async () => {
+    await expect(repository.truncateFromSequence(task.sequence)).resolves.toBe(1);
+    expect(taskDelegate.deleteMany).toHaveBeenCalledWith({
+      where: {
+        sequence: {
+          gte: task.sequence
+        }
+      }
+    });
+  });
+
+  test('truncates the task tail through an existing transaction when supplied', async () => {
+    const transactionDeleteMany = jest
+      .fn<(...args: unknown[]) => Promise<{ count: number }>>()
+      .mockResolvedValue({ count: 2 });
+    const tx = { task: { deleteMany: transactionDeleteMany } } as unknown as Prisma.TransactionClient;
+
+    await expect(repository.truncateFromSequence(task.sequence, tx)).resolves.toBe(2);
+    expect(transactionDeleteMany).toHaveBeenCalledWith({
+      where: {
+        sequence: {
+          gte: task.sequence
+        }
+      }
+    });
+    expect(taskDelegate.deleteMany).not.toHaveBeenCalled();
+  });
+
+  test('propagates task tail truncation failures', async () => {
+    const deletionError = new Error('Task deletion failed');
+
+    taskDelegate.deleteMany.mockRejectedValue(deletionError);
+
+    await expect(repository.truncateFromSequence(task.sequence)).rejects.toBe(deletionError);
   });
 
   test('maps payload reference clearing concurrency failures to aborted errors', async () => {

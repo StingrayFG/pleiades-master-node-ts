@@ -1,11 +1,13 @@
 import type { Buffer } from 'node:buffer';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 import {
   GenericAbortedError,
+  GenericConflictError,
   GenericFailedPreconditionError,
   GenericInternalServerError,
   GenericNotFoundError
@@ -16,9 +18,10 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskApplyHandlerContract } from './task.apply-handler';
+import type { ListTasksInSequenceRangeInput, ReplicateTaskInput } from './task.application';
 import type { TaskConfig } from './task.config';
 import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
-import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId } from './task.domain';
+import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence } from './task.domain';
 import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskTargetsFromScope } from './task.resolvers';
@@ -27,15 +30,28 @@ import type { TaskResultWaiterContract } from './task.result-waiter';
 /* contract */
 
 type TaskServiceContract = {
+  // query
   getTaskById(id: TaskId): Promise<PersistedTask>;
+  listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]>;
+  retrieveTaskPayload(payloadId: TaskPayloadId): Promise<Buffer>;
+
+  // replication
+  replicateTask(input: ReplicateTaskInput): Promise<PersistedTask>;
+  deleteTasksFromSequence(sequence: TaskSequence): Promise<number>;
+
+  // registration
   registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void;
+
+  // submission
   submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData
   ): Promise<PersistedTask>;
+
+  // execution
   executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
     data: TData
@@ -69,7 +85,7 @@ class TaskService implements TaskServiceContract {
 
   /* public methods */
 
-  // query
+  /* query methods */
 
   async getTaskById(id: TaskId): Promise<PersistedTask> {
     const task = await this.repository.findById(id);
@@ -81,7 +97,107 @@ class TaskService implements TaskServiceContract {
     return task;
   }
 
-  // registration
+  async listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]> {
+    return this.repository.listTasksInSequenceRange(input);
+  }
+
+  async retrieveTaskPayload(payloadId: TaskPayloadId): Promise<Buffer> {
+    return this.byteStorageService.retrieve(payloadId);
+  }
+
+  /* replication methods */
+
+  async replicateTask(input: ReplicateTaskInput): Promise<PersistedTask> {
+    const consensusState = await this.consensusService.getConsensusState();
+    const existingTask = await this.repository.findBySequence(input.sequence);
+
+    if (existingTask) {
+      this.requireExactTaskReplay(existingTask, input);
+
+      const nextSequence = consensusState.lastAllocatedSequence + 1n;
+
+      if (input.sequence > nextSequence) {
+        throw new GenericFailedPreconditionError('Replicated task sequence contains a gap');
+      }
+
+      if (input.sequence === nextSequence && input.epoch > consensusState.currentEpoch) {
+        throw new GenericFailedPreconditionError('Replicated task epoch is newer than the current consensus epoch');
+      }
+
+      await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
+
+      if (input.sequence === nextSequence) {
+        await this.consensusService.advanceLastAllocatedSequence(input.sequence);
+      }
+
+      return existingTask;
+    }
+
+    if (input.epoch > consensusState.currentEpoch) {
+      throw new GenericFailedPreconditionError('Replicated task epoch is newer than the current consensus epoch');
+    }
+
+    if (input.sequence !== consensusState.lastAllocatedSequence + 1n) {
+      throw new GenericFailedPreconditionError('Replicated task sequence is not the next allocatable sequence');
+    }
+
+    const task = await this.repository.create({
+      id: input.id,
+
+      originMasterNodeId: input.originMasterNodeId,
+      epoch: input.epoch,
+      sequence: input.sequence,
+
+      type: input.type,
+      executionScope: input.executionScope,
+      data: input.data as Prisma.InputJsonValue,
+
+      payloadId: input.payloadId,
+
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt
+    });
+
+    await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
+    await this.consensusService.advanceLastAllocatedSequence(input.sequence);
+
+    return task;
+  }
+
+  async deleteTasksFromSequence(sequence: TaskSequence): Promise<number> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    if (sequence <= consensusState.lastCommittedSequence) {
+      throw new GenericFailedPreconditionError('Committed task history cannot be deleted');
+    }
+
+    if (sequence > consensusState.lastAllocatedSequence + 1n) {
+      return 0;
+    }
+
+    const result = await this.consensusService.withRewoundLastAllocatedSequence(
+      consensusState.currentEpoch,
+      sequence - 1n,
+      async (tx) => {
+        const tasks = await this.repository.listTasksFromSequence(sequence, tx);
+        const deletedCount = await this.repository.truncateFromSequence(sequence, tx);
+
+        return { tasks, deletedCount };
+      }
+    );
+
+    await Promise.all(
+      result.tasks.map(async (task) => {
+        if (task.payloadId !== null) {
+          await this.byteStorageService.delete(task.payloadId);
+        }
+      })
+    );
+
+    return result.deletedCount;
+  }
+
+  /* registration methods */
 
   registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
@@ -90,7 +206,7 @@ class TaskService implements TaskServiceContract {
     this.handlerRegistry.register(definition, handler);
   }
 
-  // submission
+  /* submission methods */
 
   async submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
@@ -105,12 +221,15 @@ class TaskService implements TaskServiceContract {
     return task;
   }
 
-  // execution
+  /* execution methods */
 
-  async executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>,
-    data: TData
-  ): Promise<TResult> {
+  async executeTaskByDefinition<
+    TType extends string,
+    TData,
+    TPersistedData,
+    TScope extends TaskExecutionScope,
+    TResult
+  >(definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>, data: TData): Promise<TResult> {
     const targetMasterIds = resolveTaskTargetsFromScope(definition.executionScope, this.selfMasterNodeId);
 
     if (targetMasterIds.length === 0) {
@@ -166,7 +285,7 @@ class TaskService implements TaskServiceContract {
 
   /* private methods */
 
-  // validation / guards
+  /* validation / guards */
 
   private requireTaskHandlerRegistration<
     TType extends string,
@@ -176,6 +295,22 @@ class TaskService implements TaskServiceContract {
     TResult
   >(definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, TResult>): void {
     this.handlerRegistry.resolve(definition);
+  }
+
+  private requireExactTaskReplay(existingTask: PersistedTask, input: ReplicateTaskInput): void {
+    if (
+      existingTask.id !== input.id ||
+      existingTask.originMasterNodeId !== input.originMasterNodeId ||
+      existingTask.epoch !== input.epoch ||
+      existingTask.sequence !== input.sequence ||
+      existingTask.type !== input.type ||
+      existingTask.executionScope !== input.executionScope ||
+      !isDeepStrictEqual(existingTask.data, input.data) ||
+      existingTask.payloadId !== input.payloadId ||
+      existingTask.createdAt.getTime() !== input.createdAt.getTime()
+    ) {
+      throw new GenericConflictError('Replicated task does not match the existing task at this sequence');
+    }
   }
 
   private async requireLeadershipState(): Promise<ConsensusState> {
@@ -190,7 +325,7 @@ class TaskService implements TaskServiceContract {
     return consensusState;
   }
 
-  // data transformation
+  /* data transformation */
 
   private dehydrateTaskDataIfNeeded<
     TType extends string,
@@ -228,14 +363,9 @@ class TaskService implements TaskServiceContract {
     await this.byteStorageService.store(payloadId, payload);
   }
 
-  // task creation flows
+  /* task creation flows */
 
-  private async submitTaskWithId<
-    TType extends string,
-    TData,
-    TPersistedData,
-    TScope extends TaskExecutionScope
-  >(
+  private async submitTaskWithId<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
     definition: TaskDefinitionContract<TType, TData, TPersistedData, TScope, unknown>,
     data: TData,
     id: TaskId
@@ -246,26 +376,28 @@ class TaskService implements TaskServiceContract {
 
     const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
 
-    const task = await this.consensusService.withAdvancedLastAllocatedSequence(consensusState.currentEpoch, (tx, sequence) =>
-      this.repository.create(
-        {
-          id,
+    const task = await this.consensusService.withAdvancedLastAllocatedSequence(
+      consensusState.currentEpoch,
+      (tx, sequence) =>
+        this.repository.create(
+          {
+            id,
 
-          originMasterNodeId: this.selfMasterNodeId,
-          epoch: consensusState.currentEpoch,
-          sequence,
+            originMasterNodeId: this.selfMasterNodeId,
+            epoch: consensusState.currentEpoch,
+            sequence,
 
-          type: definition.type,
-          executionScope: definition.executionScope,
-          data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
+            type: definition.type,
+            executionScope: definition.executionScope,
+            data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
 
-          payloadId: dehydratedData.payloadId,
+            payloadId: dehydratedData.payloadId,
 
-          createdAt: now,
-          updatedAt: now
-        },
-        tx
-      )
+            createdAt: now,
+            updatedAt: now
+          },
+          tx
+        )
     );
 
     await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
