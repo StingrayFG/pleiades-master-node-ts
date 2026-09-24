@@ -16,6 +16,7 @@ import { blobGrpcConfig } from '@/modules/blobs/blob.grpc-config';
 import { createBlobModule } from '@/modules/blobs/blob.module';
 import { createBootstrapModule } from '@/modules/bootstrap/bootstrap.module';
 import { createBucketModule } from '@/modules/buckets/bucket.module';
+import { createClusterModule } from '@/modules/cluster/cluster.module';
 import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
@@ -39,6 +40,7 @@ type CompositionRoot = {
   grpcServerCredentials: GrpcServerCredentialsContract;
 
   identityModule: ReturnType<typeof createIdentityModule>;
+  clusterModule: ReturnType<typeof createClusterModule>;
   masterNodeModule: ReturnType<typeof createMasterNodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
@@ -70,6 +72,10 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const selfMasterNodeSessionId = identityModule.service.getNodeSessionId();
 
   const grpcMtlsConfig = loadGrpcMtlsConfig();
+
+  const clusterModule = createClusterModule({
+    prisma
+  });
 
   const consensusModule = createConsensusModule({
     prisma
@@ -186,6 +192,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   return {
     grpcServerCredentials,
     identityModule,
+    clusterModule,
     masterNodeModule,
     consensusModule,
     bootstrapModule,

@@ -388,7 +388,7 @@ model TaskExecution {
   @@map("task_executions")
 }
 
-// cluster and nodes
+// nodes
 
 enum DataNodeState {
   joining
@@ -484,6 +484,23 @@ model MasterNode {
 
   // database metadata
   @@map("master_nodes")
+}
+
+// cluster
+
+model Cluster {
+  // singleton identity
+  id String @id
+
+  // cluster identity
+  cluster_id String @unique @db.Uuid
+
+  // timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // database metadata
+  @@map("cluster")
 }
 
 // consensus

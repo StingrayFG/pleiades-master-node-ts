@@ -1,0 +1,101 @@
+import { randomUUID } from 'node:crypto';
+
+import {
+  GenericAlreadyExistsError,
+  GenericConflictError,
+  GenericFailedPreconditionError
+} from '@/errors/application.errors';
+
+import { CLUSTER_RECORD_ID, clusterIdSchema, type Cluster, type ClusterId } from './cluster.domain';
+import type { ClusterRepositoryContract } from './cluster.repository';
+
+/* contract */
+
+type ClusterServiceContract = {
+  getCluster(): Promise<Cluster>;
+  initializeCluster(): Promise<Cluster>;
+  registerCluster(clusterId: ClusterId): Promise<Cluster>;
+};
+
+/* service */
+
+class ClusterService implements ClusterServiceContract {
+  constructor(private readonly repository: ClusterRepositoryContract) {}
+
+  async getCluster(): Promise<Cluster> {
+    const cluster = await this.repository.find();
+
+    if (!cluster) {
+      throw new GenericFailedPreconditionError('The cluster has not been initialized');
+    }
+
+    return cluster;
+  }
+
+  async initializeCluster(): Promise<Cluster> {
+    const existingCluster = await this.repository.find();
+
+    if (existingCluster) {
+      return existingCluster;
+    }
+
+    try {
+      return await this.repository.create({
+        id: CLUSTER_RECORD_ID,
+        clusterId: clusterIdSchema.parse(randomUUID())
+      });
+    } catch (err) {
+      if (!(err instanceof GenericAlreadyExistsError)) {
+        throw err;
+      }
+
+      const concurrentlyCreatedCluster = await this.repository.find();
+
+      if (!concurrentlyCreatedCluster) {
+        throw err;
+      }
+
+      return concurrentlyCreatedCluster;
+    }
+  }
+
+  async registerCluster(clusterId: ClusterId): Promise<Cluster> {
+    const existingCluster = await this.repository.find();
+
+    if (existingCluster) {
+      if (existingCluster.clusterId !== clusterId) {
+        throw new GenericConflictError('This master node already belongs to a different cluster');
+      }
+
+      return existingCluster;
+    }
+
+    try {
+      return await this.repository.create({
+        id: CLUSTER_RECORD_ID,
+        clusterId
+      });
+    } catch (err) {
+      if (!(err instanceof GenericAlreadyExistsError)) {
+        throw err;
+      }
+
+      const concurrentlyCreatedCluster = await this.repository.find();
+
+      if (!concurrentlyCreatedCluster) {
+        throw err;
+      }
+
+      if (concurrentlyCreatedCluster.clusterId !== clusterId) {
+        throw new GenericConflictError('This master node already belongs to a different cluster');
+      }
+
+      return concurrentlyCreatedCluster;
+    }
+  }
+}
+
+/* exports */
+
+export { ClusterService };
+export type { ClusterServiceContract };
