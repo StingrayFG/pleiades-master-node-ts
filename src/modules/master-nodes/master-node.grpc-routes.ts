@@ -17,6 +17,8 @@ type MasterNodeGrpcRoutes = {
 const createMasterNodeGrpcRoutes = ({ controller }: MasterNodeGrpcRoutesDependencies): MasterNodeGrpcRoutes => {
   return {
     masterService: {
+      fetchMasterInfo: (call, callback) => controller.fetchMasterInfo(call, callback),
+      registerMasterNode: (call, callback) => controller.registerMasterNode(call, callback),
       fetchTaskEntries: (call, callback) => controller.fetchTaskEntries(call, callback),
       fetchTaskPayload: (call, callback) => controller.fetchTaskPayload(call, callback)
     }

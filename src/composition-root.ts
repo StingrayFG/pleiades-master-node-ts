@@ -114,13 +114,18 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskRepository: taskModule.repository,
     consensusService: consensusModule.service,
     byteStorageService: byteStorageModule.service,
+    selfMasterNodeId,
+    selfMasterNodeSessionId,
+    clusterService: clusterModule.service,
     grpcConfig: blobGrpcConfig,
     grpcClientCredentials
   });
 
   const bootstrapModule = createBootstrapModule({
+    clusterService: clusterModule.service,
     consensusService: consensusModule.service,
     masterNodeService: masterNodeModule.service,
+    masterNodeGrpcClient: masterNodeModule.grpcClient,
     selfMasterNode: {
       id: selfMasterNodeId,
 

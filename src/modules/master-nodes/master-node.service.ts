@@ -1,9 +1,6 @@
 import { GenericConflictError, GenericNotFoundError } from '@/errors/application.errors';
 
-import type {
-  ApplyMasterNodeRegistrationRepositoryInput,
-  RegisterMasterNodeInput
-} from './master-node.application';
+import type { ApplyMasterNodeRegistrationRepositoryInput, RegisterMasterNodeInput } from './master-node.application';
 import type { MasterNode, MasterNodeId } from './master-node.domain';
 import type { MasterNodeRepositoryContract } from './master-node.repository';
 

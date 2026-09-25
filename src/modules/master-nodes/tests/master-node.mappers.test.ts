@@ -11,6 +11,7 @@ import type { MasterNode } from '../master-node.domain';
 import {
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
+  mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
   mapGrpcTaskEntryToInternodeTaskEntry,
   mapGrpcTaskExecutionScopeToTaskExecutionScope,
   mapInternodeTaskEntryToGrpcTaskEntry,
@@ -74,6 +75,8 @@ const taskEntry: InternodeTaskEntry = {
   createdAt: new Date('2026-01-03T00:00:00.000Z')
 };
 
+const callerCertificateFingerprint = domainMasterNode.certificateFingerprint;
+
 /* tests */
 
 describe('master node mappers', () => {
@@ -106,6 +109,32 @@ describe('master node mappers', () => {
       })
     ).toEqual({
       payloadId: taskEntry.payloadId
+    });
+  });
+
+  test('maps a master registration request with the presented certificate fingerprint', () => {
+    expect(
+      mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput(
+        {
+          master_id: domainMasterNode.id,
+          session_id: domainMasterNode.sessionId,
+          cluster_id: '00000000-0000-4000-8000-000000000010',
+          hostname: domainMasterNode.hostname,
+          port: domainMasterNode.port,
+          scheme: domainMasterNode.scheme
+        },
+        callerCertificateFingerprint
+      )
+    ).toEqual({
+      id: domainMasterNode.id,
+      certificateFingerprint: callerCertificateFingerprint,
+      sessionId: domainMasterNode.sessionId,
+      clusterId: '00000000-0000-4000-8000-000000000010',
+      endpoint: {
+        hostname: domainMasterNode.hostname,
+        port: domainMasterNode.port,
+        scheme: domainMasterNode.scheme
+      }
     });
   });
 

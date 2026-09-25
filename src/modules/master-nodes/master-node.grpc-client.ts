@@ -4,21 +4,35 @@ import { Metadata } from '@grpc/grpc-js';
 
 import {
   MasterClient as GrpcMasterClient,
+  type FetchMasterInfoResponse,
   type FetchTaskEntriesResponse,
-  type FetchTaskPayloadResponse
+  type FetchTaskPayloadResponse,
+  type RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
 import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappers/error.mappers';
 
-import type { FetchTaskEntriesClientInput, FetchTaskEntriesInternodeResult, FetchTaskPayloadClientInput } from './master-node.application';
+import type {
+  FetchMasterInfoClientInput,
+  FetchMasterInfoInternodeResult,
+  FetchTaskEntriesClientInput,
+  FetchTaskEntriesInternodeResult,
+  FetchTaskPayloadClientInput,
+  RegisterMasterNodeClientInput
+} from './master-node.application';
 import type { MasterNodeEndpoint } from './master-node.domain';
-import { mapGrpcTaskEntryToInternodeTaskEntry } from './master-node.mappers';
+import {
+  mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
+  mapGrpcTaskEntryToInternodeTaskEntry
+} from './master-node.mappers';
 
 /* contract */
 
 type MasterNodeGrpcClientContract = {
+  fetchMasterInfo(input: FetchMasterInfoClientInput): Promise<FetchMasterInfoInternodeResult>;
+  registerMasterNode(input: RegisterMasterNodeClientInput): Promise<void>;
   fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer>;
   close(): void;
@@ -40,6 +54,50 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     }
 
     this.clientsByEndpoint.clear();
+  }
+
+  async fetchMasterInfo(input: FetchMasterInfoClientInput): Promise<FetchMasterInfoInternodeResult> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<FetchMasterInfoResponse>((resolve, reject) => {
+      client.fetchMasterInfo({}, new Metadata(), createDefaultGrpcCallOptions(), (err, response) => {
+        if (err) {
+          reject(mapGrpcErrorToInternodeApplicationError(err));
+          return;
+        }
+
+        resolve(response);
+      });
+    });
+
+    return mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult(response);
+  }
+
+  async registerMasterNode(input: RegisterMasterNodeClientInput): Promise<void> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    await new Promise<RegisterMasterNodeResponse>((resolve, reject) => {
+      client.registerMasterNode(
+        {
+          master_id: input.id,
+          session_id: input.sessionId,
+          cluster_id: input.clusterId,
+          hostname: input.endpoint.hostname,
+          port: input.endpoint.port,
+          scheme: input.endpoint.scheme
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
   }
 
   async fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult> {
@@ -97,8 +155,10 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
 
   /* private */
 
-  private getClient(endpoint: MasterNodeEndpoint): GrpcMasterClient {
-    const endpointKey = `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}`;
+  private getClient(endpoint: MasterNodeEndpoint, expectedCertificateFingerprint?: string): GrpcMasterClient {
+    const endpointKey = expectedCertificateFingerprint
+      ? `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}/${expectedCertificateFingerprint}`
+      : `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}`;
 
     const existingClient = this.clientsByEndpoint.get(endpointKey);
 
@@ -106,7 +166,13 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
       return existingClient;
     }
 
-    const credentials = this.grpcClientCredentials.get();
+    const credentials = this.grpcClientCredentials.get(
+      expectedCertificateFingerprint
+        ? {
+            expectedServerCertificateFingerprint: expectedCertificateFingerprint
+          }
+        : undefined
+    );
     const maxMessageSizeBytes = this.grpcConfig.maxMessageSizeBytes;
 
     const client = new GrpcMasterClient(`${endpoint.hostname}:${endpoint.port}`, credentials, {
@@ -123,4 +189,9 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
 /* exports */
 
 export { MasterNodeGrpcClient };
-export type { FetchTaskEntriesClientInput, FetchTaskPayloadClientInput, MasterNodeGrpcClientContract };
+export type {
+  FetchTaskEntriesClientInput,
+  FetchTaskPayloadClientInput,
+  MasterNodeGrpcClientContract,
+  RegisterMasterNodeClientInput
+};

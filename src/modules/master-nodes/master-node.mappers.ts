@@ -6,21 +6,27 @@ import { withMapperError } from '@/common/mappers/mappers';
 import { GenericMapperError } from '@/errors/application.errors';
 import {
   TaskExecutionScope as GrpcTaskExecutionScope,
+  type FetchMasterInfoResponse,
   type FetchTaskEntriesRequest,
   type FetchTaskPayloadRequest,
+  type RegisterMasterNodeRequest,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
 import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
 
 import {
+  fetchMasterInfoInternodeResultSchema,
   fetchTaskEntriesInternodeInputSchema,
   fetchTaskPayloadInternodeInputSchema,
   internodeTaskEntrySchema,
+  registerMasterNodeInternodeInputSchema,
+  type FetchMasterInfoInternodeResult,
   type FetchTaskEntriesInternodeInput,
   type FetchTaskPayloadInternodeInput,
-  type InternodeTaskEntry
+  type InternodeTaskEntry,
+  type RegisterMasterNodeInternodeInput
 } from './master-node.application';
-import { masterNodeSchema, type MasterNode } from './master-node.domain';
+import { masterNodeSchema, type MasterNode, type MasterNodeCertificateFingerprint } from './master-node.domain';
 
 /* prisma -> domain */
 
@@ -51,6 +57,20 @@ export const mapPrismaMasterNodeToDomainMasterNode = (masterNode: PrismaMasterNo
 
 /* grpc -> application */
 
+export const mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult = (
+  response: FetchMasterInfoResponse
+): FetchMasterInfoInternodeResult => {
+  return withMapperError('Failed to map gRPC fetch master info response', () => {
+    return fetchMasterInfoInternodeResultSchema.parse({
+      masterId: response.master_id,
+      sessionId: response.session_id,
+      clusterId: response.cluster_id,
+
+      epoch: BigInt(response.epoch)
+    });
+  });
+};
+
 export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
   request: FetchTaskEntriesRequest
 ): FetchTaskEntriesInternodeInput => {
@@ -68,6 +88,27 @@ export const mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput = (
   return withMapperError('Failed to map gRPC fetch task payload request', () => {
     return fetchTaskPayloadInternodeInputSchema.parse({
       payloadId: request.payload_id
+    });
+  });
+};
+
+export const mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput = (
+  request: RegisterMasterNodeRequest,
+  certificateFingerprint: MasterNodeCertificateFingerprint
+): RegisterMasterNodeInternodeInput => {
+  return withMapperError('Failed to map gRPC register master node request', () => {
+    return registerMasterNodeInternodeInputSchema.parse({
+      id: request.master_id,
+
+      certificateFingerprint,
+      sessionId: request.session_id,
+      clusterId: request.cluster_id,
+
+      endpoint: {
+        hostname: request.hostname,
+        port: request.port,
+        scheme: request.scheme
+      }
     });
   });
 };

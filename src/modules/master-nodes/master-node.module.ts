@@ -1,11 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
 
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
+import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { TaskRepositoryContract } from '@/modules/tasks/task.repository';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 
+import type { MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import { MasterNodeGrpcClient } from './master-node.grpc-client';
 import { MasterNodeGrpcController } from './master-node.grpc-controller';
 import { MasterNodeInternodeService } from './master-node.internode-service';
@@ -19,6 +21,9 @@ type MasterNodeModuleDependencies = {
   taskRepository: TaskRepositoryContract;
   consensusService: ConsensusServiceContract;
   byteStorageService: ByteStorageServiceContract;
+  selfMasterNodeId: MasterNodeId;
+  selfMasterNodeSessionId: MasterNodeSessionId;
+  clusterService: ClusterServiceContract;
   grpcConfig: GrpcClientConfig;
   grpcClientCredentials: GrpcClientCredentialsContract;
 };
@@ -38,6 +43,9 @@ const createMasterNodeModule = ({
   taskRepository,
   consensusService,
   byteStorageService,
+  selfMasterNodeId,
+  selfMasterNodeSessionId,
+  clusterService,
   grpcConfig,
   grpcClientCredentials
 }: MasterNodeModuleDependencies): MasterNodeModule => {
@@ -45,7 +53,15 @@ const createMasterNodeModule = ({
 
   const service = new MasterNodeService(repository);
 
-  const internodeService = new MasterNodeInternodeService(taskRepository, consensusService, byteStorageService);
+  const internodeService = new MasterNodeInternodeService(
+    taskRepository,
+    consensusService,
+    byteStorageService,
+    selfMasterNodeId,
+    selfMasterNodeSessionId,
+    clusterService,
+    service
+  );
 
   const controller = new MasterNodeGrpcController(internodeService);
 

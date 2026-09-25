@@ -127,6 +127,7 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
 const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContract> => {
   return {
     fetchMasterInfo: jest.fn<MasterNodeGrpcClientContract['fetchMasterInfo']>().mockResolvedValue(leaderInfo),
+    registerMasterNode: jest.fn<MasterNodeGrpcClientContract['registerMasterNode']>().mockResolvedValue(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcClientContract['fetchTaskPayload']>(),
     close: jest.fn<MasterNodeGrpcClientContract['close']>()
@@ -180,7 +181,8 @@ describe('BootstrapService', () => {
     });
 
     expect(masterNodeGrpcClient.fetchMasterInfo).toHaveBeenCalledWith({
-      masterNodeEndpoint: leaderEndpoint
+      masterNodeEndpoint: leaderEndpoint,
+      expectedCertificateFingerprint: leaderCertificateFingerprint
     });
     expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
     expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(1, {
@@ -196,6 +198,14 @@ describe('BootstrapService', () => {
       state: 'joining',
       mode: 'serving'
     });
+    expect(masterNodeGrpcClient.registerMasterNode).toHaveBeenCalledWith({
+      masterNodeEndpoint: leaderEndpoint,
+      expectedCertificateFingerprint: leaderCertificateFingerprint,
+      id: selfMasterNode.id,
+      sessionId: selfMasterNode.sessionId,
+      clusterId: cluster.clusterId,
+      endpoint: selfMasterNode.endpoint
+    });
     expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, leaderInfo.epoch);
     expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(3, {
       ...selfMasterNode,
@@ -203,6 +213,9 @@ describe('BootstrapService', () => {
       mode: 'serving'
     });
     expect(masterNodeService.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
+      consensusService.acceptFollowership.mock.invocationCallOrder[0]
+    );
+    expect(masterNodeGrpcClient.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
       consensusService.acceptFollowership.mock.invocationCallOrder[0]
     );
     expect(clusterService.registerCluster.mock.invocationCallOrder[0]).toBeLessThan(
@@ -261,6 +274,17 @@ describe('BootstrapService', () => {
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
 
+  test('does not persist leader information when certificate verification fails', async () => {
+    const certificateError = new Error('Leader certificate fingerprint does not match');
+
+    masterNodeGrpcClient.fetchMasterInfo.mockRejectedValue(certificateError);
+
+    await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(certificateError);
+    expect(clusterService.registerCluster).not.toHaveBeenCalled();
+    expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
+    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
+  });
+
   test('does not accept followership when the leader row cannot be registered', async () => {
     const registrationError = new Error('Master node storage unavailable');
 
@@ -269,6 +293,16 @@ describe('BootstrapService', () => {
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(registrationError);
     expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledTimes(1);
+    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('does not accept followership when leader-side registration fails', async () => {
+    const registrationError = new Error('Leader rejected master node registration');
+
+    masterNodeGrpcClient.registerMasterNode.mockRejectedValue(registrationError);
+
+    await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(registrationError);
+    expect(masterNodeService.registerMasterNode).toHaveBeenCalledTimes(2);
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
 });

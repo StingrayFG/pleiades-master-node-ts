@@ -5,7 +5,9 @@ import type {
   FetchTaskEntriesRequest,
   FetchTaskEntriesResponse,
   FetchTaskPayloadRequest,
-  FetchTaskPayloadResponse
+  FetchTaskPayloadResponse,
+  RegisterMasterNodeRequest,
+  RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
 
 import type { MasterNodeGrpcControllerContract } from '../master-node.grpc-controller';
@@ -15,6 +17,8 @@ import { createMasterNodeGrpcRoutes } from '../master-node.grpc-routes';
 
 const createControllerMock = (): jest.Mocked<MasterNodeGrpcControllerContract> => {
   return {
+    fetchMasterInfo: jest.fn<MasterNodeGrpcControllerContract['fetchMasterInfo']>().mockResolvedValue(),
+    registerMasterNode: jest.fn<MasterNodeGrpcControllerContract['registerMasterNode']>().mockResolvedValue(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcControllerContract['fetchTaskEntries']>().mockResolvedValue(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcControllerContract['fetchTaskPayload']>().mockResolvedValue()
   };
@@ -23,6 +27,27 @@ const createControllerMock = (): jest.Mocked<MasterNodeGrpcControllerContract> =
 /* tests */
 
 describe('master node gRPC routes', () => {
+  test('delegates master registration requests to the controller', async () => {
+    const controller = createControllerMock();
+    const routes = createMasterNodeGrpcRoutes({ controller });
+    const call = {
+      request: {
+        master_id: 'master-node-follower',
+        session_id: '00000000-0000-4000-8000-000000000004',
+        cluster_id: '00000000-0000-4000-8000-000000000010',
+        hostname: 'follower.internal',
+        port: 4410,
+        scheme: 'grpcs'
+      }
+    } as ServerUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>;
+    const callback = jest.fn<sendUnaryData<RegisterMasterNodeResponse>>();
+    const handler = routes.masterService.registerMasterNode as MasterNodeGrpcControllerContract['registerMasterNode'];
+
+    await handler(call, callback);
+
+    expect(controller.registerMasterNode).toHaveBeenCalledWith(call, callback);
+  });
+
   test('delegates task-entry requests to the controller', async () => {
     const controller = createControllerMock();
     const routes = createMasterNodeGrpcRoutes({ controller });

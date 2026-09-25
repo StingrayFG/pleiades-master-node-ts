@@ -3,16 +3,11 @@ import { createHash, X509Certificate } from 'node:crypto';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
 
-import {
-  masterNodeCertificateFingerprintSchema,
-  type MasterNodeCertificateFingerprint
-} from './master-node.domain';
+import { masterNodeCertificateFingerprintSchema, type MasterNodeCertificateFingerprint } from './master-node.domain';
 
 /* processors */
 
-export const calculateMasterNodeCertificateFingerprint = (
-  certificate: Buffer
-): MasterNodeCertificateFingerprint => {
+export const calculateMasterNodeCertificateFingerprint = (certificate: Buffer): MasterNodeCertificateFingerprint => {
   try {
     const parsedCertificate = new X509Certificate(certificate);
 

@@ -71,7 +71,8 @@ class BootstrapService implements BootstrapServiceContract {
     }
 
     const leaderInfo = await this.masterNodeGrpcClient.fetchMasterInfo({
-      masterNodeEndpoint: input.leaderEndpoint
+      masterNodeEndpoint: input.leaderEndpoint,
+      expectedCertificateFingerprint: input.leaderCertificateFingerprint
     });
 
     if (leaderInfo.masterId === this.selfMasterNode.id) {
@@ -100,6 +101,16 @@ class BootstrapService implements BootstrapServiceContract {
       ...this.selfMasterNode,
       state: 'joining',
       mode: 'serving'
+    });
+
+    await this.masterNodeGrpcClient.registerMasterNode({
+      masterNodeEndpoint: input.leaderEndpoint,
+      expectedCertificateFingerprint: input.leaderCertificateFingerprint,
+
+      id: this.selfMasterNode.id,
+      sessionId: this.selfMasterNode.sessionId,
+      clusterId: leaderInfo.clusterId,
+      endpoint: this.selfMasterNode.endpoint
     });
 
     const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);

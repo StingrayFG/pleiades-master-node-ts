@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package master.v1;
 
-option go_package = "app/internal/gen/master/v1;masterv1";
-
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+
+option go_package = "app/internal/gen/master/v1;masterv1";
 
 enum TaskExecutionScope {
   TASK_EXECUTION_SCOPE_UNSPECIFIED = 0;
@@ -27,7 +27,10 @@ message TaskEntry {
 
 message FetchTaskEntriesRequest {
   int64 after_sequence = 1 [(buf.validate.field).int64.gte = -1];
-  uint32 limit = 2 [(buf.validate.field).uint32 = { gt: 0, lte: 128 }];
+  uint32 limit = 2 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 128
+  }];
 }
 
 message FetchTaskEntriesResponse {
@@ -44,7 +47,32 @@ message FetchTaskPayloadResponse {
   bytes payload = 1;
 }
 
+message FetchMasterInfoRequest {}
+
+message FetchMasterInfoResponse {
+  string master_id = 1;
+  string session_id = 2 [(buf.validate.field).string.uuid = true];
+  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
+  int64 epoch = 4;
+}
+
+message RegisterMasterNodeRequest {
+  string master_id = 1 [(buf.validate.field).string.min_len = 1];
+  string session_id = 2 [(buf.validate.field).string.uuid = true];
+  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
+  string hostname = 4 [(buf.validate.field).string.min_len = 1];
+  uint32 port = 5 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+  string scheme = 6 [(buf.validate.field).string.min_len = 1];
+}
+
+message RegisterMasterNodeResponse {}
+
 service Master {
+  rpc FetchMasterInfo(FetchMasterInfoRequest) returns (FetchMasterInfoResponse);
+  rpc RegisterMasterNode(RegisterMasterNodeRequest) returns (RegisterMasterNodeResponse);
   rpc FetchTaskEntries(FetchTaskEntriesRequest) returns (FetchTaskEntriesResponse);
   rpc FetchTaskPayload(FetchTaskPayloadRequest) returns (FetchTaskPayloadResponse);
 }

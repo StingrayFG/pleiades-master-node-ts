@@ -11,7 +11,7 @@ export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as con
 
 export const masterNodeIdSchema = z.string().min(1);
 
-export const masterNodeCertificateFingerprintSchema = z.string().min(1);
+export const masterNodeCertificateFingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 export const masterNodeSessionIdSchema = nodeSessionIdSchema;
 export const masterNodeStateSchema = z.enum(MASTER_NODE_STATES);
 export const masterNodeModeSchema = z.enum(MASTER_NODE_MODES);

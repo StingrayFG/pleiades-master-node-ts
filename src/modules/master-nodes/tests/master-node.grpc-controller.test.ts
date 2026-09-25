@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 
 import type { sendUnaryData, ServerUnaryCall } from '@grpc/grpc-js';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -9,7 +10,9 @@ import {
   type FetchTaskEntriesRequest,
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
-  type FetchTaskPayloadResponse
+  type FetchTaskPayloadResponse,
+  type RegisterMasterNodeRequest,
+  type RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
 
 import type { InternodeTaskEntry } from '../master-node.application';
@@ -20,6 +23,10 @@ import type { MasterNodeInternodeServiceContract } from '../master-node.internod
 
 const payloadId = '00000000-0000-4000-8000-000000000003';
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
+const callerMasterNodeId = 'master-node-follower';
+const callerSessionId = '00000000-0000-4000-8000-000000000004';
+const peerCertificate = Buffer.from('peer certificate');
+const callerCertificateFingerprint = createHash('sha256').update(peerCertificate).digest('hex');
 
 const entry: InternodeTaskEntry = {
   id: '00000000-0000-4000-8000-000000000002',
@@ -36,13 +43,18 @@ const entry: InternodeTaskEntry = {
 /* helpers */
 
 const createCall = <TRequest, TResponse>(request: TRequest): ServerUnaryCall<TRequest, TResponse> => {
-  return { request } as unknown as ServerUnaryCall<TRequest, TResponse>;
+  return {
+    request,
+    getAuthContext: () => ({ sslPeerCertificate: { raw: peerCertificate } })
+  } as unknown as ServerUnaryCall<TRequest, TResponse>;
 };
 
 /* mocks */
 
 const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceContract> => {
   const service = {
+    fetchMasterInfo: jest.fn<MasterNodeInternodeServiceContract['fetchMasterInfo']>(),
+    registerMasterNode: jest.fn<MasterNodeInternodeServiceContract['registerMasterNode']>(),
     fetchTaskEntries: jest.fn<MasterNodeInternodeServiceContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeInternodeServiceContract['fetchTaskPayload']>()
   };
@@ -120,11 +132,15 @@ describe('MasterNodeGrpcController', () => {
     const callback = jest.fn<sendUnaryData<FetchTaskPayloadResponse>>();
 
     await controller.fetchTaskPayload(
-      createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({ payload_id: payloadId }),
+      createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({
+        payload_id: payloadId
+      }),
       callback
     );
 
-    expect(service.fetchTaskPayload).toHaveBeenCalledWith({ payloadId });
+    expect(service.fetchTaskPayload).toHaveBeenCalledWith({
+      payloadId
+    });
     expect(callback).toHaveBeenCalledWith(null, {
       payload: Buffer.from('task payload')
     });
@@ -137,11 +153,44 @@ describe('MasterNodeGrpcController', () => {
 
     await expect(
       controller.fetchTaskPayload(
-        createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({ payload_id: 'invalid' }),
+        createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({
+          payload_id: 'invalid'
+        }),
         callback
       )
     ).rejects.toBeInstanceOf(GenericBadRequestError);
     expect(service.fetchTaskPayload).not.toHaveBeenCalled();
     expect(callback).not.toHaveBeenCalled();
+  });
+
+  test('registers a master node using the presented certificate fingerprint', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<RegisterMasterNodeResponse>>();
+
+    await controller.registerMasterNode(
+      createCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>({
+        master_id: callerMasterNodeId,
+        session_id: callerSessionId,
+        cluster_id: '00000000-0000-4000-8000-000000000010',
+        hostname: 'follower.internal',
+        port: 4410,
+        scheme: 'grpcs'
+      }),
+      callback
+    );
+
+    expect(service.registerMasterNode).toHaveBeenCalledWith({
+      id: callerMasterNodeId,
+      certificateFingerprint: callerCertificateFingerprint,
+      sessionId: callerSessionId,
+      clusterId: '00000000-0000-4000-8000-000000000010',
+      endpoint: {
+        hostname: 'follower.internal',
+        port: 4410,
+        scheme: 'grpcs'
+      }
+    });
+    expect(callback).toHaveBeenCalledWith(null, {});
   });
 });

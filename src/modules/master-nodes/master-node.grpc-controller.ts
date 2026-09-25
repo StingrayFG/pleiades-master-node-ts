@@ -2,22 +2,36 @@ import type { sendUnaryData, ServerUnaryCall } from '@grpc/grpc-js';
 
 import { GenericBadRequestError, GenericMapperError } from '@/errors/application.errors';
 import type {
+  FetchMasterInfoRequest,
+  FetchMasterInfoResponse,
   FetchTaskEntriesRequest,
   FetchTaskEntriesResponse,
   FetchTaskPayloadRequest,
-  FetchTaskPayloadResponse
+  FetchTaskPayloadResponse,
+  RegisterMasterNodeRequest,
+  RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
+import { getGrpcPeerCertificateFingerprint } from '@/transports/grpc/server/auth/grpc-peer-auth';
 
 import type { MasterNodeInternodeServiceContract } from './master-node.internode-service';
 import {
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
+  mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
   mapInternodeTaskEntryToGrpcTaskEntry
 } from './master-node.mappers';
 
 /* contract */
 
 type MasterNodeGrpcControllerContract = {
+  fetchMasterInfo(
+    call: ServerUnaryCall<FetchMasterInfoRequest, FetchMasterInfoResponse>,
+    callback: sendUnaryData<FetchMasterInfoResponse>
+  ): Promise<void>;
+  registerMasterNode(
+    call: ServerUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>,
+    callback: sendUnaryData<RegisterMasterNodeResponse>
+  ): Promise<void>;
   fetchTaskEntries(
     call: ServerUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>,
     callback: sendUnaryData<FetchTaskEntriesResponse>
@@ -32,6 +46,43 @@ type MasterNodeGrpcControllerContract = {
 
 class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
   constructor(private readonly internodeService: MasterNodeInternodeServiceContract) {}
+
+  async fetchMasterInfo(
+    call: ServerUnaryCall<FetchMasterInfoRequest, FetchMasterInfoResponse>,
+    callback: sendUnaryData<FetchMasterInfoResponse>
+  ): Promise<void> {
+    const result = await this.internodeService.fetchMasterInfo();
+
+    callback(null, {
+      master_id: result.masterId,
+      session_id: result.sessionId,
+      cluster_id: result.clusterId,
+      epoch: result.epoch.toString()
+    });
+  }
+
+  async registerMasterNode(
+    call: ServerUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>,
+    callback: sendUnaryData<RegisterMasterNodeResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput(call.request, certificateFingerprint);
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid register master node request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    await this.internodeService.registerMasterNode(input);
+
+    callback(null, {});
+  }
 
   async fetchTaskEntries(
     call: ServerUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>,

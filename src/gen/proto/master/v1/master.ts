@@ -92,6 +92,28 @@ export interface FetchTaskPayloadResponse {
   payload: Buffer;
 }
 
+export interface FetchMasterInfoRequest {
+}
+
+export interface FetchMasterInfoResponse {
+  master_id: string;
+  session_id: string;
+  cluster_id: string;
+  epoch: string;
+}
+
+export interface RegisterMasterNodeRequest {
+  master_id: string;
+  session_id: string;
+  cluster_id: string;
+  hostname: string;
+  port: number;
+  scheme: string;
+}
+
+export interface RegisterMasterNodeResponse {
+}
+
 function createBaseTaskEntry(): TaskEntry {
   return {
     id: "",
@@ -604,8 +626,388 @@ export const FetchTaskPayloadResponse: MessageFns<FetchTaskPayloadResponse> = {
   },
 };
 
+function createBaseFetchMasterInfoRequest(): FetchMasterInfoRequest {
+  return {};
+}
+
+export const FetchMasterInfoRequest: MessageFns<FetchMasterInfoRequest> = {
+  encode(_: FetchMasterInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchMasterInfoRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): FetchMasterInfoRequest {
+    return {};
+  },
+
+  toJSON(_: FetchMasterInfoRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(base?: I): FetchMasterInfoRequest {
+    return FetchMasterInfoRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(_: I): FetchMasterInfoRequest {
+    const message = createBaseFetchMasterInfoRequest();
+    return message;
+  },
+};
+
+function createBaseFetchMasterInfoResponse(): FetchMasterInfoResponse {
+  return { master_id: "", session_id: "", cluster_id: "", epoch: "0" };
+}
+
+export const FetchMasterInfoResponse: MessageFns<FetchMasterInfoResponse> = {
+  encode(message: FetchMasterInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.master_id !== "") {
+      writer.uint32(10).string(message.master_id);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(18).string(message.session_id);
+    }
+    if (message.cluster_id !== "") {
+      writer.uint32(26).string(message.cluster_id);
+    }
+    if (message.epoch !== "0") {
+      writer.uint32(32).int64(message.epoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchMasterInfoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cluster_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchMasterInfoResponse {
+    return {
+      master_id: isSet(object.masterId)
+        ? globalThis.String(object.masterId)
+        : isSet(object.master_id)
+        ? globalThis.String(object.master_id)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      cluster_id: isSet(object.clusterId)
+        ? globalThis.String(object.clusterId)
+        : isSet(object.cluster_id)
+        ? globalThis.String(object.cluster_id)
+        : "",
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+    };
+  },
+
+  toJSON(message: FetchMasterInfoResponse): unknown {
+    const obj: any = {};
+    if (message.master_id !== "") {
+      obj.masterId = message.master_id;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.cluster_id !== "") {
+      obj.clusterId = message.cluster_id;
+    }
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(base?: I): FetchMasterInfoResponse {
+    return FetchMasterInfoResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(object: I): FetchMasterInfoResponse {
+    const message = createBaseFetchMasterInfoResponse();
+    message.master_id = object.master_id ?? "";
+    message.session_id = object.session_id ?? "";
+    message.cluster_id = object.cluster_id ?? "";
+    message.epoch = object.epoch ?? "0";
+    return message;
+  },
+};
+
+function createBaseRegisterMasterNodeRequest(): RegisterMasterNodeRequest {
+  return { master_id: "", session_id: "", cluster_id: "", hostname: "", port: 0, scheme: "" };
+}
+
+export const RegisterMasterNodeRequest: MessageFns<RegisterMasterNodeRequest> = {
+  encode(message: RegisterMasterNodeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.master_id !== "") {
+      writer.uint32(10).string(message.master_id);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(18).string(message.session_id);
+    }
+    if (message.cluster_id !== "") {
+      writer.uint32(26).string(message.cluster_id);
+    }
+    if (message.hostname !== "") {
+      writer.uint32(34).string(message.hostname);
+    }
+    if (message.port !== 0) {
+      writer.uint32(40).uint32(message.port);
+    }
+    if (message.scheme !== "") {
+      writer.uint32(50).string(message.scheme);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterMasterNodeRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cluster_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.hostname = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.port = reader.uint32();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.scheme = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RegisterMasterNodeRequest {
+    return {
+      master_id: isSet(object.masterId)
+        ? globalThis.String(object.masterId)
+        : isSet(object.master_id)
+        ? globalThis.String(object.master_id)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      cluster_id: isSet(object.clusterId)
+        ? globalThis.String(object.clusterId)
+        : isSet(object.cluster_id)
+        ? globalThis.String(object.cluster_id)
+        : "",
+      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
+      port: isSet(object.port) ? globalThis.Number(object.port) : 0,
+      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
+    };
+  },
+
+  toJSON(message: RegisterMasterNodeRequest): unknown {
+    const obj: any = {};
+    if (message.master_id !== "") {
+      obj.masterId = message.master_id;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.cluster_id !== "") {
+      obj.clusterId = message.cluster_id;
+    }
+    if (message.hostname !== "") {
+      obj.hostname = message.hostname;
+    }
+    if (message.port !== 0) {
+      obj.port = Math.round(message.port);
+    }
+    if (message.scheme !== "") {
+      obj.scheme = message.scheme;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(base?: I): RegisterMasterNodeRequest {
+    return RegisterMasterNodeRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(object: I): RegisterMasterNodeRequest {
+    const message = createBaseRegisterMasterNodeRequest();
+    message.master_id = object.master_id ?? "";
+    message.session_id = object.session_id ?? "";
+    message.cluster_id = object.cluster_id ?? "";
+    message.hostname = object.hostname ?? "";
+    message.port = object.port ?? 0;
+    message.scheme = object.scheme ?? "";
+    return message;
+  },
+};
+
+function createBaseRegisterMasterNodeResponse(): RegisterMasterNodeResponse {
+  return {};
+}
+
+export const RegisterMasterNodeResponse: MessageFns<RegisterMasterNodeResponse> = {
+  encode(_: RegisterMasterNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterMasterNodeResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RegisterMasterNodeResponse {
+    return {};
+  },
+
+  toJSON(_: RegisterMasterNodeResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(base?: I): RegisterMasterNodeResponse {
+    return RegisterMasterNodeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(_: I): RegisterMasterNodeResponse {
+    const message = createBaseRegisterMasterNodeResponse();
+    return message;
+  },
+};
+
 export type MasterService = typeof MasterService;
 export const MasterService = {
+  fetchMasterInfo: {
+    path: "/master.v1.Master/FetchMasterInfo" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: FetchMasterInfoRequest): Buffer =>
+      Buffer.from(FetchMasterInfoRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): FetchMasterInfoRequest => FetchMasterInfoRequest.decode(value),
+    responseSerialize: (value: FetchMasterInfoResponse): Buffer =>
+      Buffer.from(FetchMasterInfoResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): FetchMasterInfoResponse => FetchMasterInfoResponse.decode(value),
+  },
+  registerMasterNode: {
+    path: "/master.v1.Master/RegisterMasterNode" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RegisterMasterNodeRequest): Buffer =>
+      Buffer.from(RegisterMasterNodeRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RegisterMasterNodeRequest => RegisterMasterNodeRequest.decode(value),
+    responseSerialize: (value: RegisterMasterNodeResponse): Buffer =>
+      Buffer.from(RegisterMasterNodeResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RegisterMasterNodeResponse => RegisterMasterNodeResponse.decode(value),
+  },
   fetchTaskEntries: {
     path: "/master.v1.Master/FetchTaskEntries" as const,
     requestStream: false as const,
@@ -631,11 +1033,43 @@ export const MasterService = {
 } as const;
 
 export interface MasterServer extends UntypedServiceImplementation {
+  fetchMasterInfo: handleUnaryCall<FetchMasterInfoRequest, FetchMasterInfoResponse>;
+  registerMasterNode: handleUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>;
   fetchTaskEntries: handleUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>;
   fetchTaskPayload: handleUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>;
 }
 
 export interface MasterClient extends Client {
+  fetchMasterInfo(
+    request: FetchMasterInfoRequest,
+    callback: (error: ServiceError | null, response: FetchMasterInfoResponse) => void,
+  ): ClientUnaryCall;
+  fetchMasterInfo(
+    request: FetchMasterInfoRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: FetchMasterInfoResponse) => void,
+  ): ClientUnaryCall;
+  fetchMasterInfo(
+    request: FetchMasterInfoRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: FetchMasterInfoResponse) => void,
+  ): ClientUnaryCall;
+  registerMasterNode(
+    request: RegisterMasterNodeRequest,
+    callback: (error: ServiceError | null, response: RegisterMasterNodeResponse) => void,
+  ): ClientUnaryCall;
+  registerMasterNode(
+    request: RegisterMasterNodeRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RegisterMasterNodeResponse) => void,
+  ): ClientUnaryCall;
+  registerMasterNode(
+    request: RegisterMasterNodeRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RegisterMasterNodeResponse) => void,
+  ): ClientUnaryCall;
   fetchTaskEntries(
     request: FetchTaskEntriesRequest,
     callback: (error: ServiceError | null, response: FetchTaskEntriesResponse) => void,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { clusterIdSchema } from '@/modules/cluster/cluster.domain';
 import { consensusLastSequenceSchema } from '@/modules/consensus/consensus.domain';
 import {
   taskEpochSchema,
@@ -34,6 +35,16 @@ export const registerMasterNodeInputSchema = z.object({
 
 /* internode schemas */
 
+export const registerMasterNodeInternodeInputSchema = z.object({
+  id: masterNodeIdSchema,
+
+  certificateFingerprint: masterNodeCertificateFingerprintSchema,
+  sessionId: masterNodeSessionIdSchema,
+  clusterId: clusterIdSchema,
+
+  endpoint: masterNodeEndpointSchema
+});
+
 export const internodeTaskEntrySchema = z.object({
   id: taskIdSchema,
 
@@ -66,7 +77,30 @@ export const fetchTaskPayloadInternodeInputSchema = z.object({
   payloadId: taskPayloadIdSchema
 });
 
+export const fetchMasterInfoInternodeResultSchema = z.object({
+  masterId: masterNodeIdSchema,
+  sessionId: masterNodeSessionIdSchema,
+  clusterId: clusterIdSchema,
+
+  epoch: taskEpochSchema
+});
+
 /* client schemas */
+
+export const registerMasterNodeClientInputSchema = z.object({
+  masterNodeEndpoint: masterNodeEndpointSchema,
+  expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema,
+
+  id: masterNodeIdSchema,
+  sessionId: masterNodeSessionIdSchema,
+  clusterId: clusterIdSchema,
+  endpoint: masterNodeEndpointSchema
+});
+
+export const fetchMasterInfoClientInputSchema = z.object({
+  masterNodeEndpoint: masterNodeEndpointSchema,
+  expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema
+});
 
 export const fetchTaskEntriesClientInputSchema = z.object({
   masterNodeEndpoint: masterNodeEndpointSchema,
@@ -90,10 +124,14 @@ export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNo
 /* types */
 
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
+export type RegisterMasterNodeInternodeInput = z.infer<typeof registerMasterNodeInternodeInputSchema>;
 export type InternodeTaskEntry = z.infer<typeof internodeTaskEntrySchema>;
 export type FetchTaskEntriesInternodeInput = z.infer<typeof fetchTaskEntriesInternodeInputSchema>;
 export type FetchTaskEntriesInternodeResult = z.infer<typeof fetchTaskEntriesInternodeResultSchema>;
 export type FetchTaskPayloadInternodeInput = z.infer<typeof fetchTaskPayloadInternodeInputSchema>;
+export type FetchMasterInfoInternodeResult = z.infer<typeof fetchMasterInfoInternodeResultSchema>;
+export type RegisterMasterNodeClientInput = z.infer<typeof registerMasterNodeClientInputSchema>;
+export type FetchMasterInfoClientInput = z.infer<typeof fetchMasterInfoClientInputSchema>;
 export type FetchTaskEntriesClientInput = z.infer<typeof fetchTaskEntriesClientInputSchema>;
 export type FetchTaskPayloadClientInput = z.infer<typeof fetchTaskPayloadClientInputSchema>;
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<

@@ -32,6 +32,15 @@ describe('master node domain schemas', () => {
     expect(masterNodeSchema.parse(masterNode)).toEqual(masterNode);
   });
 
+  test('rejects malformed certificate fingerprints', () => {
+    expect(
+      masterNodeSchema.safeParse({
+        ...masterNode,
+        certificateFingerprint: 'not-a-sha256-fingerprint'
+      }).success
+    ).toBe(false);
+  });
+
   test.each([
     { field: 'id', value: '' },
     { field: 'certificateFingerprint', value: '' },

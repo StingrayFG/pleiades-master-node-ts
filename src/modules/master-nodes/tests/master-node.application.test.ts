@@ -2,12 +2,15 @@ import { describe, expect, test } from '@jest/globals';
 
 import {
   applyMasterNodeRegistrationRepositoryInputSchema,
+  fetchMasterInfoClientInputSchema,
   fetchTaskEntriesClientInputSchema,
   fetchTaskEntriesInternodeInputSchema,
   fetchTaskEntriesInternodeResultSchema,
   fetchTaskPayloadClientInputSchema,
   fetchTaskPayloadInternodeInputSchema,
   internodeTaskEntrySchema,
+  registerMasterNodeClientInputSchema,
+  registerMasterNodeInternodeInputSchema,
   registerMasterNodeInputSchema
 } from '../master-node.application';
 
@@ -45,6 +48,28 @@ const taskEntry = {
 describe('master node application schemas', () => {
   test('accepts a valid registration input', () => {
     expect(registerMasterNodeInputSchema.parse(registrationInput)).toEqual(registrationInput);
+  });
+
+  test('accepts internode and client master node registration inputs', () => {
+    const internodeInput = {
+      id: registrationInput.id,
+      certificateFingerprint: registrationInput.certificateFingerprint,
+      sessionId: registrationInput.sessionId,
+      clusterId: '00000000-0000-4000-8000-000000000010',
+      endpoint: registrationInput.endpoint
+    };
+
+    expect(registerMasterNodeInternodeInputSchema.parse(internodeInput)).toEqual(internodeInput);
+    const clientInput = {
+      masterNodeEndpoint: registrationInput.endpoint,
+      expectedCertificateFingerprint: registrationInput.certificateFingerprint,
+      id: internodeInput.id,
+      sessionId: internodeInput.sessionId,
+      clusterId: internodeInput.clusterId,
+      endpoint: internodeInput.endpoint
+    };
+
+    expect(registerMasterNodeClientInputSchema.parse(clientInput)).toEqual(clientInput);
   });
 
   test('rejects an insecure registration endpoint', () => {
@@ -116,11 +141,11 @@ describe('master node application schemas', () => {
     expect(
       fetchTaskPayloadClientInputSchema.parse({
         masterNodeEndpoint: registrationInput.endpoint,
-        ...payloadInput
+        payloadId: taskEntry.payloadId
       })
     ).toEqual({
       masterNodeEndpoint: registrationInput.endpoint,
-      ...payloadInput
+      payloadId: taskEntry.payloadId
     });
   });
 
@@ -132,5 +157,17 @@ describe('master node application schemas', () => {
     };
 
     expect(fetchTaskEntriesClientInputSchema.parse(input)).toEqual(input);
+  });
+
+  test('requires the expected certificate fingerprint for master client requests', () => {
+    const input = {
+      masterNodeEndpoint: registrationInput.endpoint,
+      expectedCertificateFingerprint: registrationInput.certificateFingerprint
+    };
+
+    expect(fetchMasterInfoClientInputSchema.parse(input)).toEqual(input);
+    expect(fetchMasterInfoClientInputSchema.safeParse({ masterNodeEndpoint: registrationInput.endpoint }).success).toBe(
+      false
+    );
   });
 });
