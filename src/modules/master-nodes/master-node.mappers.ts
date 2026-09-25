@@ -72,10 +72,15 @@ export const mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult = (
 };
 
 export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
-  request: FetchTaskEntriesRequest
+  request: FetchTaskEntriesRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
 ): FetchTaskEntriesInternodeInput => {
   return withMapperError('Failed to map gRPC fetch task entries request', () => {
     return fetchTaskEntriesInternodeInputSchema.parse({
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint,
+
       afterSequence: BigInt(request.after_sequence),
       limit: request.limit
     });
@@ -83,10 +88,15 @@ export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
 };
 
 export const mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput = (
-  request: FetchTaskPayloadRequest
+  request: FetchTaskPayloadRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
 ): FetchTaskPayloadInternodeInput => {
   return withMapperError('Failed to map gRPC fetch task payload request', () => {
     return fetchTaskPayloadInternodeInputSchema.parse({
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint,
+
       payloadId: request.payload_id
     });
   });

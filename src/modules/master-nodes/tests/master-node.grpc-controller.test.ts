@@ -80,12 +80,17 @@ describe('MasterNodeGrpcController', () => {
     await controller.fetchTaskEntries(
       createCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>({
         after_sequence: '-1',
-        limit: 32
+        limit: 32,
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
       }),
       callback
     );
 
     expect(service.fetchTaskEntries).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint,
       afterSequence: -1n,
       limit: 32
     });
@@ -117,7 +122,9 @@ describe('MasterNodeGrpcController', () => {
       controller.fetchTaskEntries(
         createCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>({
           after_sequence: '-2',
-          limit: 0
+          limit: 0,
+          caller_master_id: callerMasterNodeId,
+          caller_session_id: callerSessionId
         }),
         callback
       )
@@ -133,12 +140,17 @@ describe('MasterNodeGrpcController', () => {
 
     await controller.fetchTaskPayload(
       createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({
-        payload_id: payloadId
+        payload_id: payloadId,
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
       }),
       callback
     );
 
     expect(service.fetchTaskPayload).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint,
       payloadId
     });
     expect(callback).toHaveBeenCalledWith(null, {
@@ -154,7 +166,9 @@ describe('MasterNodeGrpcController', () => {
     await expect(
       controller.fetchTaskPayload(
         createCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>({
-          payload_id: 'invalid'
+          payload_id: 'invalid',
+          caller_master_id: callerMasterNodeId,
+          caller_session_id: callerSessionId
         }),
         callback
       )

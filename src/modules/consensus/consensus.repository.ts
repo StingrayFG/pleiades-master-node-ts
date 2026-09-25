@@ -102,6 +102,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             id: input.id,
             last_committed_sequence: {
               lt: input.sequence
+            },
+            last_allocated_sequence: {
+              gte: input.sequence
             }
           },
           data: {
@@ -168,6 +171,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             id: input.id,
             last_applied_sequence: {
               lt: input.sequence
+            },
+            last_committed_sequence: {
+              gte: input.sequence
             }
           },
           data: {

@@ -44,4 +44,22 @@ describe('consensus domain schemas', () => {
     expect(() => consensusLastSequenceSchema.parse(-2n)).toThrow();
     expect(() => consensusStateSchema.parse({ ...state, revision: -1n })).toThrow();
   });
+
+  test('rejects consensus sequence ordering violations', () => {
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        lastAllocatedSequence: 1n,
+        lastCommittedSequence: 2n
+      })
+    ).toThrow();
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        lastAllocatedSequence: 2n,
+        lastCommittedSequence: 1n,
+        lastAppliedSequence: 2n
+      })
+    ).toThrow();
+  });
 });

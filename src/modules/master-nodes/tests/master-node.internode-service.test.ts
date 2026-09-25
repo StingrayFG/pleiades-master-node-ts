@@ -2,14 +2,18 @@ import { Buffer } from 'node:buffer';
 
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
-import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
+import {
+  GenericConflictError,
+  GenericFailedPreconditionError,
+  GenericForbiddenError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
-import type { TaskRepositoryContract } from '@/modules/tasks/task.repository';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { MasterNode } from '../master-node.domain';
 import { MasterNodeInternodeService } from '../master-node.internode-service';
@@ -22,9 +26,9 @@ const payloadId = '00000000-0000-4000-8000-000000000003';
 const selfMasterNodeId = 'master-node-a';
 const selfMasterNodeSessionId = '00000000-0000-4000-8000-000000000001';
 const clusterId = '00000000-0000-4000-8000-000000000010';
-const followerMasterNodeId = 'master-node-follower';
-const followerMasterNodeSessionId = '00000000-0000-4000-8000-000000000004';
-const followerCertificateFingerprint = 'ab'.repeat(32);
+const callerMasterNodeId = 'master-node-follower';
+const callerMasterNodeSessionId = '00000000-0000-4000-8000-000000000004';
+const callerCertificateFingerprint = 'ab'.repeat(32);
 
 const cluster: Cluster = {
   id: CLUSTER_RECORD_ID,
@@ -47,7 +51,7 @@ const consensusState: ConsensusState = {
 
 const task: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000002',
-  originMasterNodeId: selfMasterNodeId,
+  originMasterNodeId: 'master-node-a',
   epoch: 2n,
   sequence: 4n,
   state: 'pending',
@@ -60,10 +64,10 @@ const task: PersistedTask = {
   updatedAt: now
 };
 
-const followerMasterNode: MasterNode = {
-  id: followerMasterNodeId,
-  certificateFingerprint: followerCertificateFingerprint,
-  sessionId: followerMasterNodeSessionId,
+const callerMasterNode: MasterNode = {
+  id: callerMasterNodeId,
+  certificateFingerprint: callerCertificateFingerprint,
+  sessionId: callerMasterNodeSessionId,
   state: 'active',
   mode: 'serving',
   hostname: 'follower.internal',
@@ -77,27 +81,24 @@ const followerMasterNode: MasterNode = {
   revision: 1n
 };
 
+const authenticatedCaller = {
+  callerMasterNodeId,
+  callerMasterNodeSessionId,
+  callerCertificateFingerprint
+};
+
 /* mocks */
 
-const createTaskRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
-  const repository = {
-    listTasksInSequenceRange: jest.fn<TaskRepositoryContract['listTasksInSequenceRange']>(),
-    listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
-    listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
-    listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
-    findById: jest.fn<TaskRepositoryContract['findById']>(),
-    create: jest.fn<TaskRepositoryContract['create']>(),
-    createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
-    markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),
-    markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
-    markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
-    updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
-    clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>()
+const createTaskServiceMock = (): jest.Mocked<TaskServiceContract> => {
+  const service = {
+    listTasksInSequenceRange: jest.fn<TaskServiceContract['listTasksInSequenceRange']>(),
+    retrieveTaskPayload: jest.fn<TaskServiceContract['retrieveTaskPayload']>()
   };
 
-  repository.listTasksInSequenceRange.mockResolvedValue([task]);
+  service.listTasksInSequenceRange.mockResolvedValue([task]);
+  service.retrieveTaskPayload.mockResolvedValue(Buffer.from('task payload'));
 
-  return repository;
+  return service as unknown as jest.Mocked<TaskServiceContract>;
 };
 
 const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {
@@ -105,25 +106,15 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
     getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>(),
     advanceLastCommittedSequence: jest.fn<ConsensusServiceContract['advanceLastCommittedSequence']>(),
     advanceLastAppliedSequence: jest.fn<ConsensusServiceContract['advanceLastAppliedSequence']>(),
+    advanceLastAllocatedSequence: jest.fn<ConsensusServiceContract['advanceLastAllocatedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusServiceContract['withAdvancedLastAllocatedSequence']>(),
-    bootstrapLeadership: jest.fn<ConsensusServiceContract['bootstrapLeadership']>()
+    bootstrapLeadership: jest.fn<ConsensusServiceContract['bootstrapLeadership']>(),
+    acceptFollowership: jest.fn<ConsensusServiceContract['acceptFollowership']>()
   };
 
   service.getConsensusState.mockResolvedValue(consensusState);
 
   return service as unknown as jest.Mocked<ConsensusServiceContract>;
-};
-
-const createByteStorageServiceMock = (): jest.Mocked<ByteStorageServiceContract> => {
-  const service = {
-    store: jest.fn<ByteStorageServiceContract['store']>(),
-    retrieve: jest.fn<ByteStorageServiceContract['retrieve']>(),
-    delete: jest.fn<ByteStorageServiceContract['delete']>()
-  };
-
-  service.retrieve.mockResolvedValue(Buffer.from('task payload'));
-
-  return service;
 };
 
 const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
@@ -136,31 +127,28 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
 
 const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> => {
   return {
-    getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>(),
-    registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>().mockResolvedValue(followerMasterNode)
+    getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>().mockResolvedValue(callerMasterNode),
+    registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>().mockResolvedValue(callerMasterNode)
   } as unknown as jest.Mocked<MasterNodeServiceContract>;
 };
 
 /* tests */
 
 describe('MasterNodeInternodeService', () => {
-  let taskRepository: jest.Mocked<TaskRepositoryContract>;
+  let taskService: jest.Mocked<TaskServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
-  let byteStorageService: jest.Mocked<ByteStorageServiceContract>;
   let clusterService: jest.Mocked<ClusterServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let service: MasterNodeInternodeService;
 
   beforeEach(() => {
-    taskRepository = createTaskRepositoryMock();
+    taskService = createTaskServiceMock();
     consensusService = createConsensusServiceMock();
-    byteStorageService = createByteStorageServiceMock();
     clusterService = createClusterServiceMock();
     masterNodeService = createMasterNodeServiceMock();
     service = new MasterNodeInternodeService(
-      taskRepository,
+      taskService,
       consensusService,
-      byteStorageService,
       selfMasterNodeId,
       selfMasterNodeSessionId,
       clusterService,
@@ -181,28 +169,28 @@ describe('MasterNodeInternodeService', () => {
   test('registers a master node in the local cluster using its authenticated certificate', async () => {
     await expect(
       service.registerMasterNode({
-        id: followerMasterNodeId,
-        certificateFingerprint: followerCertificateFingerprint,
-        sessionId: followerMasterNodeSessionId,
+        id: callerMasterNodeId,
+        certificateFingerprint: callerCertificateFingerprint,
+        sessionId: callerMasterNodeSessionId,
         clusterId,
         endpoint: {
-          hostname: followerMasterNode.hostname,
-          port: followerMasterNode.port,
-          scheme: followerMasterNode.scheme
+          hostname: callerMasterNode.hostname,
+          port: callerMasterNode.port,
+          scheme: callerMasterNode.scheme
         }
       })
     ).resolves.toBeUndefined();
 
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith({
-      id: followerMasterNodeId,
-      certificateFingerprint: followerCertificateFingerprint,
-      sessionId: followerMasterNodeSessionId,
+      id: callerMasterNodeId,
+      certificateFingerprint: callerCertificateFingerprint,
+      sessionId: callerMasterNodeSessionId,
       state: 'active',
       mode: 'serving',
       endpoint: {
-        hostname: followerMasterNode.hostname,
-        port: followerMasterNode.port,
-        scheme: followerMasterNode.scheme
+        hostname: callerMasterNode.hostname,
+        port: callerMasterNode.port,
+        scheme: callerMasterNode.scheme
       }
     });
   });
@@ -210,14 +198,14 @@ describe('MasterNodeInternodeService', () => {
   test('rejects registration from a different cluster', async () => {
     await expect(
       service.registerMasterNode({
-        id: followerMasterNodeId,
-        certificateFingerprint: followerCertificateFingerprint,
-        sessionId: followerMasterNodeSessionId,
+        id: callerMasterNodeId,
+        certificateFingerprint: callerCertificateFingerprint,
+        sessionId: callerMasterNodeSessionId,
         clusterId: '00000000-0000-4000-8000-000000000099',
         endpoint: {
-          hostname: followerMasterNode.hostname,
-          port: followerMasterNode.port,
-          scheme: followerMasterNode.scheme
+          hostname: callerMasterNode.hostname,
+          port: callerMasterNode.port,
+          scheme: callerMasterNode.scheme
         }
       })
     ).rejects.toBeInstanceOf(GenericConflictError);
@@ -225,32 +213,8 @@ describe('MasterNodeInternodeService', () => {
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
   });
 
-  test('rejects discovery and registration when the local master node is not the leader', async () => {
-    consensusService.getConsensusState.mockResolvedValue({
-      ...consensusState,
-      leaderMasterId: 'master-node-b'
-    });
-
-    await expect(service.fetchMasterInfo()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
-    await expect(
-      service.registerMasterNode({
-        id: followerMasterNodeId,
-        certificateFingerprint: followerCertificateFingerprint,
-        sessionId: followerMasterNodeSessionId,
-        clusterId,
-        endpoint: {
-          hostname: followerMasterNode.hostname,
-          port: followerMasterNode.port,
-          scheme: followerMasterNode.scheme
-        }
-      })
-    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
-    expect(clusterService.getCluster).not.toHaveBeenCalled();
-    expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
-  });
-
   test('fetches committed task entries in sequence order bounds', async () => {
-    await expect(service.fetchTaskEntries({ afterSequence: -1n, limit: 32 })).resolves.toEqual({
+    await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
       entries: [
@@ -268,7 +232,7 @@ describe('MasterNodeInternodeService', () => {
       ]
     });
     expect(consensusService.getConsensusState).toHaveBeenCalledWith();
-    expect(taskRepository.listTasksInSequenceRange).toHaveBeenCalledWith({
+    expect(taskService.listTasksInSequenceRange).toHaveBeenCalledWith({
       afterSequence: -1n,
       upToSequence: consensusState.lastCommittedSequence,
       limit: 32
@@ -276,9 +240,9 @@ describe('MasterNodeInternodeService', () => {
   });
 
   test('returns an empty entry list when no committed tasks are available', async () => {
-    taskRepository.listTasksInSequenceRange.mockResolvedValue([]);
+    taskService.listTasksInSequenceRange.mockResolvedValue([]);
 
-    await expect(service.fetchTaskEntries({ afterSequence: 4n, limit: 8 })).resolves.toEqual({
+    await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: 4n, limit: 8 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
       entries: []
@@ -288,15 +252,86 @@ describe('MasterNodeInternodeService', () => {
   test('retrieves a task payload from byte storage', async () => {
     const payload = Buffer.from('task payload');
 
-    await expect(service.fetchTaskPayload({ payloadId })).resolves.toEqual(payload);
-    expect(byteStorageService.retrieve).toHaveBeenCalledWith(payloadId);
+    await expect(service.fetchTaskPayload({ ...authenticatedCaller, payloadId })).resolves.toEqual(payload);
+    expect(taskService.retrieveTaskPayload).toHaveBeenCalledWith(payloadId);
   });
 
-  test('propagates task repository failures', async () => {
-    const repositoryError = new Error('Task storage unavailable');
+  test('rejects task history requests from an unregistered master node', async () => {
+    masterNodeService.getMasterNodeById.mockRejectedValue(new GenericNotFoundError('Master node not found'));
 
-    taskRepository.listTasksInSequenceRange.mockRejectedValue(repositoryError);
+    await expect(
+      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })
+    ).rejects.toBeInstanceOf(GenericForbiddenError);
 
-    await expect(service.fetchTaskEntries({ afterSequence: -1n, limit: 32 })).rejects.toBe(repositoryError);
+    expect(taskService.listTasksInSequenceRange).not.toHaveBeenCalled();
+  });
+
+  test('rejects task payload requests when the presented certificate does not match the caller', async () => {
+    await expect(
+      service.fetchTaskPayload({
+        ...authenticatedCaller,
+        callerCertificateFingerprint: 'cd'.repeat(32),
+        payloadId
+      })
+    ).rejects.toBeInstanceOf(GenericForbiddenError);
+
+    expect(taskService.retrieveTaskPayload).not.toHaveBeenCalled();
+  });
+
+  test('rejects task history requests from a stale master node session', async () => {
+    await expect(
+      service.fetchTaskEntries({
+        ...authenticatedCaller,
+        callerMasterNodeSessionId: '00000000-0000-4000-8000-000000000099',
+        afterSequence: -1n,
+        limit: 32
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+
+    expect(taskService.listTasksInSequenceRange).not.toHaveBeenCalled();
+  });
+
+  test('rejects master information requests when the local master node is not the leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      leaderMasterId: 'master-node-b'
+    });
+
+    await expect(service.fetchMasterInfo()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    expect(clusterService.getCluster).not.toHaveBeenCalled();
+  });
+
+  test('rejects task entry requests when the local master node is not the leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      leaderMasterId: 'master-node-b'
+    });
+
+    await expect(
+      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    expect(taskService.listTasksInSequenceRange).not.toHaveBeenCalled();
+  });
+
+  test('rejects task payload requests when the local master node is not the leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      leaderMasterId: 'master-node-b'
+    });
+
+    await expect(service.fetchTaskPayload({ ...authenticatedCaller, payloadId })).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+    expect(taskService.retrieveTaskPayload).not.toHaveBeenCalled();
+  });
+
+  test('propagates task service failures', async () => {
+    const taskServiceError = new Error('Task storage unavailable');
+
+    taskService.listTasksInSequenceRange.mockRejectedValue(taskServiceError);
+
+    await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })).rejects.toBe(
+      taskServiceError
+    );
   });
 });

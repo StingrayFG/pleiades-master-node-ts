@@ -108,24 +108,25 @@ describe('ConsensusStateRepository', () => {
   test('advances the committed sequence monotonically and returns the stored state', async () => {
     const advancedPrismaState = {
       ...prismaState,
-      last_committed_sequence: 5n,
+      last_committed_sequence: 4n,
       revision: 6n
     };
 
     delegate.findUniqueOrThrow.mockResolvedValue(advancedPrismaState);
 
-    await expect(repository.advanceLastCommittedSequence({ id: CONSENSUS_STATE_ID, sequence: 5n })).resolves.toEqual({
+    await expect(repository.advanceLastCommittedSequence({ id: CONSENSUS_STATE_ID, sequence: 4n })).resolves.toEqual({
       ...state,
-      lastCommittedSequence: 5n,
+      lastCommittedSequence: 4n,
       revision: 6n
     });
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
-        last_committed_sequence: { lt: 5n }
+        last_committed_sequence: { lt: 4n },
+        last_allocated_sequence: { gte: 4n }
       },
       data: {
-        last_committed_sequence: 5n,
+        last_committed_sequence: 4n,
         revision: { increment: 1 }
       }
     });
@@ -159,7 +160,8 @@ describe('ConsensusStateRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
-        last_applied_sequence: { lt: 3n }
+        last_applied_sequence: { lt: 3n },
+        last_committed_sequence: { gte: 3n }
       },
       data: {
         last_applied_sequence: 3n,

@@ -1,4 +1,5 @@
 import {
+  GenericAbortedError,
   GenericAlreadyExistsError,
   GenericConflictError,
   GenericFailedPreconditionError
@@ -74,12 +75,24 @@ class ConsensusService implements ConsensusServiceContract {
   /* sequence methods */
 
   async advanceLastCommittedSequence(sequence: TaskSequence): Promise<ConsensusState> {
-    await this.getConsensusState();
+    const state = await this.getConsensusState();
 
-    return this.repository.advanceLastCommittedSequence({
+    if (sequence > state.lastAllocatedSequence) {
+      throw new GenericFailedPreconditionError(
+        'Cannot advance the committed sequence beyond the last allocated sequence'
+      );
+    }
+
+    const updatedState = await this.repository.advanceLastCommittedSequence({
       id: CONSENSUS_STATE_ID,
       sequence
     });
+
+    if (updatedState.lastCommittedSequence < sequence) {
+      throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change');
+    }
+
+    return updatedState;
   }
 
   async advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState> {
@@ -91,10 +104,16 @@ class ConsensusService implements ConsensusServiceContract {
       );
     }
 
-    return this.repository.advanceLastAppliedSequence({
+    const updatedState = await this.repository.advanceLastAppliedSequence({
       id: CONSENSUS_STATE_ID,
       sequence
     });
+
+    if (updatedState.lastAppliedSequence < sequence) {
+      throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change');
+    }
+
+    return updatedState;
   }
 
   async advanceLastAllocatedSequence(sequence: TaskSequence): Promise<ConsensusState> {

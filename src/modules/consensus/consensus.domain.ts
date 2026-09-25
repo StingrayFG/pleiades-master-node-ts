@@ -15,20 +15,27 @@ export const consensusLastSequenceSchema = z.bigint().min(-1n);
 
 /* object schemas */
 
-export const consensusStateSchema = z.object({
-  id: consensusStateIdSchema,
+export const consensusStateSchema = z
+  .object({
+    id: consensusStateIdSchema,
 
-  currentEpoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema.nullable(),
-  lastAllocatedSequence: consensusLastSequenceSchema,
-  lastCommittedSequence: consensusLastSequenceSchema,
-  lastAppliedSequence: consensusLastSequenceSchema,
+    currentEpoch: consensusEpochSchema,
+    leaderMasterId: masterNodeIdSchema.nullable(),
+    lastAllocatedSequence: consensusLastSequenceSchema,
+    lastCommittedSequence: consensusLastSequenceSchema,
+    lastAppliedSequence: consensusLastSequenceSchema,
 
-  createdAt: z.date(),
-  updatedAt: z.date(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
 
-  revision: z.bigint().nonnegative()
-});
+    revision: z.bigint().nonnegative()
+  })
+  .refine((state) => state.lastCommittedSequence <= state.lastAllocatedSequence, {
+    message: 'Committed sequence cannot exceed allocated sequence'
+  })
+  .refine((state) => state.lastAppliedSequence <= state.lastCommittedSequence, {
+    message: 'Applied sequence cannot exceed committed sequence'
+  });
 
 /* types */
 

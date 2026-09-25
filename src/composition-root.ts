@@ -21,6 +21,7 @@ import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
+import { masterNodeConfig } from '@/modules/master-nodes/master-node.config';
 import { createMasterNodeModule } from '@/modules/master-nodes/master-node.module';
 import { calculateMasterNodeCertificateFingerprint } from '@/modules/master-nodes/master-node.processors';
 import { partConfig } from '@/modules/object-version-parts/object-version-part.config';
@@ -111,14 +112,14 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const masterNodeModule = createMasterNodeModule({
     prisma,
-    taskRepository: taskModule.repository,
+    taskService: taskModule.service,
     consensusService: consensusModule.service,
-    byteStorageService: byteStorageModule.service,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService: clusterModule.service,
     grpcConfig: blobGrpcConfig,
-    grpcClientCredentials
+    grpcClientCredentials,
+    masterNodeConfig
   });
 
   const bootstrapModule = createBootstrapModule({
@@ -179,6 +180,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const backgroundModule = createBackgroundModule({
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
+    masterReplicationHandler: masterNodeModule.replicationHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,

@@ -106,7 +106,7 @@ const createCredentialsMock = () => {
 };
 
 const createClient = (provider: GrpcClientCredentialsContract): InstanceType<typeof MasterNodeGrpcClient> => {
-  return new MasterNodeGrpcClient(grpcConfig, provider);
+  return new MasterNodeGrpcClient(grpcConfig, provider, selfMasterNodeId, selfMasterNodeSessionId);
 };
 
 /* tests */
@@ -256,6 +256,7 @@ describe('MasterNodeGrpcClient', () => {
     await expect(
       client.fetchTaskEntries({
         masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
         afterSequence: -1n,
         limit: 32
       })
@@ -283,7 +284,9 @@ describe('MasterNodeGrpcClient', () => {
     expect(createdClients[0].fetchTaskEntries).toHaveBeenCalledWith(
       {
         after_sequence: '-1',
-        limit: 32
+        limit: 32,
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId
       },
       expect.any(Metadata),
       expect.objectContaining({ deadline: expect.any(Date) }),
@@ -298,12 +301,15 @@ describe('MasterNodeGrpcClient', () => {
     await expect(
       client.fetchTaskPayload({
         masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
         payloadId
       })
     ).resolves.toEqual(payloadResponse.payload);
     expect(createdClients[0].fetchTaskPayload).toHaveBeenCalledWith(
       {
-        payload_id: payloadId
+        payload_id: payloadId,
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId
       },
       expect.any(Metadata),
       expect.objectContaining({ deadline: expect.any(Date) }),
@@ -317,16 +323,43 @@ describe('MasterNodeGrpcClient', () => {
 
     await client.fetchTaskEntries({
       masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: certificateFingerprint,
       afterSequence: -1n,
       limit: 32
     });
     await client.fetchTaskPayload({
       masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: certificateFingerprint,
       payloadId
     });
 
     expect(grpcMasterClientConstructorMock).toHaveBeenCalledTimes(1);
     expect(provider.get).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reuse a channel pinned to a different certificate', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+
+    await client.fetchTaskEntries({
+      masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: certificateFingerprint,
+      afterSequence: -1n,
+      limit: 32
+    });
+    await client.fetchTaskPayload({
+      masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: 'cd'.repeat(32),
+      payloadId
+    });
+
+    expect(grpcMasterClientConstructorMock).toHaveBeenCalledTimes(2);
+    expect(provider.get).toHaveBeenNthCalledWith(1, {
+      expectedServerCertificateFingerprint: certificateFingerprint
+    });
+    expect(provider.get).toHaveBeenNthCalledWith(2, {
+      expectedServerCertificateFingerprint: 'cd'.repeat(32)
+    });
   });
 
   test('maps gRPC failures to internode application errors', async () => {
@@ -359,6 +392,7 @@ describe('MasterNodeGrpcClient', () => {
     await expect(
       client.fetchTaskEntries({
         masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
         afterSequence: -1n,
         limit: 32
       })
@@ -396,6 +430,7 @@ describe('MasterNodeGrpcClient', () => {
     await expect(
       client.fetchTaskEntries({
         masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
         afterSequence: -1n,
         limit: 32
       })
@@ -408,6 +443,7 @@ describe('MasterNodeGrpcClient', () => {
 
     await client.fetchTaskEntries({
       masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: certificateFingerprint,
       afterSequence: -1n,
       limit: 32
     });
@@ -417,6 +453,7 @@ describe('MasterNodeGrpcClient', () => {
 
     await client.fetchTaskEntries({
       masterNodeEndpoint: endpoint,
+      expectedCertificateFingerprint: certificateFingerprint,
       afterSequence: -1n,
       limit: 32
     });

@@ -88,10 +88,12 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
     call: ServerUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>,
     callback: sendUnaryData<FetchTaskEntriesResponse>
   ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
     let input;
 
     try {
-      input = mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput(call.request);
+      input = mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput(call.request, certificateFingerprint);
     } catch (err) {
       if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid fetch task entries request', { cause: err });
@@ -113,10 +115,12 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
     call: ServerUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>,
     callback: sendUnaryData<FetchTaskPayloadResponse>
   ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
     let input;
 
     try {
-      input = mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput(call.request);
+      input = mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput(call.request, certificateFingerprint);
     } catch (err) {
       if (err instanceof GenericMapperError) {
         throw new GenericBadRequestError('Invalid fetch task payload request', { cause: err });

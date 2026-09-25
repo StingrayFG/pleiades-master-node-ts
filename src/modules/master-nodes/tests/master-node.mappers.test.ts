@@ -95,19 +95,35 @@ describe('master node mappers', () => {
 
   test('maps task-entry and payload gRPC requests to internode inputs', () => {
     expect(
-      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput({
-        after_sequence: '-1',
-        limit: 32
-      })
+      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput(
+        {
+          after_sequence: '-1',
+          limit: 32,
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId
+        },
+        callerCertificateFingerprint
+      )
     ).toEqual({
+      callerMasterNodeId: domainMasterNode.id,
+      callerMasterNodeSessionId: domainMasterNode.sessionId,
+      callerCertificateFingerprint,
       afterSequence: -1n,
       limit: 32
     });
     expect(
-      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput({
-        payload_id: taskEntry.payloadId!
-      })
+      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput(
+        {
+          payload_id: taskEntry.payloadId!,
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId
+        },
+        callerCertificateFingerprint
+      )
     ).toEqual({
+      callerMasterNodeId: domainMasterNode.id,
+      callerMasterNodeSessionId: domainMasterNode.sessionId,
+      callerCertificateFingerprint,
       payloadId: taskEntry.payloadId
     });
   });
@@ -177,15 +193,25 @@ describe('master node mappers', () => {
 
   test('wraps malformed task-entry requests and payload data in mapper errors', () => {
     expect(() =>
-      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput({
-        after_sequence: 'invalid',
-        limit: 32
-      })
+      mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput(
+        {
+          after_sequence: 'invalid',
+          limit: 32,
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId
+        },
+        callerCertificateFingerprint
+      )
     ).toThrow(GenericMapperError);
     expect(() =>
-      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput({
-        payload_id: 'invalid'
-      })
+      mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput(
+        {
+          payload_id: 'invalid',
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId
+        },
+        callerCertificateFingerprint
+      )
     ).toThrow(GenericMapperError);
     expect(() =>
       mapGrpcTaskEntryToInternodeTaskEntry({

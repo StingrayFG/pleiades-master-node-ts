@@ -76,6 +76,8 @@ export interface TaskEntry {
 export interface FetchTaskEntriesRequest {
   after_sequence: string;
   limit: number;
+  caller_master_id: string;
+  caller_session_id: string;
 }
 
 export interface FetchTaskEntriesResponse {
@@ -86,6 +88,8 @@ export interface FetchTaskEntriesResponse {
 
 export interface FetchTaskPayloadRequest {
   payload_id: string;
+  caller_master_id: string;
+  caller_session_id: string;
 }
 
 export interface FetchTaskPayloadResponse {
@@ -329,7 +333,7 @@ export const TaskEntry: MessageFns<TaskEntry> = {
 };
 
 function createBaseFetchTaskEntriesRequest(): FetchTaskEntriesRequest {
-  return { after_sequence: "0", limit: 0 };
+  return { after_sequence: "0", limit: 0, caller_master_id: "", caller_session_id: "" };
 }
 
 export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
@@ -339,6 +343,12 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
     }
     if (message.limit !== 0) {
       writer.uint32(16).uint32(message.limit);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(26).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(34).string(message.caller_session_id);
     }
     return writer;
   },
@@ -366,6 +376,22 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
           message.limit = reader.uint32();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -383,6 +409,16 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
         ? globalThis.String(object.after_sequence)
         : "0",
       limit: isSet(object.limit) ? globalThis.Number(object.limit) : 0,
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
     };
   },
 
@@ -394,6 +430,12 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
     if (message.limit !== 0) {
       obj.limit = Math.round(message.limit);
     }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
     return obj;
   },
 
@@ -404,6 +446,8 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
     const message = createBaseFetchTaskEntriesRequest();
     message.after_sequence = object.after_sequence ?? "0";
     message.limit = object.limit ?? 0;
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
     return message;
   },
 };
@@ -505,13 +549,19 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
 };
 
 function createBaseFetchTaskPayloadRequest(): FetchTaskPayloadRequest {
-  return { payload_id: "" };
+  return { payload_id: "", caller_master_id: "", caller_session_id: "" };
 }
 
 export const FetchTaskPayloadRequest: MessageFns<FetchTaskPayloadRequest> = {
   encode(message: FetchTaskPayloadRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.payload_id !== "") {
       writer.uint32(10).string(message.payload_id);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(18).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(26).string(message.caller_session_id);
     }
     return writer;
   },
@@ -531,6 +581,22 @@ export const FetchTaskPayloadRequest: MessageFns<FetchTaskPayloadRequest> = {
           message.payload_id = reader.string();
           continue;
         }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -547,6 +613,16 @@ export const FetchTaskPayloadRequest: MessageFns<FetchTaskPayloadRequest> = {
         : isSet(object.payload_id)
         ? globalThis.String(object.payload_id)
         : "",
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
     };
   },
 
@@ -554,6 +630,12 @@ export const FetchTaskPayloadRequest: MessageFns<FetchTaskPayloadRequest> = {
     const obj: any = {};
     if (message.payload_id !== "") {
       obj.payloadId = message.payload_id;
+    }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
     }
     return obj;
   },
@@ -564,6 +646,8 @@ export const FetchTaskPayloadRequest: MessageFns<FetchTaskPayloadRequest> = {
   fromPartial<I extends Exact<DeepPartial<FetchTaskPayloadRequest>, I>>(object: I): FetchTaskPayloadRequest {
     const message = createBaseFetchTaskPayloadRequest();
     message.payload_id = object.payload_id ?? "";
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
     return message;
   },
 };

@@ -43,6 +43,12 @@ const taskEntry = {
   createdAt: new Date('2026-01-02T00:00:00.000Z')
 } as const;
 
+const authenticatedCaller = {
+  callerMasterNodeId: registrationInput.id,
+  callerMasterNodeSessionId: registrationInput.sessionId,
+  callerCertificateFingerprint: registrationInput.certificateFingerprint
+};
+
 /* tests */
 
 describe('master node application schemas', () => {
@@ -109,10 +115,12 @@ describe('master node application schemas', () => {
   test('accepts the initial task-entry range and an empty uncommitted result', () => {
     expect(
       fetchTaskEntriesInternodeInputSchema.parse({
+        ...authenticatedCaller,
         afterSequence: -1n,
         limit: 32
       })
     ).toEqual({
+      ...authenticatedCaller,
       afterSequence: -1n,
       limit: 32
     });
@@ -130,21 +138,27 @@ describe('master node application schemas', () => {
   });
 
   test('rejects invalid task-entry range bounds', () => {
-    expect(fetchTaskEntriesInternodeInputSchema.safeParse({ afterSequence: -2n, limit: 32 }).success).toBe(false);
-    expect(fetchTaskEntriesInternodeInputSchema.safeParse({ afterSequence: -1n, limit: 0 }).success).toBe(false);
+    expect(
+      fetchTaskEntriesInternodeInputSchema.safeParse({ ...authenticatedCaller, afterSequence: -2n, limit: 32 }).success
+    ).toBe(false);
+    expect(
+      fetchTaskEntriesInternodeInputSchema.safeParse({ ...authenticatedCaller, afterSequence: -1n, limit: 0 }).success
+    ).toBe(false);
   });
 
   test('accepts internode and client payload requests', () => {
-    const payloadInput = { payloadId: taskEntry.payloadId };
+    const payloadInput = { ...authenticatedCaller, payloadId: taskEntry.payloadId };
 
     expect(fetchTaskPayloadInternodeInputSchema.parse(payloadInput)).toEqual(payloadInput);
     expect(
       fetchTaskPayloadClientInputSchema.parse({
         masterNodeEndpoint: registrationInput.endpoint,
+        expectedCertificateFingerprint: registrationInput.certificateFingerprint,
         payloadId: taskEntry.payloadId
       })
     ).toEqual({
       masterNodeEndpoint: registrationInput.endpoint,
+      expectedCertificateFingerprint: registrationInput.certificateFingerprint,
       payloadId: taskEntry.payloadId
     });
   });
@@ -152,6 +166,7 @@ describe('master node application schemas', () => {
   test('accepts client task-entry requests with a secure master endpoint', () => {
     const input = {
       masterNodeEndpoint: registrationInput.endpoint,
+      expectedCertificateFingerprint: registrationInput.certificateFingerprint,
       afterSequence: -1n,
       limit: 32
     };

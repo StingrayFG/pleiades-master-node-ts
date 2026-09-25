@@ -1,16 +1,20 @@
 import type { PrismaClient } from '@prisma/client';
 
-import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { TaskRepositoryContract } from '@/modules/tasks/task.repository';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 
 import type { MasterNodeId, MasterNodeSessionId } from './master-node.domain';
+import type { MasterNodeConfig } from './master-node.config';
 import { MasterNodeGrpcClient } from './master-node.grpc-client';
 import { MasterNodeGrpcController } from './master-node.grpc-controller';
 import { MasterNodeInternodeService } from './master-node.internode-service';
+import {
+  MasterNodeReplicationHandler,
+  type MasterNodeReplicationHandlerContract
+} from './master-node.replication-handler';
 import { MasterNodeRepository } from './master-node.repository';
 import { MasterNodeService } from './master-node.service';
 
@@ -18,14 +22,14 @@ import { MasterNodeService } from './master-node.service';
 
 type MasterNodeModuleDependencies = {
   prisma: PrismaClient;
-  taskRepository: TaskRepositoryContract;
+  taskService: TaskServiceContract;
   consensusService: ConsensusServiceContract;
-  byteStorageService: ByteStorageServiceContract;
   selfMasterNodeId: MasterNodeId;
   selfMasterNodeSessionId: MasterNodeSessionId;
   clusterService: ClusterServiceContract;
   grpcConfig: GrpcClientConfig;
   grpcClientCredentials: GrpcClientCredentialsContract;
+  masterNodeConfig: MasterNodeConfig;
 };
 
 type MasterNodeModule = {
@@ -34,29 +38,29 @@ type MasterNodeModule = {
   internodeService: MasterNodeInternodeService;
   controller: MasterNodeGrpcController;
   grpcClient: MasterNodeGrpcClient;
+  replicationHandler: MasterNodeReplicationHandlerContract;
 };
 
 /* module */
 
 const createMasterNodeModule = ({
   prisma,
-  taskRepository,
+  taskService,
   consensusService,
-  byteStorageService,
   selfMasterNodeId,
   selfMasterNodeSessionId,
   clusterService,
   grpcConfig,
-  grpcClientCredentials
+  grpcClientCredentials,
+  masterNodeConfig
 }: MasterNodeModuleDependencies): MasterNodeModule => {
   const repository = new MasterNodeRepository(prisma);
 
   const service = new MasterNodeService(repository);
 
   const internodeService = new MasterNodeInternodeService(
-    taskRepository,
+    taskService,
     consensusService,
-    byteStorageService,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService,
@@ -65,14 +69,29 @@ const createMasterNodeModule = ({
 
   const controller = new MasterNodeGrpcController(internodeService);
 
-  const grpcClient = new MasterNodeGrpcClient(grpcConfig, grpcClientCredentials);
+  const grpcClient = new MasterNodeGrpcClient(
+    grpcConfig,
+    grpcClientCredentials,
+    selfMasterNodeId,
+    selfMasterNodeSessionId
+  );
+
+  const replicationHandler = new MasterNodeReplicationHandler(
+    grpcClient,
+    service,
+    taskService,
+    consensusService,
+    selfMasterNodeId,
+    masterNodeConfig
+  );
 
   return {
     repository,
     service,
     internodeService,
     controller,
-    grpcClient
+    grpcClient,
+    replicationHandler
   };
 };
 

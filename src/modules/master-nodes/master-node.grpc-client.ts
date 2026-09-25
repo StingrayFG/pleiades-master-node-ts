@@ -22,7 +22,7 @@ import type {
   FetchTaskPayloadClientInput,
   RegisterMasterNodeClientInput
 } from './master-node.application';
-import type { MasterNodeEndpoint } from './master-node.domain';
+import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
   mapGrpcTaskEntryToInternodeTaskEntry
@@ -45,7 +45,9 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
 
   constructor(
     private readonly grpcConfig: GrpcClientConfig,
-    private readonly grpcClientCredentials: GrpcClientCredentialsContract
+    private readonly grpcClientCredentials: GrpcClientCredentialsContract,
+    private readonly selfMasterNodeId: MasterNodeId,
+    private readonly selfMasterNodeSessionId: MasterNodeSessionId
   ) {}
 
   close(): void {
@@ -101,13 +103,15 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
   }
 
   async fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult> {
-    const client = this.getClient(input.masterNodeEndpoint);
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
 
     const response = await new Promise<FetchTaskEntriesResponse>((resolve, reject) => {
       client.fetchTaskEntries(
         {
           after_sequence: input.afterSequence.toString(),
-          limit: input.limit
+          limit: input.limit,
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId
         },
         new Metadata(),
         createDefaultGrpcCallOptions(),
@@ -130,12 +134,14 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
   }
 
   async fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer> {
-    const client = this.getClient(input.masterNodeEndpoint);
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
 
     const response = await new Promise<FetchTaskPayloadResponse>((resolve, reject) => {
       client.fetchTaskPayload(
         {
-          payload_id: input.payloadId
+          payload_id: input.payloadId,
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId
         },
         new Metadata(),
         createDefaultGrpcCallOptions(),
@@ -155,10 +161,8 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
 
   /* private */
 
-  private getClient(endpoint: MasterNodeEndpoint, expectedCertificateFingerprint?: string): GrpcMasterClient {
-    const endpointKey = expectedCertificateFingerprint
-      ? `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}/${expectedCertificateFingerprint}`
-      : `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}`;
+  private getClient(endpoint: MasterNodeEndpoint, expectedCertificateFingerprint: string): GrpcMasterClient {
+    const endpointKey = `${endpoint.scheme}://${endpoint.hostname}:${endpoint.port}/${expectedCertificateFingerprint}`;
 
     const existingClient = this.clientsByEndpoint.get(endpointKey);
 
@@ -166,13 +170,9 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
       return existingClient;
     }
 
-    const credentials = this.grpcClientCredentials.get(
-      expectedCertificateFingerprint
-        ? {
-            expectedServerCertificateFingerprint: expectedCertificateFingerprint
-          }
-        : undefined
-    );
+    const credentials = this.grpcClientCredentials.get({
+      expectedServerCertificateFingerprint: expectedCertificateFingerprint
+    });
     const maxMessageSizeBytes = this.grpcConfig.maxMessageSizeBytes;
 
     const client = new GrpcMasterClient(`${endpoint.hostname}:${endpoint.port}`, credentials, {

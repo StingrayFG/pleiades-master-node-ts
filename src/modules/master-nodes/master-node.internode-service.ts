@@ -1,13 +1,18 @@
 import type { Buffer } from 'node:buffer';
 
-import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
-import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
+import {
+  GenericConflictError,
+  GenericFailedPreconditionError,
+  GenericForbiddenError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { TaskRepositoryContract } from '@/modules/tasks/task.repository';
+import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
+  AuthenticatedMasterNodeCaller,
   FetchMasterInfoInternodeResult,
   FetchTaskEntriesInternodeInput,
   FetchTaskEntriesInternodeResult,
@@ -31,9 +36,8 @@ type MasterNodeInternodeServiceContract = {
 
 class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   constructor(
-    private readonly taskRepository: TaskRepositoryContract,
+    private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
-    private readonly byteStorageService: ByteStorageServiceContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly selfMasterNodeSessionId: MasterNodeSessionId,
     private readonly clusterService: ClusterServiceContract,
@@ -75,9 +79,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   }
 
   async fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult> {
-    const consensusState = await this.consensusService.getConsensusState();
+    const consensusState = await this.requireLeadershipState();
+    await this.requireAuthenticatedMasterNodeCaller(input);
 
-    const tasks = await this.taskRepository.listTasksInSequenceRange({
+    const tasks = await this.taskService.listTasksInSequenceRange({
       afterSequence: input.afterSequence,
       upToSequence: consensusState.lastCommittedSequence,
       limit: input.limit
@@ -107,7 +112,36 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   }
 
   async fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer> {
-    return this.byteStorageService.retrieve(input.payloadId);
+    await this.requireLeadershipState();
+    await this.requireAuthenticatedMasterNodeCaller(input);
+
+    return this.taskService.retrieveTaskPayload(input.payloadId);
+  }
+
+  private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<void> {
+    let masterNode;
+
+    try {
+      masterNode = await this.masterNodeService.getMasterNodeById(input.callerMasterNodeId);
+    } catch (err) {
+      if (err instanceof GenericNotFoundError) {
+        throw new GenericForbiddenError('Calling master node is not registered', { cause: err });
+      }
+
+      throw err;
+    }
+
+    if (masterNode.certificateFingerprint !== input.callerCertificateFingerprint) {
+      throw new GenericForbiddenError('Master node certificate does not match the registered certificate');
+    }
+
+    if (masterNode.sessionId !== input.callerMasterNodeSessionId) {
+      throw new GenericConflictError('Master node session is no longer current');
+    }
+
+    if (masterNode.state !== 'active') {
+      throw new GenericFailedPreconditionError('Calling master node is not active');
+    }
   }
 
   private async requireLeadershipState(): Promise<ConsensusState> {

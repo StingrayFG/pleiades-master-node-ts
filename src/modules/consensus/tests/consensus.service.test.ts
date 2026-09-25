@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import {
+  GenericAbortedError,
   GenericAlreadyExistsError,
   GenericConflictError,
   GenericFailedPreconditionError,
@@ -128,15 +129,37 @@ describe('ConsensusService', () => {
   });
 
   test('initializes state and advances the committed sequence', async () => {
-    await expect(service.advanceLastCommittedSequence(4n)).resolves.toBe(state);
+    const advancedState = { ...state, lastCommittedSequence: 4n };
+
+    repository.advanceLastCommittedSequence.mockResolvedValue(advancedState);
+
+    await expect(service.advanceLastCommittedSequence(4n)).resolves.toBe(advancedState);
     expect(repository.advanceLastCommittedSequence).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       sequence: 4n
     });
   });
 
+  test('rejects a committed sequence beyond the allocated sequence', async () => {
+    await expect(service.advanceLastCommittedSequence(5n)).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    expect(repository.advanceLastCommittedSequence).not.toHaveBeenCalled();
+  });
+
+  test('reports a committed-sequence concurrency gate loss', async () => {
+    repository.advanceLastCommittedSequence.mockResolvedValue({
+      ...state,
+      lastAllocatedSequence: 3n
+    });
+
+    await expect(service.advanceLastCommittedSequence(4n)).rejects.toBeInstanceOf(GenericAbortedError);
+  });
+
   test('advances the applied sequence up to the committed sequence', async () => {
-    await expect(service.advanceLastAppliedSequence(3n)).resolves.toBe(state);
+    const advancedState = { ...state, lastAppliedSequence: 3n };
+
+    repository.advanceLastAppliedSequence.mockResolvedValue(advancedState);
+
+    await expect(service.advanceLastAppliedSequence(3n)).resolves.toBe(advancedState);
     expect(repository.advanceLastAppliedSequence).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       sequence: 3n
@@ -146,6 +169,15 @@ describe('ConsensusService', () => {
   test('rejects an applied sequence beyond the committed sequence', async () => {
     await expect(service.advanceLastAppliedSequence(4n)).rejects.toBeInstanceOf(GenericFailedPreconditionError);
     expect(repository.advanceLastAppliedSequence).not.toHaveBeenCalled();
+  });
+
+  test('reports an applied-sequence concurrency gate loss', async () => {
+    repository.advanceLastAppliedSequence.mockResolvedValue({
+      ...state,
+      lastAppliedSequence: 2n
+    });
+
+    await expect(service.advanceLastAppliedSequence(3n)).rejects.toBeInstanceOf(GenericAbortedError);
   });
 
   test('delegates allocated-sequence work with the singleton id and expected epoch', async () => {
