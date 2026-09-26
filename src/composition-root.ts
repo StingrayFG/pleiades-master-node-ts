@@ -21,6 +21,7 @@ import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
+import { createMasterNodeInternodeModule } from '@/modules/master-nodes/master-node.internode-module';
 import { masterNodeConfig } from '@/modules/master-nodes/master-node.config';
 import { createMasterNodeModule } from '@/modules/master-nodes/master-node.module';
 import { calculateMasterNodeCertificateFingerprint } from '@/modules/master-nodes/master-node.processors';
@@ -43,6 +44,7 @@ type CompositionRoot = {
   identityModule: ReturnType<typeof createIdentityModule>;
   clusterModule: ReturnType<typeof createClusterModule>;
   masterNodeModule: ReturnType<typeof createMasterNodeModule>;
+  masterNodeInternodeModule: ReturnType<typeof createMasterNodeInternodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
   byteStorageModule: ReturnType<typeof createByteStorageModule>;
@@ -74,6 +76,9 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
 
   const grpcMtlsConfig = loadGrpcMtlsConfig();
 
+  const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
+  const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
+
   const clusterModule = createClusterModule({
     prisma
   });
@@ -92,12 +97,32 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     byteStorageConfig
   });
 
+  const masterNodeModule = createMasterNodeModule({
+    prisma,
+    selfMasterNodeId,
+    selfMasterNodeSessionId,
+    grpcConfig: blobGrpcConfig,
+    grpcClientCredentials
+  });
+
   const taskModule = createTaskModule({
     prisma,
     taskConfig,
     selfMasterNodeId,
     consensusService: consensusModule.service,
-    byteStorageService: byteStorageModule.service
+    byteStorageService: byteStorageModule.service,
+    taskForwarder: masterNodeModule.taskForwarder
+  });
+
+  const masterNodeInternodeModule = createMasterNodeInternodeModule({
+    taskService: taskModule.service,
+    consensusService: consensusModule.service,
+    selfMasterNodeId,
+    selfMasterNodeSessionId,
+    clusterService: clusterModule.service,
+    masterNodeService: masterNodeModule.service,
+    masterNodeGrpcClient: masterNodeModule.grpcClient,
+    masterNodeConfig
   });
 
   const userModule = createUserModule({
@@ -105,21 +130,6 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskService: taskModule.service,
     apiKeyHashKey: Buffer.from(env.USER_API_KEY_HASH_SECRET, 'utf8'),
     refreshTokenHashKey: Buffer.from(env.USER_REFRESH_TOKEN_HASH_SECRET, 'utf8')
-  });
-
-  const grpcClientCredentials = new MtlsGrpcClientCredentials(grpcMtlsConfig);
-  const grpcServerCredentials = new MtlsGrpcServerCredentials(grpcMtlsConfig);
-
-  const masterNodeModule = createMasterNodeModule({
-    prisma,
-    taskService: taskModule.service,
-    consensusService: consensusModule.service,
-    selfMasterNodeId,
-    selfMasterNodeSessionId,
-    clusterService: clusterModule.service,
-    grpcConfig: blobGrpcConfig,
-    grpcClientCredentials,
-    masterNodeConfig
   });
 
   const bootstrapModule = createBootstrapModule({
@@ -180,7 +190,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const backgroundModule = createBackgroundModule({
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
-    masterReplicationHandler: masterNodeModule.replicationHandler,
+    masterReplicationHandler: masterNodeInternodeModule.replicationHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
@@ -201,6 +211,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     identityModule,
     clusterModule,
     masterNodeModule,
+    masterNodeInternodeModule,
     consensusModule,
     bootstrapModule,
     byteStorageModule,

@@ -19,6 +19,7 @@ import type { TaskApplyHandlerContract } from '../task.apply-handler';
 import type { TaskConfig } from '../task.config';
 import { createDehydratedTaskDefinition, createTaskDefinition } from '../task.definition';
 import type { PersistedTask, TaskExecution } from '../task.domain';
+import type { TaskForwarderContract } from '../task.forwarder';
 import type { TaskHandlerRegistryContract } from '../task.handler-registry';
 import type { TaskRepositoryContract } from '../task.repository';
 import type { TaskResultWaiterContract } from '../task.result-waiter';
@@ -163,6 +164,10 @@ const createByteStorageServiceMock = (): jest.Mocked<ByteStorageServiceContract>
   delete: jest.fn<ByteStorageServiceContract['delete']>()
 });
 
+const createTaskForwarderMock = (): jest.Mocked<TaskForwarderContract> => ({
+  forwardTask: jest.fn<TaskForwarderContract['forwardTask']>().mockResolvedValue('forwarded-result')
+});
+
 const createApplyHandlerMock = (): jest.Mocked<TaskApplyHandlerContract> => ({
   run: jest.fn<TaskApplyHandlerContract['run']>().mockResolvedValue()
 });
@@ -182,6 +187,7 @@ describe('TaskService', () => {
   let registry: jest.Mocked<TaskHandlerRegistryContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
   let byteStorageService: jest.Mocked<ByteStorageServiceContract>;
+  let taskForwarder: jest.Mocked<TaskForwarderContract>;
   let applyHandler: jest.Mocked<TaskApplyHandlerContract>;
   let resultWaiter: jest.Mocked<TaskResultWaiterContract>;
   let service: TaskService;
@@ -194,6 +200,7 @@ describe('TaskService', () => {
     registry = createRegistryMock();
     consensusService = createConsensusServiceMock();
     byteStorageService = createByteStorageServiceMock();
+    taskForwarder = createTaskForwarderMock();
     applyHandler = createApplyHandlerMock();
     resultWaiter = createResultWaiterMock();
     service = new TaskService(
@@ -201,6 +208,7 @@ describe('TaskService', () => {
       registry,
       consensusService,
       byteStorageService,
+      taskForwarder,
       applyHandler,
       resultWaiter,
       selfMasterNodeId,
@@ -710,6 +718,28 @@ describe('TaskService', () => {
     expect(resultWaiter.wait).toHaveBeenCalledWith(createInput.id, config.executionWaitTimeoutMs);
     expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence);
     expect(applyHandler.run).toHaveBeenCalled();
+  });
+
+  test('forwards execution to the cluster leader when this master node is not the leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({ ...consensusState, leaderMasterId: 'other-master' });
+
+    await expect(service.executeTaskByDefinition(definition, { value: 'test' })).resolves.toBe('forwarded-result');
+
+    expect(taskForwarder.forwardTask).toHaveBeenCalledWith(definition, { value: 'test' }, 'other-master');
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(applyHandler.run).not.toHaveBeenCalled();
+  });
+
+  test('rejects execution when the cluster has no leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({ ...consensusState, leaderMasterId: null });
+
+    await expect(service.executeTaskByDefinition(definition, { value: 'test' })).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+
+    expect(taskForwarder.forwardTask).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   test('rejects explicit execution without target master nodes', async () => {

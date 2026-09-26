@@ -1,9 +1,12 @@
 import type { Buffer } from 'node:buffer';
 
+import { z } from 'zod';
+
 import {
   GenericConflictError,
   GenericFailedPreconditionError,
   GenericForbiddenError,
+  GenericInternalServerError,
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
@@ -17,6 +20,7 @@ import type {
   FetchTaskEntriesInternodeInput,
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadInternodeInput,
+  ForwardTaskInternodeInput,
   InternodeTaskEntry,
   RegisterMasterNodeInternodeInput
 } from './master-node.application';
@@ -30,6 +34,7 @@ type MasterNodeInternodeServiceContract = {
   registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void>;
   fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer>;
+  forwardTask(input: ForwardTaskInternodeInput): Promise<unknown>;
 };
 
 /* service */
@@ -116,6 +121,27 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     await this.requireAuthenticatedMasterNodeCaller(input);
 
     return this.taskService.retrieveTaskPayload(input.payloadId);
+  }
+
+  async forwardTask(input: ForwardTaskInternodeInput): Promise<unknown> {
+    await this.requireLeadershipState();
+    await this.requireAuthenticatedMasterNodeCaller(input);
+
+    const definition = this.taskService.getTaskDefinitionByType(input.type);
+
+    const data = z.decode(definition.dataSchema, input.data);
+
+    const result = await this.taskService.executeTaskByDefinition(definition, data);
+
+    if (result === undefined) {
+      return undefined;
+    }
+
+    if (!definition.resultSchema) {
+      throw new GenericInternalServerError('The task definition does not declare a result schema');
+    }
+
+    return z.encode(definition.resultSchema, result);
   }
 
   private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<void> {

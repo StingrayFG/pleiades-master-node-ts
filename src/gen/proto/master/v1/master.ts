@@ -118,6 +118,17 @@ export interface RegisterMasterNodeRequest {
 export interface RegisterMasterNodeResponse {
 }
 
+export interface ForwardTaskRequest {
+  type: string;
+  data: Buffer;
+  caller_master_id: string;
+  caller_session_id: string;
+}
+
+export interface ForwardTaskResponse {
+  result?: Buffer | undefined;
+}
+
 function createBaseTaskEntry(): TaskEntry {
   return {
     id: "",
@@ -1068,6 +1079,180 @@ export const RegisterMasterNodeResponse: MessageFns<RegisterMasterNodeResponse> 
   },
 };
 
+function createBaseForwardTaskRequest(): ForwardTaskRequest {
+  return { type: "", data: Buffer.alloc(0), caller_master_id: "", caller_session_id: "" };
+}
+
+export const ForwardTaskRequest: MessageFns<ForwardTaskRequest> = {
+  encode(message: ForwardTaskRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.type !== "") {
+      writer.uint32(10).string(message.type);
+    }
+    if (message.data.length !== 0) {
+      writer.uint32(18).bytes(message.data);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(26).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(34).string(message.caller_session_id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ForwardTaskRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseForwardTaskRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.type = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.data = Buffer.from(reader.bytes());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ForwardTaskRequest {
+    return {
+      type: isSet(object.type) ? globalThis.String(object.type) : "",
+      data: isSet(object.data) ? Buffer.from(bytesFromBase64(object.data)) : Buffer.alloc(0),
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+    };
+  },
+
+  toJSON(message: ForwardTaskRequest): unknown {
+    const obj: any = {};
+    if (message.type !== "") {
+      obj.type = message.type;
+    }
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ForwardTaskRequest>, I>>(base?: I): ForwardTaskRequest {
+    return ForwardTaskRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ForwardTaskRequest>, I>>(object: I): ForwardTaskRequest {
+    const message = createBaseForwardTaskRequest();
+    message.type = object.type ?? "";
+    message.data = object.data ?? Buffer.alloc(0);
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    return message;
+  },
+};
+
+function createBaseForwardTaskResponse(): ForwardTaskResponse {
+  return { result: undefined };
+}
+
+export const ForwardTaskResponse: MessageFns<ForwardTaskResponse> = {
+  encode(message: ForwardTaskResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.result !== undefined) {
+      writer.uint32(10).bytes(message.result);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ForwardTaskResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseForwardTaskResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.result = Buffer.from(reader.bytes());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ForwardTaskResponse {
+    return { result: isSet(object.result) ? Buffer.from(bytesFromBase64(object.result)) : undefined };
+  },
+
+  toJSON(message: ForwardTaskResponse): unknown {
+    const obj: any = {};
+    if (message.result !== undefined) {
+      obj.result = base64FromBytes(message.result);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ForwardTaskResponse>, I>>(base?: I): ForwardTaskResponse {
+    return ForwardTaskResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ForwardTaskResponse>, I>>(object: I): ForwardTaskResponse {
+    const message = createBaseForwardTaskResponse();
+    message.result = object.result ?? undefined;
+    return message;
+  },
+};
+
 export type MasterService = typeof MasterService;
 export const MasterService = {
   fetchMasterInfo: {
@@ -1114,6 +1299,15 @@ export const MasterService = {
       Buffer.from(FetchTaskPayloadResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): FetchTaskPayloadResponse => FetchTaskPayloadResponse.decode(value),
   },
+  forwardTask: {
+    path: "/master.v1.Master/ForwardTask" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ForwardTaskRequest): Buffer => Buffer.from(ForwardTaskRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ForwardTaskRequest => ForwardTaskRequest.decode(value),
+    responseSerialize: (value: ForwardTaskResponse): Buffer => Buffer.from(ForwardTaskResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ForwardTaskResponse => ForwardTaskResponse.decode(value),
+  },
 } as const;
 
 export interface MasterServer extends UntypedServiceImplementation {
@@ -1121,6 +1315,7 @@ export interface MasterServer extends UntypedServiceImplementation {
   registerMasterNode: handleUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>;
   fetchTaskEntries: handleUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>;
   fetchTaskPayload: handleUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>;
+  forwardTask: handleUnaryCall<ForwardTaskRequest, ForwardTaskResponse>;
 }
 
 export interface MasterClient extends Client {
@@ -1183,6 +1378,21 @@ export interface MasterClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: FetchTaskPayloadResponse) => void,
+  ): ClientUnaryCall;
+  forwardTask(
+    request: ForwardTaskRequest,
+    callback: (error: ServiceError | null, response: ForwardTaskResponse) => void,
+  ): ClientUnaryCall;
+  forwardTask(
+    request: ForwardTaskRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: ForwardTaskResponse) => void,
+  ): ClientUnaryCall;
+  forwardTask(
+    request: ForwardTaskRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ForwardTaskResponse) => void,
   ): ClientUnaryCall;
 }
 

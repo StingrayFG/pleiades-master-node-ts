@@ -7,6 +7,7 @@ import {
   type FetchMasterInfoResponse,
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadResponse,
+  type ForwardTaskResponse,
   type RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
@@ -20,6 +21,7 @@ import type {
   FetchTaskEntriesClientInput,
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadClientInput,
+  ForwardTaskClientInput,
   RegisterMasterNodeClientInput
 } from './master-node.application';
 import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
@@ -35,6 +37,7 @@ type MasterNodeGrpcClientContract = {
   registerMasterNode(input: RegisterMasterNodeClientInput): Promise<void>;
   fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer>;
+  forwardTask(input: ForwardTaskClientInput): Promise<Buffer | undefined>;
   close(): void;
 };
 
@@ -159,6 +162,33 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     return response.payload;
   }
 
+  async forwardTask(input: ForwardTaskClientInput): Promise<Buffer | undefined> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<ForwardTaskResponse>((resolve, reject) => {
+      client.forwardTask(
+        {
+          type: input.type,
+          data: input.data,
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
+
+    return response.result;
+  }
+
   /* private */
 
   private getClient(endpoint: MasterNodeEndpoint, expectedCertificateFingerprint: string): GrpcMasterClient {
@@ -192,6 +222,7 @@ export { MasterNodeGrpcClient };
 export type {
   FetchTaskEntriesClientInput,
   FetchTaskPayloadClientInput,
+  ForwardTaskClientInput,
   MasterNodeGrpcClientContract,
   RegisterMasterNodeClientInput
 };

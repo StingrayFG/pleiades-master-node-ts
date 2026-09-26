@@ -74,9 +74,21 @@ message RegisterMasterNodeRequest {
 
 message RegisterMasterNodeResponse {}
 
+message ForwardTaskRequest {
+  string type = 1 [(buf.validate.field).string.min_len = 1];
+  bytes data = 2;
+  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+}
+
+message ForwardTaskResponse {
+  optional bytes result = 1;
+}
+
 service Master {
   rpc FetchMasterInfo(FetchMasterInfoRequest) returns (FetchMasterInfoResponse);
   rpc RegisterMasterNode(RegisterMasterNodeRequest) returns (RegisterMasterNodeResponse);
   rpc FetchTaskEntries(FetchTaskEntriesRequest) returns (FetchTaskEntriesResponse);
   rpc FetchTaskPayload(FetchTaskPayloadRequest) returns (FetchTaskPayloadResponse);
+  rpc ForwardTask(ForwardTaskRequest) returns (ForwardTaskResponse);
 }

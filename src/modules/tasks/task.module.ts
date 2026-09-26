@@ -9,6 +9,7 @@ import { TaskPayloadCleanupHandler } from './lifecycle/task-payload-cleanup.hand
 import { UncommittedTaskCleanupHandler } from './lifecycle/uncommitted-task-cleanup.handler';
 import { TaskApplyHandler } from './task.apply-handler';
 import type { TaskConfig } from './task.config';
+import type { TaskForwarderContract } from './task.forwarder';
 import { InMemoryTaskHandlerRegistry } from './task.handler-registry';
 import { TaskRepository } from './task.repository';
 import { TaskResultWaiter } from './task.result-waiter';
@@ -22,6 +23,7 @@ type TaskModuleDependencies = {
   selfMasterNodeId: MasterNodeId;
   consensusService: ConsensusServiceContract;
   byteStorageService: ByteStorageServiceContract;
+  taskForwarder: TaskForwarderContract;
 };
 
 type TaskModule = {
@@ -38,7 +40,8 @@ const createTaskModule = ({
   taskConfig,
   selfMasterNodeId,
   consensusService,
-  byteStorageService
+  byteStorageService,
+  taskForwarder
 }: TaskModuleDependencies): TaskModule => {
   const repository = new TaskRepository(prisma);
 
@@ -61,6 +64,7 @@ const createTaskModule = ({
     handlerRegistry,
     consensusService,
     byteStorageService,
+    taskForwarder,
     applyHandler,
     resultWaiter,
     selfMasterNodeId,

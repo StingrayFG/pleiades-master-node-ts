@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import type { sendUnaryData, ServerUnaryCall } from '@grpc/grpc-js';
 
 import { GenericBadRequestError, GenericMapperError } from '@/errors/application.errors';
@@ -8,6 +10,8 @@ import type {
   FetchTaskEntriesResponse,
   FetchTaskPayloadRequest,
   FetchTaskPayloadResponse,
+  ForwardTaskRequest,
+  ForwardTaskResponse,
   RegisterMasterNodeRequest,
   RegisterMasterNodeResponse
 } from '@/gen/proto/master/v1/master';
@@ -17,6 +21,7 @@ import type { MasterNodeInternodeServiceContract } from './master-node.internode
 import {
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
+  mapGrpcForwardTaskRequestToForwardTaskInternodeInput,
   mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
   mapInternodeTaskEntryToGrpcTaskEntry
 } from './master-node.mappers';
@@ -39,6 +44,10 @@ type MasterNodeGrpcControllerContract = {
   fetchTaskPayload(
     call: ServerUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>,
     callback: sendUnaryData<FetchTaskPayloadResponse>
+  ): Promise<void>;
+  forwardTask(
+    call: ServerUnaryCall<ForwardTaskRequest, ForwardTaskResponse>,
+    callback: sendUnaryData<ForwardTaskResponse>
   ): Promise<void>;
 };
 
@@ -133,6 +142,31 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
 
     callback(null, {
       payload
+    });
+  }
+
+  async forwardTask(
+    call: ServerUnaryCall<ForwardTaskRequest, ForwardTaskResponse>,
+    callback: sendUnaryData<ForwardTaskResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcForwardTaskRequestToForwardTaskInternodeInput(call.request, certificateFingerprint);
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid forward task request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    const result = await this.internodeService.forwardTask(input);
+
+    callback(null, {
+      result: result === undefined ? undefined : Buffer.from(JSON.stringify(result))
     });
   }
 }

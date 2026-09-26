@@ -49,7 +49,7 @@ registerGrpcServiceWithErrorHandling(
 );
 
 const masterNodeGrpcRoutes = createMasterNodeGrpcRoutes({
-  controller: compositionRoot.masterNodeModule.controller
+  controller: compositionRoot.masterNodeInternodeModule.controller
 });
 
 registerGrpcServiceWithErrorHandling(

@@ -21,7 +21,8 @@ import type { TaskApplyHandlerContract } from './task.apply-handler';
 import type { ListTasksInSequenceRangeInput, ReplicateTaskInput } from './task.application';
 import type { TaskConfig } from './task.config';
 import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
-import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence } from './task.domain';
+import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence, TaskType } from './task.domain';
+import type { TaskForwarderContract } from './task.forwarder';
 import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskTargetsFromScope } from './task.resolvers';
@@ -44,6 +45,7 @@ type TaskServiceContract = {
     definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
     handler: TaskHandler<TType, TData, TScope, TResult>
   ): void;
+  getTaskDefinitionByType(type: TaskType): TaskDefinitionContract;
 
   // submission
   submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
@@ -77,6 +79,7 @@ class TaskService implements TaskServiceContract {
     private readonly handlerRegistry: TaskHandlerRegistryContract,
     private readonly consensusService: ConsensusServiceContract,
     private readonly byteStorageService: ByteStorageServiceContract,
+    private readonly taskForwarder: TaskForwarderContract,
     private readonly applyHandler: TaskApplyHandlerContract,
     private readonly resultWaiter: TaskResultWaiterContract,
     private readonly selfMasterNodeId: MasterNodeId,
@@ -206,6 +209,10 @@ class TaskService implements TaskServiceContract {
     this.handlerRegistry.register(definition, handler);
   }
 
+  getTaskDefinitionByType(type: TaskType): TaskDefinitionContract {
+    return this.handlerRegistry.resolveByType(type).definition;
+  }
+
   /* submission methods */
 
   async submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
@@ -230,6 +237,16 @@ class TaskService implements TaskServiceContract {
     TScope extends TaskExecutionScope,
     TResult
   >(definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>, data: TData): Promise<TResult> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
+      if (consensusState.leaderMasterId === null) {
+        throw new GenericFailedPreconditionError('Task execution was rejected because the cluster has no leader');
+      }
+
+      return this.taskForwarder.forwardTask(definition, data, consensusState.leaderMasterId);
+    }
+
     const targetMasterIds = resolveTaskTargetsFromScope(definition.executionScope, this.selfMasterNodeId);
 
     if (targetMasterIds.length === 0) {

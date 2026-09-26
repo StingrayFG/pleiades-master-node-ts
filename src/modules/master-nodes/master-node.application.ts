@@ -83,6 +83,11 @@ export const fetchTaskPayloadInternodeInputSchema = authenticatedMasterNodeCalle
   payloadId: taskPayloadIdSchema
 });
 
+export const forwardTaskInternodeInputSchema = authenticatedMasterNodeCallerSchema.extend({
+  type: taskTypeSchema,
+  data: z.unknown()
+});
+
 export const fetchMasterInfoInternodeResultSchema = z.object({
   masterId: masterNodeIdSchema,
   sessionId: masterNodeSessionIdSchema,
@@ -123,6 +128,14 @@ export const fetchTaskPayloadClientInputSchema = z.object({
   payloadId: taskPayloadIdSchema
 });
 
+export const forwardTaskClientInputSchema = z.object({
+  masterNodeEndpoint: masterNodeEndpointSchema,
+  expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema,
+
+  type: taskTypeSchema,
+  data: z.instanceof(Buffer)
+});
+
 /* repository schemas */
 
 export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNodeInputSchema.extend({
@@ -138,11 +151,13 @@ export type InternodeTaskEntry = z.infer<typeof internodeTaskEntrySchema>;
 export type FetchTaskEntriesInternodeInput = z.infer<typeof fetchTaskEntriesInternodeInputSchema>;
 export type FetchTaskEntriesInternodeResult = z.infer<typeof fetchTaskEntriesInternodeResultSchema>;
 export type FetchTaskPayloadInternodeInput = z.infer<typeof fetchTaskPayloadInternodeInputSchema>;
+export type ForwardTaskInternodeInput = z.infer<typeof forwardTaskInternodeInputSchema>;
 export type FetchMasterInfoInternodeResult = z.infer<typeof fetchMasterInfoInternodeResultSchema>;
 export type RegisterMasterNodeClientInput = z.infer<typeof registerMasterNodeClientInputSchema>;
 export type FetchMasterInfoClientInput = z.infer<typeof fetchMasterInfoClientInputSchema>;
 export type FetchTaskEntriesClientInput = z.infer<typeof fetchTaskEntriesClientInputSchema>;
 export type FetchTaskPayloadClientInput = z.infer<typeof fetchTaskPayloadClientInputSchema>;
+export type ForwardTaskClientInput = z.infer<typeof forwardTaskClientInputSchema>;
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
 >;

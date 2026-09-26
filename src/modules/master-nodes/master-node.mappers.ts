@@ -9,6 +9,7 @@ import {
   type FetchMasterInfoResponse,
   type FetchTaskEntriesRequest,
   type FetchTaskPayloadRequest,
+  type ForwardTaskRequest,
   type RegisterMasterNodeRequest,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
@@ -18,11 +19,13 @@ import {
   fetchMasterInfoInternodeResultSchema,
   fetchTaskEntriesInternodeInputSchema,
   fetchTaskPayloadInternodeInputSchema,
+  forwardTaskInternodeInputSchema,
   internodeTaskEntrySchema,
   registerMasterNodeInternodeInputSchema,
   type FetchMasterInfoInternodeResult,
   type FetchTaskEntriesInternodeInput,
   type FetchTaskPayloadInternodeInput,
+  type ForwardTaskInternodeInput,
   type InternodeTaskEntry,
   type RegisterMasterNodeInternodeInput
 } from './master-node.application';
@@ -93,11 +96,11 @@ export const mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput = (
 ): FetchTaskPayloadInternodeInput => {
   return withMapperError('Failed to map gRPC fetch task payload request', () => {
     return fetchTaskPayloadInternodeInputSchema.parse({
+      payloadId: request.payload_id,
+
       callerMasterNodeId: request.caller_master_id,
       callerMasterNodeSessionId: request.caller_session_id,
-      callerCertificateFingerprint,
-
-      payloadId: request.payload_id
+      callerCertificateFingerprint
     });
   });
 };
@@ -119,6 +122,22 @@ export const mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput 
         port: request.port,
         scheme: request.scheme
       }
+    });
+  });
+};
+
+export const mapGrpcForwardTaskRequestToForwardTaskInternodeInput = (
+  request: ForwardTaskRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): ForwardTaskInternodeInput => {
+  return withMapperError('Failed to map gRPC forward task request', () => {
+    return forwardTaskInternodeInputSchema.parse({
+      type: request.type,
+      data: JSON.parse(request.data.toString('utf8')),
+
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
     });
   });
 };
