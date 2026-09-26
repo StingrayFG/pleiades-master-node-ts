@@ -5,12 +5,12 @@ import { createTaskDefinition } from '@/modules/tasks/task.definition';
 
 import {
   userApiKeyIdSchema,
+  userApiKeySchema,
   userIdSchema,
   userRefreshTokenIdSchema,
-  userUsernameSchema,
-  type User,
-  type UserApiKey,
-  type UserRefreshToken
+  userRefreshTokenSchema,
+  userSchema,
+  userUsernameSchema
 } from './user.domain';
 
 /* data schemas */
@@ -62,49 +62,81 @@ export const revokeUserRefreshTokenTaskDataSchema = z.object({
   refreshTokenId: userRefreshTokenIdSchema
 });
 
+/* result schemas */
+
+export const userTaskResultSchema = userSchema.extend({
+  createdAt: jsonDateCodec,
+  updatedAt: jsonDateCodec
+});
+
+export const userApiKeyTaskResultSchema = userApiKeySchema.extend({
+  createdAt: jsonDateCodec,
+  expiresAt: jsonDateCodec.nullable(),
+  lastUsedAt: jsonDateCodec.nullable(),
+  revokedAt: jsonDateCodec.nullable()
+});
+
+export const userRefreshTokenTaskResultSchema = userRefreshTokenSchema.extend({
+  createdAt: jsonDateCodec,
+  expiresAt: jsonDateCodec,
+  revokedAt: jsonDateCodec.nullable()
+});
+
 /* definitions */
 
-export const createUserTaskDefinition = createTaskDefinition<CreateUserTaskData, User>({
+export const createUserTaskDefinition = createTaskDefinition({
   type: 'user.create',
   executionScope: 'cluster',
-  dataSchema: createUserTaskDataSchema
+
+  dataSchema: createUserTaskDataSchema,
+
+  resultSchema: userTaskResultSchema
 });
 
-export const createUserApiKeyTaskDefinition = createTaskDefinition<CreateUserApiKeyTaskData, UserApiKey>({
+export const createUserApiKeyTaskDefinition = createTaskDefinition({
   type: 'user.api-key.create',
   executionScope: 'cluster',
-  dataSchema: createUserApiKeyTaskDataSchema
+
+  dataSchema: createUserApiKeyTaskDataSchema,
+
+  resultSchema: userApiKeyTaskResultSchema
 });
 
-export const revokeUserApiKeyTaskDefinition = createTaskDefinition<RevokeUserApiKeyTaskData, UserApiKey>({
+export const revokeUserApiKeyTaskDefinition = createTaskDefinition({
   type: 'user.api-key.revoke',
   executionScope: 'cluster',
-  dataSchema: revokeUserApiKeyTaskDataSchema
+
+  dataSchema: revokeUserApiKeyTaskDataSchema,
+
+  resultSchema: userApiKeyTaskResultSchema
 });
 
-export const createUserRefreshTokenTaskDefinition = createTaskDefinition<CreateUserRefreshTokenTaskData, UserRefreshToken>(
-  {
-    type: 'user.refresh-token.create',
-    executionScope: 'cluster',
-    dataSchema: createUserRefreshTokenTaskDataSchema
-  }
-);
+export const createUserRefreshTokenTaskDefinition = createTaskDefinition({
+  type: 'user.refresh-token.create',
+  executionScope: 'cluster',
 
-export const rotateUserRefreshTokenTaskDefinition = createTaskDefinition<RotateUserRefreshTokenTaskData, UserRefreshToken>(
-  {
-    type: 'user.refresh-token.rotate',
-    executionScope: 'cluster',
-    dataSchema: rotateUserRefreshTokenTaskDataSchema
-  }
-);
+  dataSchema: createUserRefreshTokenTaskDataSchema,
 
-export const revokeUserRefreshTokenTaskDefinition = createTaskDefinition<RevokeUserRefreshTokenTaskData, UserRefreshToken>(
-  {
-    type: 'user.refresh-token.revoke',
-    executionScope: 'cluster',
-    dataSchema: revokeUserRefreshTokenTaskDataSchema
-  }
-);
+  resultSchema: userRefreshTokenTaskResultSchema
+});
+
+export const rotateUserRefreshTokenTaskDefinition = createTaskDefinition({
+  type: 'user.refresh-token.rotate',
+  executionScope: 'cluster',
+
+  dataSchema: rotateUserRefreshTokenTaskDataSchema,
+
+  resultSchema: userRefreshTokenTaskResultSchema
+});
+
+export const revokeUserRefreshTokenTaskDefinition = createTaskDefinition({
+  type: 'user.refresh-token.revoke',
+  executionScope: 'cluster',
+
+  dataSchema: revokeUserRefreshTokenTaskDataSchema,
+
+  resultSchema: userRefreshTokenTaskResultSchema
+});
 
 export const userTaskSchema = z.discriminatedUnion('type', [
   createUserTaskDefinition.taskSchema,

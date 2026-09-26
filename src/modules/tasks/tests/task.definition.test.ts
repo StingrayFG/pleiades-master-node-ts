@@ -10,7 +10,7 @@ import { createDehydratedTaskDefinition, createTaskDefinition, isDehydratedTaskD
 describe('task definitions', () => {
   test('creates a simple definition with matching persisted data and task schemas', () => {
     const dataSchema = z.object({ value: z.string() });
-    const definition = createTaskDefinition<{ value: string }, void, 'test.simple', 'local'>({
+    const definition = createTaskDefinition({
       type: 'test.simple',
       dataSchema,
       executionScope: 'local'
@@ -34,13 +34,7 @@ describe('task definitions', () => {
   });
 
   test('creates a dehydrated definition that splits and restores payload data', () => {
-    const definition = createDehydratedTaskDefinition<
-      { name: string; bytes: Buffer },
-      { name: string },
-      void,
-      'test.dehydrated',
-      'cluster'
-    >({
+    const definition = createDehydratedTaskDefinition({
       type: 'test.dehydrated',
       dataSchema: z.object({ name: z.string(), bytes: z.instanceof(Buffer) }),
       persistedDataSchema: z.object({ name: z.string() }),
@@ -56,7 +50,7 @@ describe('task definitions', () => {
   });
 
   test('rejects task values with a mismatched type or execution scope', () => {
-    const definition = createTaskDefinition<{ value: string }, void, 'test.simple', 'local'>({
+    const definition = createTaskDefinition({
       type: 'test.simple',
       dataSchema: z.object({ value: z.string() }),
       executionScope: 'local'

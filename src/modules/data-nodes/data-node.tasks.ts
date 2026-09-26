@@ -9,8 +9,7 @@ import {
   dataNodeEndpointSchema,
   dataNodeIdSchema,
   dataNodeSessionIdSchema,
-  dataNodeStateSchema,
-  type DataNodeSessionId
+  dataNodeStateSchema
 } from './data-node.domain';
 
 /* data schemas */
@@ -65,30 +64,40 @@ export const updateDataNodeStateTaskDataSchema = z.object({
 
 /* definitions */
 
-export const registerDataNodeTaskDefinition = createTaskDefinition<RegisterDataNodeTaskData, DataNodeSessionId>({
+export const registerDataNodeTaskDefinition = createTaskDefinition({
   type: 'data-node.register',
   executionScope: 'cluster',
-  dataSchema: registerDataNodeTaskDataSchema
+
+  dataSchema: registerDataNodeTaskDataSchema,
+
+  resultSchema: dataNodeSessionIdSchema
 });
 
-export const applyDataNodeHeartbeatTaskDefinition = createTaskDefinition<ApplyDataNodeHeartbeatTaskData, boolean>({
+export const applyDataNodeHeartbeatTaskDefinition = createTaskDefinition({
   type: 'data-node.apply-heartbeat',
   executionScope: 'cluster',
-  dataSchema: applyDataNodeHeartbeatTaskDataSchema
+
+  dataSchema: applyDataNodeHeartbeatTaskDataSchema,
+
+  resultSchema: z.boolean()
 });
 
-export const recordDataNodeHealthCheckTaskDefinition = createTaskDefinition<RecordDataNodeHealthCheckTaskData, boolean>(
-  {
-    type: 'data-node.record-health-check',
-    executionScope: 'cluster',
-    dataSchema: recordDataNodeHealthCheckTaskDataSchema
-  }
-);
+export const recordDataNodeHealthCheckTaskDefinition = createTaskDefinition({
+  type: 'data-node.record-health-check',
+  executionScope: 'cluster',
 
-export const updateDataNodeStateTaskDefinition = createTaskDefinition<UpdateDataNodeStateTaskData, boolean>({
+  dataSchema: recordDataNodeHealthCheckTaskDataSchema,
+
+  resultSchema: z.boolean()
+});
+
+export const updateDataNodeStateTaskDefinition = createTaskDefinition({
   type: 'data-node.update-state',
   executionScope: 'cluster',
-  dataSchema: updateDataNodeStateTaskDataSchema
+
+  dataSchema: updateDataNodeStateTaskDataSchema,
+
+  resultSchema: z.boolean()
 });
 
 export const dataNodeTaskSchema = z.discriminatedUnion('type', [

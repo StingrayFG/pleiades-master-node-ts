@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 import { jsonBigIntCodec } from '@/common/serializers/bigint.serializer';
 import { jsonBytesCodec } from '@/common/serializers/bytes.serializer';
+import { jsonDateCodec } from '@/common/serializers/date.serializer';
 import { bucketIdSchema } from '@/modules/buckets/bucket.domain';
 import { createDehydratedTaskDefinition } from '@/modules/tasks/task.definition';
 
-import type { CreateObjectResult } from './object.application';
-import { objectKeySchema, objectVersionContentTypeSchema } from './object.domain';
+import { objectKeySchema, objectSchema, objectVersionContentTypeSchema, objectVersionSchema } from './object.domain';
 
 /* data schemas */
 
@@ -28,17 +28,29 @@ export const persistedCreateObjectTaskDataSchema = z.object({
   contentType: objectVersionContentTypeSchema
 });
 
+/* result schemas */
+
+export const createObjectTaskResultSchema = z.object({
+  object: objectSchema.extend({
+    createdAt: jsonDateCodec,
+    updatedAt: jsonDateCodec
+  }),
+  objectVersion: objectVersionSchema.extend({
+    totalSizeBytes: jsonBigIntCodec,
+
+    createdAt: jsonDateCodec,
+    committedAt: jsonDateCodec.nullable(),
+    updatedAt: jsonDateCodec
+  })
+});
+
 /* definitions */
 
-export const createObjectTaskDefinition = createDehydratedTaskDefinition<
-  CreateObjectTaskData,
-  PersistedCreateObjectTaskData,
-  CreateObjectResult
->({
+export const createObjectTaskDefinition = createDehydratedTaskDefinition({
   type: 'object.create',
   executionScope: 'cluster',
-  dataSchema: createObjectTaskDataSchema,
 
+  dataSchema: createObjectTaskDataSchema,
   persistedDataSchema: persistedCreateObjectTaskDataSchema,
   dehydrateData: (data) => ({
     data: {
@@ -53,7 +65,9 @@ export const createObjectTaskDefinition = createDehydratedTaskDefinition<
   hydrateData: (data, payload) => ({
     ...data,
     data: payload
-  })
+  }),
+
+  resultSchema: createObjectTaskResultSchema
 });
 
 export const objectTaskSchema = z.discriminatedUnion('type', [createObjectTaskDefinition.taskSchema]);

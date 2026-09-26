@@ -101,25 +101,21 @@ const consensusState: ConsensusState = {
   revision: 0n
 };
 
-const definition = createTaskDefinition<{ value: string }, string, 'test.execute', 'local'>({
+const definition = createTaskDefinition({
   type: 'test.execute',
   dataSchema: z.object({ value: z.string() }),
-  executionScope: 'local'
+  executionScope: 'local',
+  resultSchema: z.string()
 });
 
-const dehydratedDefinition = createDehydratedTaskDefinition<
-  { name: string; bytes: Buffer },
-  { name: string },
-  string,
-  'test.dehydrated',
-  'local'
->({
+const dehydratedDefinition = createDehydratedTaskDefinition({
   type: 'test.dehydrated',
   dataSchema: z.object({ name: z.string(), bytes: z.instanceof(Buffer) }),
   persistedDataSchema: z.object({ name: z.string() }),
   executionScope: 'local',
   dehydrateData: ({ name, bytes }) => ({ data: { name }, payload: bytes }),
-  hydrateData: (data, payload) => ({ ...data, bytes: payload })
+  hydrateData: (data, payload) => ({ ...data, bytes: payload }),
+  resultSchema: z.string()
 });
 
 /* mocks */

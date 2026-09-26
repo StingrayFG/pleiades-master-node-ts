@@ -5,7 +5,7 @@ import { jsonBytesCodec } from '@/common/serializers/bytes.serializer';
 import { dataNodeEndpointSchema } from '@/modules/data-nodes/data-node.domain';
 import { createDehydratedTaskDefinition, createTaskDefinition } from '@/modules/tasks/task.definition';
 
-import { blobIdSchema, blobMetadataSchema, type BlobMetadata } from './blob.domain';
+import { blobIdSchema, blobMetadataSchema } from './blob.domain';
 
 /* data schemas */
 
@@ -32,17 +32,19 @@ export const deleteBlobTaskDataSchema = z.object({
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 
+/* result schemas */
+
+export const ensureBlobExistsTaskResultSchema = blobMetadataSchema.extend({
+  sizeBytes: jsonBigIntCodec
+});
+
 /* definitions */
 
-export const ensureBlobExistsTaskDefinition = createDehydratedTaskDefinition<
-  EnsureBlobExistsTaskData,
-  PersistedEnsureBlobExistsTaskData,
-  BlobMetadata
->({
+export const ensureBlobExistsTaskDefinition = createDehydratedTaskDefinition({
   type: 'blob.ensure-exists',
   executionScope: 'cluster',
-  dataSchema: ensureBlobExistsTaskDataSchema,
 
+  dataSchema: ensureBlobExistsTaskDataSchema,
   persistedDataSchema: persistedEnsureBlobExistsTaskDataSchema,
   dehydrateData: (data) => ({
     data: {
@@ -65,12 +67,15 @@ export const ensureBlobExistsTaskDefinition = createDehydratedTaskDefinition<
     },
 
     dataNodeEndpoint: data.dataNodeEndpoint
-  })
+  }),
+
+  resultSchema: ensureBlobExistsTaskResultSchema
 });
 
-export const deleteBlobTaskDefinition = createTaskDefinition<DeleteBlobTaskData, void>({
+export const deleteBlobTaskDefinition = createTaskDefinition({
   type: 'blob.delete',
   executionScope: 'cluster',
+
   dataSchema: deleteBlobTaskDataSchema
 });
 

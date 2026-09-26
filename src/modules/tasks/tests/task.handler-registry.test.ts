@@ -8,10 +8,11 @@ import { InMemoryTaskHandlerRegistry } from '../task.handler-registry';
 
 /* fixtures */
 
-const definition = createTaskDefinition<{ value: string }, string, 'test.execute', 'local'>({
+const definition = createTaskDefinition({
   type: 'test.execute',
   dataSchema: z.object({ value: z.string() }),
-  executionScope: 'local'
+  executionScope: 'local',
+  resultSchema: z.string()
 });
 
 /* tests */
@@ -38,10 +39,11 @@ describe('InMemoryTaskHandlerRegistry', () => {
 
   test('rejects a different definition object registered under the same type', () => {
     const registry = new InMemoryTaskHandlerRegistry();
-    const equivalentDefinition = createTaskDefinition<{ value: string }, string, 'test.execute', 'local'>({
+    const equivalentDefinition = createTaskDefinition({
       type: 'test.execute',
       dataSchema: z.object({ value: z.string() }),
-      executionScope: 'local'
+      executionScope: 'local',
+      resultSchema: z.string()
     });
 
     registry.register(

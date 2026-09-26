@@ -178,7 +178,7 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
 
   private async hydrateTaskDataIfNeeded(
     task: PersistedTask,
-    definition: TaskDefinitionContract<string, unknown, unknown, TaskExecutionScope, unknown>
+    definition: TaskDefinitionContract<string, TaskExecutionScope, unknown, unknown, unknown>
   ): Promise<unknown> {
     if (!isDehydratedTaskDefinition(definition)) {
       return z.decode(definition.dataSchema, task.data);
