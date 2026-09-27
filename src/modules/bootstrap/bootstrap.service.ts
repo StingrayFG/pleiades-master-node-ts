@@ -1,7 +1,12 @@
 import { GenericConflictError } from '@/errors/application.errors';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { RegisterMasterNodeInput } from '@/modules/master-nodes/master-node.application';
+import type {
+  FetchMasterInfoInternodeResult,
+  RegisterMasterNodeInput
+} from '@/modules/master-nodes/master-node.application';
+import type { MasterNodeCertificateFingerprint } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
@@ -100,12 +105,32 @@ class BootstrapService implements BootstrapServiceContract {
       expectedCertificateFingerprint: input.leaderCertificateFingerprint
     });
 
+    this.requireValidMembershipSnapshot(snapshot, leaderInfo, input.leaderCertificateFingerprint);
+
+    await this.clusterService.applyMembershipSnapshot(snapshot);
+
+    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
+
+    return {
+      role: 'follower',
+      epoch: followerState.currentEpoch,
+      leaderMasterId: followerState.leaderMasterId
+    };
+  }
+
+  /* private methods */
+
+  private requireValidMembershipSnapshot(
+    snapshot: ClusterMembershipSnapshot,
+    leaderInfo: FetchMasterInfoInternodeResult,
+    leaderCertificateFingerprint: MasterNodeCertificateFingerprint
+  ): void {
     const snapshotLeader = snapshot.masterNodes.find((masterNode) => masterNode.id === leaderInfo.masterId);
     const snapshotSelf = snapshot.masterNodes.find((masterNode) => masterNode.id === this.selfMasterNode.id);
 
     if (
       !snapshotLeader ||
-      snapshotLeader.certificateFingerprint !== input.leaderCertificateFingerprint ||
+      snapshotLeader.certificateFingerprint !== leaderCertificateFingerprint ||
       snapshotLeader.sessionId !== leaderInfo.sessionId
     ) {
       throw new GenericConflictError('Cluster membership snapshot does not match the authenticated leader');
@@ -118,16 +143,6 @@ class BootstrapService implements BootstrapServiceContract {
     ) {
       throw new GenericConflictError('Cluster membership snapshot does not contain the registered local master node');
     }
-
-    await this.clusterService.applyMembershipSnapshot(snapshot);
-
-    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
-
-    return {
-      role: 'follower',
-      epoch: followerState.currentEpoch,
-      leaderMasterId: followerState.leaderMasterId
-    };
   }
 }
 
