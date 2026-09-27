@@ -85,10 +85,37 @@ message ForwardTaskResponse {
   optional bytes result = 1;
 }
 
+message RequestVoteRequest {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_log_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+  int64 last_log_epoch = 5 [(buf.validate.field).int64.gte = 0];
+}
+
+message RequestVoteResponse {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  bool vote_granted = 2;
+}
+
+message RecordLeaderHeartbeatRequest {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+}
+
+message RecordLeaderHeartbeatResponse {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  bool accepted = 2;
+}
+
 service Master {
   rpc FetchMasterInfo(FetchMasterInfoRequest) returns (FetchMasterInfoResponse);
   rpc RegisterMasterNode(RegisterMasterNodeRequest) returns (RegisterMasterNodeResponse);
   rpc FetchTaskEntries(FetchTaskEntriesRequest) returns (FetchTaskEntriesResponse);
   rpc FetchTaskPayload(FetchTaskPayloadRequest) returns (FetchTaskPayloadResponse);
   rpc ForwardTask(ForwardTaskRequest) returns (ForwardTaskResponse);
+  rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
+  rpc RecordLeaderHeartbeat(RecordLeaderHeartbeatRequest) returns (RecordLeaderHeartbeatResponse);
 }

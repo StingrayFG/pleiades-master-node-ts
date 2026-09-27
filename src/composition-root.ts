@@ -19,6 +19,8 @@ import { createBucketModule } from '@/modules/buckets/bucket.module';
 import { createClusterModule } from '@/modules/cluster/cluster.module';
 import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
+import { electionConfig } from '@/modules/election/election.config';
+import { createElectionModule } from '@/modules/election/election.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
 import { createMasterNodeInternodeModule } from '@/modules/master-nodes/master-node.internode-module';
@@ -46,6 +48,7 @@ type CompositionRoot = {
   masterNodeModule: ReturnType<typeof createMasterNodeModule>;
   masterNodeInternodeModule: ReturnType<typeof createMasterNodeInternodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
+  electionModule: ReturnType<typeof createElectionModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
   byteStorageModule: ReturnType<typeof createByteStorageModule>;
   taskModule: ReturnType<typeof createTaskModule>;
@@ -114,9 +117,19 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskForwarder: masterNodeModule.taskForwarder
   });
 
+  const electionModule = createElectionModule({
+    consensusService: consensusModule.service,
+    masterNodeService: masterNodeModule.service,
+    masterNodeGrpcClient: masterNodeModule.grpcClient,
+    taskService: taskModule.service,
+    selfMasterNodeId,
+    config: electionConfig
+  });
+
   const masterNodeInternodeModule = createMasterNodeInternodeModule({
     taskService: taskModule.service,
     consensusService: consensusModule.service,
+    electionService: electionModule.service,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService: clusterModule.service,
@@ -191,6 +204,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
     masterReplicationHandler: masterNodeInternodeModule.replicationHandler,
+    electionLifecycleHandler: electionModule.lifecycleHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
@@ -213,6 +227,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     masterNodeModule,
     masterNodeInternodeModule,
     consensusModule,
+    electionModule,
     bootstrapModule,
     byteStorageModule,
     taskModule,

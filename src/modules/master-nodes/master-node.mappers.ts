@@ -10,9 +10,19 @@ import {
   type FetchTaskEntriesRequest,
   type FetchTaskPayloadRequest,
   type ForwardTaskRequest,
+  type RecordLeaderHeartbeatRequest,
+  type RecordLeaderHeartbeatResponse,
   type RegisterMasterNodeRequest,
+  type RequestVoteRequest,
+  type RequestVoteResponse,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
+import {
+  recordLeaderHeartbeatResultSchema,
+  requestVoteResultSchema,
+  type RecordLeaderHeartbeatResult,
+  type RequestVoteResult
+} from '@/modules/election/election.application';
 import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
 
 import {
@@ -21,13 +31,17 @@ import {
   fetchTaskPayloadInternodeInputSchema,
   forwardTaskInternodeInputSchema,
   internodeTaskEntrySchema,
+  recordLeaderHeartbeatInternodeInputSchema,
   registerMasterNodeInternodeInputSchema,
+  requestVoteInternodeInputSchema,
   type FetchMasterInfoInternodeResult,
   type FetchTaskEntriesInternodeInput,
   type FetchTaskPayloadInternodeInput,
   type ForwardTaskInternodeInput,
   type InternodeTaskEntry,
-  type RegisterMasterNodeInternodeInput
+  type RecordLeaderHeartbeatInternodeInput,
+  type RegisterMasterNodeInternodeInput,
+  type RequestVoteInternodeInput
 } from './master-node.application';
 import { masterNodeSchema, type MasterNode, type MasterNodeCertificateFingerprint } from './master-node.domain';
 
@@ -70,6 +84,26 @@ export const mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult = (
       clusterId: response.cluster_id,
 
       epoch: BigInt(response.epoch)
+    });
+  });
+};
+
+export const mapGrpcRequestVoteResponseToRequestVoteResult = (response: RequestVoteResponse): RequestVoteResult => {
+  return withMapperError('Failed to map gRPC request vote response', () => {
+    return requestVoteResultSchema.parse({
+      epoch: BigInt(response.epoch),
+      voteGranted: response.vote_granted
+    });
+  });
+};
+
+export const mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult = (
+  response: RecordLeaderHeartbeatResponse
+): RecordLeaderHeartbeatResult => {
+  return withMapperError('Failed to map gRPC record leader heartbeat response', () => {
+    return recordLeaderHeartbeatResultSchema.parse({
+      epoch: BigInt(response.epoch),
+      accepted: response.accepted
     });
   });
 };
@@ -134,6 +168,39 @@ export const mapGrpcForwardTaskRequestToForwardTaskInternodeInput = (
     return forwardTaskInternodeInputSchema.parse({
       type: request.type,
       data: JSON.parse(request.data.toString('utf8')),
+
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
+    });
+  });
+};
+
+export const mapGrpcRequestVoteRequestToRequestVoteInternodeInput = (
+  request: RequestVoteRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): RequestVoteInternodeInput => {
+  return withMapperError('Failed to map gRPC request vote request', () => {
+    return requestVoteInternodeInputSchema.parse({
+      epoch: BigInt(request.epoch),
+      lastLogEpoch: BigInt(request.last_log_epoch),
+      lastLogSequence: BigInt(request.last_log_sequence),
+
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
+    });
+  });
+};
+
+export const mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput = (
+  request: RecordLeaderHeartbeatRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): RecordLeaderHeartbeatInternodeInput => {
+  return withMapperError('Failed to map gRPC record leader heartbeat request', () => {
+    return recordLeaderHeartbeatInternodeInputSchema.parse({
+      epoch: BigInt(request.epoch),
+      lastCommittedSequence: BigInt(request.last_committed_sequence),
 
       callerMasterNodeId: request.caller_master_id,
       callerMasterNodeSessionId: request.caller_session_id,

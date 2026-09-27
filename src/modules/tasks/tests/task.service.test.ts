@@ -71,6 +71,8 @@ const consensusState: ConsensusState = {
   id: 'self',
   currentEpoch: 2n,
   leaderMasterId: selfMasterNodeId,
+  votedForMasterId: selfMasterNodeId,
+  lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
   lastCommittedSequence: 5n,
   lastAppliedSequence: 5n,
@@ -244,6 +246,13 @@ describe('TaskService', () => {
       limit: 10
     });
     expect(byteStorageService.retrieve).toHaveBeenCalledWith(execution.id);
+  });
+
+  test('finds a task by its replicated sequence', async () => {
+    repository.findBySequence.mockResolvedValue(task);
+
+    await expect(service.findTaskBySequence(task.sequence)).resolves.toBe(task);
+    expect(repository.findBySequence).toHaveBeenCalledWith(task.sequence);
   });
 
   test('persists replicated tasks and their payloads through the task module', async () => {

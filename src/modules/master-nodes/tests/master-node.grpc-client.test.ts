@@ -11,7 +11,9 @@ import type {
   FetchTaskEntriesResponse,
   FetchTaskPayloadResponse,
   MasterClient as GrpcMasterClient,
+  RecordLeaderHeartbeatResponse,
   RegisterMasterNodeResponse,
+  RequestVoteResponse,
   TaskExecutionScope
 } from '@/gen/proto/master/v1/master';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
@@ -66,12 +68,24 @@ const payloadResponse: FetchTaskPayloadResponse = {
   payload: Buffer.from('task payload')
 };
 
+const voteResponse: RequestVoteResponse = {
+  epoch: '2',
+  vote_granted: false
+};
+
+const heartbeatResponse: RecordLeaderHeartbeatResponse = {
+  epoch: '3',
+  accepted: true
+};
+
 /* mocks */
 
 type EntriesCallback = (error: ServiceError | null, response: FetchTaskEntriesResponse) => void;
 type MasterInfoCallback = (error: ServiceError | null, response: FetchMasterInfoResponse) => void;
 type PayloadCallback = (error: ServiceError | null, response: FetchTaskPayloadResponse) => void;
 type RegistrationCallback = (error: ServiceError | null, response: RegisterMasterNodeResponse) => void;
+type VoteCallback = (error: ServiceError | null, response: RequestVoteResponse) => void;
+type HeartbeatCallback = (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void;
 
 type GrpcMasterClientMock = {
   fetchMasterInfo: jest.Mock<
@@ -85,6 +99,10 @@ type GrpcMasterClientMock = {
   >;
   fetchTaskPayload: jest.Mock<
     (_request: unknown, _metadata: unknown, _options: unknown, callback: PayloadCallback) => void
+  >;
+  requestVote: jest.Mock<(_request: unknown, _metadata: unknown, _options: unknown, callback: VoteCallback) => void>;
+  recordLeaderHeartbeat: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: HeartbeatCallback) => void
   >;
   close: jest.Mock<() => void>;
 };
@@ -149,6 +167,12 @@ describe('MasterNodeGrpcClient', () => {
         fetchTaskPayload: jest.fn((_request, _metadata, _options, callback: PayloadCallback) => {
           callback(null, payloadResponse);
         }),
+        requestVote: jest.fn((_request, _metadata, _options, callback: VoteCallback) => {
+          callback(null, voteResponse);
+        }),
+        recordLeaderHeartbeat: jest.fn((_request, _metadata, _options, callback: HeartbeatCallback) => {
+          callback(null, heartbeatResponse);
+        }),
         close: jest.fn()
       };
 
@@ -199,6 +223,8 @@ describe('MasterNodeGrpcClient', () => {
         registerMasterNode: jest.fn(),
         fetchTaskEntries: jest.fn(),
         fetchTaskPayload: jest.fn(),
+        requestVote: jest.fn(),
+        recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()
       };
 
@@ -242,6 +268,66 @@ describe('MasterNodeGrpcClient', () => {
         hostname: 'follower.internal',
         port: 4410,
         scheme: 'grpcs'
+      },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('requests a vote from an authenticated master node', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+
+    await expect(
+      client.requestVote({
+        masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).resolves.toEqual({
+      epoch: 2n,
+      voteGranted: false
+    });
+
+    expect(createdClients[0].requestVote).toHaveBeenCalledWith(
+      {
+        epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId,
+        last_log_epoch: '2'
+      },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('records a leader heartbeat with an authenticated master node', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+
+    await expect(
+      client.recordLeaderHeartbeat({
+        masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).resolves.toEqual({
+      epoch: 3n,
+      accepted: true
+    });
+
+    expect(createdClients[0].recordLeaderHeartbeat).toHaveBeenCalledWith(
+      {
+        epoch: '3',
+        last_committed_sequence: '4',
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId
       },
       expect.any(Metadata),
       expect.objectContaining({ deadline: expect.any(Date) }),
@@ -381,6 +467,8 @@ describe('MasterNodeGrpcClient', () => {
           callback(grpcError, entriesResponse);
         }),
         fetchTaskPayload: jest.fn(),
+        requestVote: jest.fn(),
+        recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()
       };
 
@@ -419,6 +507,8 @@ describe('MasterNodeGrpcClient', () => {
           });
         }),
         fetchTaskPayload: jest.fn(),
+        requestVote: jest.fn(),
+        recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()
       };
 

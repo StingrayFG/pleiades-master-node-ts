@@ -73,6 +73,8 @@ const unclaimedState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
   leaderMasterId: null,
+  votedForMasterId: null,
+  lastLeaderContactAt: null,
   lastAllocatedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
@@ -85,6 +87,8 @@ const followerState: ConsensusState = {
   ...unclaimedState,
   currentEpoch: leaderInfo.epoch,
   leaderMasterId: leaderMasterNodeId,
+  votedForMasterId: leaderMasterNodeId,
+  lastLeaderContactAt: now,
   revision: 1n
 };
 
@@ -92,6 +96,8 @@ const leaderState: ConsensusState = {
   ...unclaimedState,
   currentEpoch: 3n,
   leaderMasterId: selfMasterNodeId,
+  votedForMasterId: selfMasterNodeId,
+  lastLeaderContactAt: now,
   revision: 1n
 };
 

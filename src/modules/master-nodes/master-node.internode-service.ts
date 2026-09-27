@@ -12,6 +12,8 @@ import {
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
+import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
@@ -22,9 +24,11 @@ import type {
   FetchTaskPayloadInternodeInput,
   ForwardTaskInternodeInput,
   InternodeTaskEntry,
-  RegisterMasterNodeInternodeInput
+  RecordLeaderHeartbeatInternodeInput,
+  RegisterMasterNodeInternodeInput,
+  RequestVoteInternodeInput
 } from './master-node.application';
-import type { MasterNodeId, MasterNodeSessionId } from './master-node.domain';
+import type { MasterNode, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import type { MasterNodeServiceContract } from './master-node.service';
 
 /* contract */
@@ -35,6 +39,8 @@ type MasterNodeInternodeServiceContract = {
   fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer>;
   forwardTask(input: ForwardTaskInternodeInput): Promise<unknown>;
+  requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult>;
+  recordLeaderHeartbeat(input: RecordLeaderHeartbeatInternodeInput): Promise<RecordLeaderHeartbeatResult>;
 };
 
 /* service */
@@ -43,6 +49,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   constructor(
     private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
+    private readonly electionService: ElectionServiceContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly selfMasterNodeSessionId: MasterNodeSessionId,
     private readonly clusterService: ClusterServiceContract,
@@ -144,7 +151,40 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return z.encode(definition.resultSchema, result);
   }
 
-  private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<void> {
+  async requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult> {
+    const candidate = await this.requireAuthenticatedMasterNodeCaller(input);
+
+    if (candidate.mode !== 'serving') {
+      throw new GenericFailedPreconditionError('Calling master node is not eligible to become the cluster leader');
+    }
+
+    return this.electionService.requestVote({
+      candidateMasterNodeId: input.callerMasterNodeId,
+      epoch: input.epoch,
+      lastLogEpoch: input.lastLogEpoch,
+      lastLogSequence: input.lastLogSequence
+    });
+  }
+
+  async recordLeaderHeartbeat(input: RecordLeaderHeartbeatInternodeInput): Promise<RecordLeaderHeartbeatResult> {
+    const leader = await this.requireAuthenticatedMasterNodeCaller(input);
+
+    if (leader.id !== input.callerMasterNodeId) {
+      throw new GenericForbiddenError('Calling master node cannot claim leadership for another master node');
+    }
+
+    if (leader.mode !== 'serving') {
+      throw new GenericFailedPreconditionError('Calling master node is not eligible to serve as the cluster leader');
+    }
+
+    return this.electionService.recordLeaderHeartbeat({
+      leaderMasterNodeId: leader.id,
+      epoch: input.epoch,
+      lastCommittedSequence: input.lastCommittedSequence
+    });
+  }
+
+  private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<MasterNode> {
     let masterNode;
 
     try {
@@ -168,6 +208,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     if (masterNode.state !== 'active') {
       throw new GenericFailedPreconditionError('Calling master node is not active');
     }
+
+    return masterNode;
   }
 
   private async requireLeadershipState(): Promise<ConsensusState> {

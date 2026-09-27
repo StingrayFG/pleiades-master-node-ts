@@ -5,11 +5,16 @@ import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
   AcceptFollowershipRepositoryInput,
+  ApplyVoteRequestRepositoryInput,
   AdvanceLastAllocatedSequenceRepositoryInput,
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastCommittedSequenceRepositoryInput,
+  ConsensusVoteResult,
   ClaimLeadershipRepositoryInput,
   AllocatedSequenceTransactionAction,
+  ObserveEpochRepositoryInput,
+  RelinquishLeadershipRepositoryInput,
+  StartElectionRepositoryInput,
   RewoundSequenceTransactionAction
 } from './consensus.application';
 import {
@@ -47,6 +52,12 @@ type ConsensusStateRepositoryContract = {
   // membership
   claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
   acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean>;
+  relinquishLeadership(input: RelinquishLeadershipRepositoryInput): Promise<boolean>;
+
+  // election
+  startElection(input: StartElectionRepositoryInput): Promise<ConsensusState>;
+  observeEpoch(input: ObserveEpochRepositoryInput): Promise<ConsensusState>;
+  applyVoteRequest(input: ApplyVoteRequestRepositoryInput): Promise<ConsensusVoteResult>;
 };
 
 /* repository */
@@ -288,19 +299,27 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     let claimResult;
 
     try {
-      // the claim only lands if no leader exists and the stored epoch has not moved past the read
-      // it was based on, so a concurrent winner is never overwritten
       claimResult = await this.prisma.consensusState.updateMany({
         where: {
           id: input.id,
           leader_master_id: null,
-          current_epoch: {
-            lt: input.epoch
-          }
+          OR: [
+            {
+              current_epoch: {
+                lt: input.epoch
+              }
+            },
+            {
+              current_epoch: input.epoch,
+              voted_for_master_id: input.leaderMasterId
+            }
+          ]
         },
         data: {
           current_epoch: input.epoch,
           leader_master_id: input.leaderMasterId,
+          voted_for_master_id: input.leaderMasterId,
+          last_leader_contact_at: input.lastLeaderContactAt,
           revision: {
             increment: 1
           }
@@ -320,14 +339,23 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       acceptanceResult = await this.prisma.consensusState.updateMany({
         where: {
           id: input.id,
-          current_epoch: {
-            lte: input.epoch
-          },
-          OR: [{ leader_master_id: null }, { leader_master_id: input.leaderMasterId }]
+          OR: [
+            {
+              current_epoch: {
+                lt: input.epoch
+              }
+            },
+            {
+              current_epoch: input.epoch,
+              OR: [{ leader_master_id: null }, { leader_master_id: input.leaderMasterId }]
+            }
+          ]
         },
         data: {
           current_epoch: input.epoch,
           leader_master_id: input.leaderMasterId,
+          voted_for_master_id: input.leaderMasterId,
+          last_leader_contact_at: input.lastLeaderContactAt,
           revision: {
             increment: 1
           }
@@ -338,6 +366,197 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     }
 
     return acceptanceResult.count === 1;
+  }
+
+  async relinquishLeadership(input: RelinquishLeadershipRepositoryInput): Promise<boolean> {
+    let relinquishmentResult;
+
+    try {
+      relinquishmentResult = await this.prisma.consensusState.updateMany({
+        where: {
+          id: input.id,
+          current_epoch: input.epoch,
+          leader_master_id: input.leaderMasterId
+        },
+        data: {
+          leader_master_id: null,
+          last_leader_contact_at: null,
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return relinquishmentResult.count === 1;
+  }
+
+  /* election methods */
+
+  async startElection(input: StartElectionRepositoryInput): Promise<ConsensusState> {
+    let state;
+
+    try {
+      state = await this.prisma.$transaction(async (tx) => {
+        await tx.consensusState.updateMany({
+          where: {
+            id: input.id,
+            current_epoch: input.expectedEpoch
+          },
+          data: {
+            current_epoch: input.electionEpoch,
+            leader_master_id: null,
+            voted_for_master_id: input.candidateMasterNodeId,
+            last_leader_contact_at: null,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        return tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaConsensusStateToDomainConsensusState(state);
+  }
+
+  async observeEpoch(input: ObserveEpochRepositoryInput): Promise<ConsensusState> {
+    let state;
+
+    try {
+      state = await this.prisma.$transaction(async (tx) => {
+        await tx.consensusState.updateMany({
+          where: {
+            id: input.id,
+            current_epoch: {
+              lt: input.epoch
+            }
+          },
+          data: {
+            current_epoch: input.epoch,
+            leader_master_id: null,
+            voted_for_master_id: null,
+            last_leader_contact_at: null,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        return tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaConsensusStateToDomainConsensusState(state);
+  }
+
+  async applyVoteRequest(input: ApplyVoteRequestRepositoryInput): Promise<ConsensusVoteResult> {
+    let result;
+
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        let state = await tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+
+        if (input.epoch < state.current_epoch) {
+          return { state, voteGranted: false };
+        }
+
+        if (input.epoch > state.current_epoch) {
+          await tx.consensusState.updateMany({
+            where: {
+              id: input.id,
+              current_epoch: {
+                lt: input.epoch
+              }
+            },
+            data: {
+              current_epoch: input.epoch,
+              leader_master_id: null,
+              voted_for_master_id: null,
+              last_leader_contact_at: null,
+              revision: {
+                increment: 1
+              }
+            }
+          });
+
+          state = await tx.consensusState.findUniqueOrThrow({
+            where: {
+              id: input.id
+            }
+          });
+        }
+
+        if (state.current_epoch !== input.epoch || !input.candidateLogIsUpToDate) {
+          return { state, voteGranted: false };
+        }
+
+        if (state.leader_master_id !== null && state.leader_master_id !== input.candidateMasterNodeId) {
+          return { state, voteGranted: false };
+        }
+
+        if (state.voted_for_master_id === input.candidateMasterNodeId) {
+          return { state, voteGranted: true };
+        }
+
+        if (state.voted_for_master_id !== null) {
+          return { state, voteGranted: false };
+        }
+
+        await tx.consensusState.updateMany({
+          where: {
+            id: input.id,
+            current_epoch: input.epoch,
+            leader_master_id: null,
+            voted_for_master_id: null,
+            revision: state.revision
+          },
+          data: {
+            voted_for_master_id: input.candidateMasterNodeId,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        state = await tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+
+        return {
+          state,
+          voteGranted: state.current_epoch === input.epoch && state.voted_for_master_id === input.candidateMasterNodeId
+        };
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return {
+      state: mapPrismaConsensusStateToDomainConsensusState(result.state),
+      voteGranted: result.voteGranted
+    };
   }
 }
 

@@ -7,7 +7,12 @@ import {
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskSequence } from '@/modules/tasks/task.domain';
 
-import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from './consensus.application';
+import type {
+  AllocatedSequenceTransactionAction,
+  ConsensusVoteResult,
+  RequestConsensusVoteInput,
+  RewoundSequenceTransactionAction
+} from './consensus.application';
 import {
   CONSENSUS_STATE_ID,
   type ConsensusEpoch,
@@ -39,6 +44,13 @@ type ConsensusServiceContract = {
   // membership
   bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+  relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+
+  // election
+  startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
+  completeElection(candidateMasterNodeId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+  observeEpoch(epoch: ConsensusEpoch): Promise<ConsensusState>;
+  requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult>;
 };
 
 /* service */
@@ -169,7 +181,8 @@ class ConsensusService implements ConsensusServiceContract {
     await this.repository.claimLeadership({
       id: CONSENSUS_STATE_ID,
       epoch: state.currentEpoch + 1n,
-      leaderMasterId: selfMasterNodeId
+      leaderMasterId: selfMasterNodeId,
+      lastLeaderContactAt: new Date()
     });
 
     return this.getConsensusState();
@@ -178,7 +191,7 @@ class ConsensusService implements ConsensusServiceContract {
   async acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (state.leaderMasterId !== null && state.leaderMasterId !== leaderMasterId) {
+    if (state.currentEpoch === epoch && state.leaderMasterId !== null && state.leaderMasterId !== leaderMasterId) {
       throw new GenericConflictError('This master node already belongs to a different leader');
     }
 
@@ -186,14 +199,11 @@ class ConsensusService implements ConsensusServiceContract {
       throw new GenericConflictError('The leader epoch is older than the local consensus epoch');
     }
 
-    if (state.leaderMasterId === leaderMasterId && state.currentEpoch === epoch) {
-      return state;
-    }
-
     await this.repository.acceptFollowership({
       id: CONSENSUS_STATE_ID,
       epoch,
-      leaderMasterId
+      leaderMasterId,
+      lastLeaderContactAt: new Date()
     });
 
     const followerState = await this.getConsensusState();
@@ -203,6 +213,98 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     return followerState;
+  }
+
+  async relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+    await this.getConsensusState();
+
+    await this.repository.relinquishLeadership({
+      id: CONSENSUS_STATE_ID,
+      epoch,
+      leaderMasterId
+    });
+
+    const state = await this.getConsensusState();
+
+    if (state.currentEpoch === epoch && state.leaderMasterId === leaderMasterId) {
+      throw new GenericAbortedError('Leadership relinquishment was aborted by a concurrent consensus change');
+    }
+
+    return state;
+  }
+
+  /* election methods */
+
+  async startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+    const electionEpoch = state.currentEpoch + 1n;
+
+    const electionState = await this.repository.startElection({
+      id: CONSENSUS_STATE_ID,
+      expectedEpoch: state.currentEpoch,
+      electionEpoch,
+      candidateMasterNodeId
+    });
+
+    if (
+      electionState.currentEpoch !== electionEpoch ||
+      electionState.leaderMasterId !== null ||
+      electionState.votedForMasterId !== candidateMasterNodeId
+    ) {
+      throw new GenericAbortedError('Election start was aborted by a concurrent consensus change');
+    }
+
+    return electionState;
+  }
+
+  async completeElection(candidateMasterNodeId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+    await this.repository.claimLeadership({
+      id: CONSENSUS_STATE_ID,
+      epoch,
+      leaderMasterId: candidateMasterNodeId,
+      lastLeaderContactAt: new Date()
+    });
+
+    const state = await this.getConsensusState();
+
+    if (state.currentEpoch !== epoch || state.leaderMasterId !== candidateMasterNodeId) {
+      throw new GenericAbortedError('Election completion was aborted by a concurrent consensus change');
+    }
+
+    return state;
+  }
+
+  async observeEpoch(epoch: ConsensusEpoch): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+
+    if (epoch <= state.currentEpoch) {
+      return state;
+    }
+
+    const observedState = await this.repository.observeEpoch({
+      id: CONSENSUS_STATE_ID,
+      epoch
+    });
+
+    if (observedState.currentEpoch < epoch) {
+      throw new GenericAbortedError('Epoch observation was aborted by a concurrent consensus change');
+    }
+
+    return observedState;
+  }
+
+  async requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult> {
+    const candidateLogIsUpToDate =
+      input.candidateLastLogEpoch > input.localLastLogEpoch ||
+      (input.candidateLastLogEpoch === input.localLastLogEpoch &&
+        input.candidateLastLogSequence >= input.localLastLogSequence);
+
+    return this.repository.applyVoteRequest({
+      id: CONSENSUS_STATE_ID,
+      epoch: input.epoch,
+      candidateMasterNodeId: input.candidateMasterNodeId,
+      candidateLogIsUpToDate
+    });
   }
 }
 

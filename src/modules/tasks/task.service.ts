@@ -33,6 +33,7 @@ import type { TaskResultWaiterContract } from './task.result-waiter';
 type TaskServiceContract = {
   // query
   getTaskById(id: TaskId): Promise<PersistedTask>;
+  findTaskBySequence(sequence: TaskSequence): Promise<PersistedTask | null>;
   listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]>;
   retrieveTaskPayload(payloadId: TaskPayloadId): Promise<Buffer>;
 
@@ -98,6 +99,10 @@ class TaskService implements TaskServiceContract {
     }
 
     return task;
+  }
+
+  async findTaskBySequence(sequence: TaskSequence): Promise<PersistedTask | null> {
+    return this.repository.findBySequence(sequence);
   }
 
   async listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]> {

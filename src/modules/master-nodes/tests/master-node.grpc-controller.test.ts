@@ -11,8 +11,12 @@ import {
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
   type FetchTaskPayloadResponse,
+  type RecordLeaderHeartbeatRequest,
+  type RecordLeaderHeartbeatResponse,
   type RegisterMasterNodeRequest,
-  type RegisterMasterNodeResponse
+  type RegisterMasterNodeResponse,
+  type RequestVoteRequest,
+  type RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
 
 import type { InternodeTaskEntry } from '../master-node.application';
@@ -56,7 +60,10 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
     fetchMasterInfo: jest.fn<MasterNodeInternodeServiceContract['fetchMasterInfo']>(),
     registerMasterNode: jest.fn<MasterNodeInternodeServiceContract['registerMasterNode']>(),
     fetchTaskEntries: jest.fn<MasterNodeInternodeServiceContract['fetchTaskEntries']>(),
-    fetchTaskPayload: jest.fn<MasterNodeInternodeServiceContract['fetchTaskPayload']>()
+    fetchTaskPayload: jest.fn<MasterNodeInternodeServiceContract['fetchTaskPayload']>(),
+    forwardTask: jest.fn<MasterNodeInternodeServiceContract['forwardTask']>(),
+    requestVote: jest.fn<MasterNodeInternodeServiceContract['requestVote']>(),
+    recordLeaderHeartbeat: jest.fn<MasterNodeInternodeServiceContract['recordLeaderHeartbeat']>()
   };
 
   service.fetchTaskEntries.mockResolvedValue({
@@ -65,6 +72,8 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
     entries: [entry]
   });
   service.fetchTaskPayload.mockResolvedValue(Buffer.from('task payload'));
+  service.requestVote.mockResolvedValue({ epoch: 2n, voteGranted: false });
+  service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true });
 
   return service;
 };
@@ -206,5 +215,63 @@ describe('MasterNodeGrpcController', () => {
       }
     });
     expect(callback).toHaveBeenCalledWith(null, {});
+  });
+
+  test('maps authenticated vote requests and responses', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<RequestVoteResponse>>();
+
+    await controller.requestVote(
+      createCall<RequestVoteRequest, RequestVoteResponse>({
+        epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId,
+        last_log_epoch: '2'
+      }),
+      callback
+    );
+
+    expect(service.requestVote).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint,
+      epoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n
+    });
+    expect(callback).toHaveBeenCalledWith(null, {
+      epoch: '2',
+      vote_granted: false
+    });
+  });
+
+  test('maps authenticated leader heartbeats and responses', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<RecordLeaderHeartbeatResponse>>();
+
+    await controller.recordLeaderHeartbeat(
+      createCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>({
+        epoch: '3',
+        last_committed_sequence: '4',
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
+      }),
+      callback
+    );
+
+    expect(service.recordLeaderHeartbeat).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint,
+      epoch: 3n,
+      lastCommittedSequence: 4n
+    });
+    expect(callback).toHaveBeenCalledWith(null, {
+      epoch: '3',
+      accepted: true
+    });
   });
 });

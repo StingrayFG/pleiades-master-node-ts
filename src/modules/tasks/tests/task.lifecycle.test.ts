@@ -58,6 +58,8 @@ const consensusState: ConsensusState = {
 
   currentEpoch: 1n,
   leaderMasterId: 'master-node-test',
+  votedForMasterId: 'master-node-test',
+  lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
   lastCommittedSequence: 5n,
   lastAppliedSequence: 5n,

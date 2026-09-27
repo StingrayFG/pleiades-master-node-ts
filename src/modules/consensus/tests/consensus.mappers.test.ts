@@ -14,6 +14,9 @@ const prismaState: PrismaConsensusState = {
   id: CONSENSUS_STATE_ID,
   current_epoch: 2n,
   leader_master_id: 'master-node-a',
+  voted_for_master_id: 'master-node-a',
+  last_leader_contact_at: now,
+
   last_allocated_sequence: 4n,
   last_committed_sequence: 3n,
   last_applied_sequence: 2n,
@@ -26,6 +29,9 @@ const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
   leaderMasterId: 'master-node-a',
+  votedForMasterId: 'master-node-a',
+  lastLeaderContactAt: now,
+
   lastAllocatedSequence: 4n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,

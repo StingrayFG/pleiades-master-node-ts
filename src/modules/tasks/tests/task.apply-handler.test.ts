@@ -93,6 +93,8 @@ const consensusState: ConsensusState = {
   id: 'self',
   currentEpoch: 2n,
   leaderMasterId: selfMasterNodeId,
+  votedForMasterId: selfMasterNodeId,
+  lastLeaderContactAt: now,
   lastAllocatedSequence: 6n,
   lastCommittedSequence: 6n,
   lastAppliedSequence: 5n,

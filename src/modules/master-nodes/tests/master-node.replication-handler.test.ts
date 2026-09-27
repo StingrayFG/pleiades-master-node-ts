@@ -27,6 +27,8 @@ const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
   leaderMasterId: leaderMasterNodeId,
+  votedForMasterId: leaderMasterNodeId,
+  lastLeaderContactAt: now,
   lastAllocatedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,

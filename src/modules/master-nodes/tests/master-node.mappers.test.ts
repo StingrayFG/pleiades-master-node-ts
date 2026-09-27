@@ -11,7 +11,11 @@ import type { MasterNode } from '../master-node.domain';
 import {
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
+  mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
+  mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult,
   mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
+  mapGrpcRequestVoteRequestToRequestVoteInternodeInput,
+  mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcTaskEntryToInternodeTaskEntry,
   mapGrpcTaskExecutionScopeToTaskExecutionScope,
   mapInternodeTaskEntryToGrpcTaskEntry,
@@ -151,6 +155,66 @@ describe('master node mappers', () => {
         port: domainMasterNode.port,
         scheme: domainMasterNode.scheme
       }
+    });
+  });
+
+  test('maps vote requests and responses', () => {
+    expect(
+      mapGrpcRequestVoteRequestToRequestVoteInternodeInput(
+        {
+          epoch: '3',
+          last_log_sequence: '4',
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId,
+          last_log_epoch: '2'
+        },
+        callerCertificateFingerprint
+      )
+    ).toEqual({
+      epoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n,
+      callerMasterNodeId: domainMasterNode.id,
+      callerMasterNodeSessionId: domainMasterNode.sessionId,
+      callerCertificateFingerprint
+    });
+    expect(
+      mapGrpcRequestVoteResponseToRequestVoteResult({
+        epoch: '2',
+        vote_granted: false
+      })
+    ).toEqual({
+      epoch: 2n,
+      voteGranted: false
+    });
+  });
+
+  test('maps leader heartbeat requests and responses', () => {
+    expect(
+      mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput(
+        {
+          epoch: '3',
+          last_committed_sequence: '4',
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId
+        },
+        callerCertificateFingerprint
+      )
+    ).toEqual({
+      epoch: 3n,
+      lastCommittedSequence: 4n,
+      callerMasterNodeId: domainMasterNode.id,
+      callerMasterNodeSessionId: domainMasterNode.sessionId,
+      callerCertificateFingerprint
+    });
+    expect(
+      mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult({
+        epoch: '3',
+        accepted: true
+      })
+    ).toEqual({
+      epoch: 3n,
+      accepted: true
     });
   });
 

@@ -8,8 +8,11 @@ import {
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadResponse,
   type ForwardTaskResponse,
-  type RegisterMasterNodeResponse
+  type RecordLeaderHeartbeatResponse,
+  type RegisterMasterNodeResponse,
+  type RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
+import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';
@@ -22,11 +25,15 @@ import type {
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadClientInput,
   ForwardTaskClientInput,
-  RegisterMasterNodeClientInput
+  RecordLeaderHeartbeatClientInput,
+  RegisterMasterNodeClientInput,
+  RequestVoteClientInput
 } from './master-node.application';
 import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
+  mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult,
+  mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcTaskEntryToInternodeTaskEntry
 } from './master-node.mappers';
 
@@ -38,6 +45,8 @@ type MasterNodeGrpcClientContract = {
   fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer>;
   forwardTask(input: ForwardTaskClientInput): Promise<Buffer | undefined>;
+  requestVote(input: RequestVoteClientInput): Promise<RequestVoteResult>;
+  recordLeaderHeartbeat(input: RecordLeaderHeartbeatClientInput): Promise<RecordLeaderHeartbeatResult>;
   close(): void;
 };
 
@@ -189,6 +198,61 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     return response.result;
   }
 
+  async requestVote(input: RequestVoteClientInput): Promise<RequestVoteResult> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<RequestVoteResponse>((resolve, reject) => {
+      client.requestVote(
+        {
+          epoch: input.epoch.toString(),
+          last_log_sequence: input.lastLogSequence.toString(),
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId,
+          last_log_epoch: input.lastLogEpoch.toString()
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
+
+    return mapGrpcRequestVoteResponseToRequestVoteResult(response);
+  }
+
+  async recordLeaderHeartbeat(input: RecordLeaderHeartbeatClientInput): Promise<RecordLeaderHeartbeatResult> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<RecordLeaderHeartbeatResponse>((resolve, reject) => {
+      client.recordLeaderHeartbeat(
+        {
+          epoch: input.epoch.toString(),
+          last_committed_sequence: input.lastCommittedSequence.toString(),
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
+
+    return mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult(response);
+  }
+
   /* private */
 
   private getClient(endpoint: MasterNodeEndpoint, expectedCertificateFingerprint: string): GrpcMasterClient {
@@ -224,5 +288,7 @@ export type {
   FetchTaskPayloadClientInput,
   ForwardTaskClientInput,
   MasterNodeGrpcClientContract,
-  RegisterMasterNodeClientInput
+  RecordLeaderHeartbeatClientInput,
+  RegisterMasterNodeClientInput,
+  RequestVoteClientInput
 };

@@ -24,6 +24,9 @@ const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
   leaderMasterId: selfMasterNodeId,
+  votedForMasterId: selfMasterNodeId,
+  lastLeaderContactAt: now,
+
   lastAllocatedSequence: 4n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,
@@ -36,6 +39,8 @@ const unclaimedState: ConsensusState = {
   ...state,
   currentEpoch: 0n,
   leaderMasterId: null,
+  votedForMasterId: null,
+  lastLeaderContactAt: null,
   lastAllocatedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
@@ -55,7 +60,11 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withAdvancedLastAllocatedSequence']>(),
     withRewoundLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withRewoundLastAllocatedSequence']>(),
     claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
-    acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>()
+    acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>(),
+    relinquishLeadership: jest.fn<ConsensusStateRepositoryContract['relinquishLeadership']>(),
+    startElection: jest.fn<ConsensusStateRepositoryContract['startElection']>(),
+    observeEpoch: jest.fn<ConsensusStateRepositoryContract['observeEpoch']>(),
+    applyVoteRequest: jest.fn<ConsensusStateRepositoryContract['applyVoteRequest']>()
   };
 
   repository.findState.mockResolvedValue(state);
@@ -70,6 +79,15 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   });
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
+  repository.relinquishLeadership.mockResolvedValue(true);
+  repository.startElection.mockResolvedValue({
+    ...unclaimedState,
+    currentEpoch: 1n,
+    votedForMasterId: selfMasterNodeId,
+    revision: 1n
+  });
+  repository.observeEpoch.mockResolvedValue({ ...unclaimedState, currentEpoch: 3n, revision: 1n });
+  repository.applyVoteRequest.mockResolvedValue({ state, voteGranted: true });
 
   return repository as unknown as jest.Mocked<ConsensusStateRepositoryContract>;
 };
@@ -252,7 +270,8 @@ describe('ConsensusService', () => {
     expect(repository.claimLeadership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       epoch: 1n,
-      leaderMasterId: selfMasterNodeId
+      leaderMasterId: selfMasterNodeId,
+      lastLeaderContactAt: expect.any(Date)
     });
     expect(repository.findState).toHaveBeenCalledTimes(2);
   });
@@ -271,7 +290,7 @@ describe('ConsensusService', () => {
     await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(winningState);
   });
 
-  test('returns immediately when already following the requested leader', async () => {
+  test('refreshes leader contact when already following the requested leader', async () => {
     const followerState = { ...state, leaderMasterId: otherMasterNodeId };
 
     repository.findState.mockResolvedValue(followerState);
@@ -279,7 +298,12 @@ describe('ConsensusService', () => {
     await expect(service.acceptFollowership(otherMasterNodeId, followerState.currentEpoch)).resolves.toBe(
       followerState
     );
-    expect(repository.acceptFollowership).not.toHaveBeenCalled();
+    expect(repository.acceptFollowership).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: followerState.currentEpoch,
+      leaderMasterId: otherMasterNodeId,
+      lastLeaderContactAt: expect.any(Date)
+    });
   });
 
   test('accepts a leader and its epoch while the local consensus state is unclaimed', async () => {
@@ -296,7 +320,8 @@ describe('ConsensusService', () => {
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
-      leaderMasterId: otherMasterNodeId
+      leaderMasterId: otherMasterNodeId,
+      lastLeaderContactAt: expect.any(Date)
     });
   });
 
@@ -318,7 +343,8 @@ describe('ConsensusService', () => {
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
-      leaderMasterId: otherMasterNodeId
+      leaderMasterId: otherMasterNodeId,
+      lastLeaderContactAt: expect.any(Date)
     });
   });
 
@@ -358,5 +384,88 @@ describe('ConsensusService', () => {
     repository.acceptFollowership.mockResolvedValue(false);
 
     await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+  });
+
+  test('conditionally relinquishes local leadership at the expected epoch', async () => {
+    const relinquishedState = {
+      ...state,
+      leaderMasterId: null,
+      lastLeaderContactAt: null,
+      revision: 6n
+    };
+
+    repository.findState.mockResolvedValueOnce(state).mockResolvedValueOnce(relinquishedState);
+
+    await expect(service.relinquishLeadership(selfMasterNodeId, 2n)).resolves.toBe(relinquishedState);
+    expect(repository.relinquishLeadership).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 2n,
+      leaderMasterId: selfMasterNodeId
+    });
+  });
+
+  test('starts a new epoch and records the local candidate vote', async () => {
+    repository.findState.mockResolvedValue(unclaimedState);
+
+    await expect(service.startElection(selfMasterNodeId)).resolves.toEqual({
+      ...unclaimedState,
+      currentEpoch: 1n,
+      votedForMasterId: selfMasterNodeId,
+      revision: 1n
+    });
+    expect(repository.startElection).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      expectedEpoch: 0n,
+      electionEpoch: 1n,
+      candidateMasterNodeId: selfMasterNodeId
+    });
+  });
+
+  test('grants votes only when the candidate log is at least as current', async () => {
+    await service.requestVote({
+      epoch: 3n,
+      candidateMasterNodeId: otherMasterNodeId,
+      candidateLastLogEpoch: 2n,
+      candidateLastLogSequence: 4n,
+      localLastLogEpoch: 2n,
+      localLastLogSequence: 3n
+    });
+
+    expect(repository.applyVoteRequest).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 3n,
+      candidateMasterNodeId: otherMasterNodeId,
+      candidateLogIsUpToDate: true
+    });
+
+    await service.requestVote({
+      epoch: 3n,
+      candidateMasterNodeId: otherMasterNodeId,
+      candidateLastLogEpoch: 1n,
+      candidateLastLogSequence: 10n,
+      localLastLogEpoch: 2n,
+      localLastLogSequence: 3n
+    });
+
+    expect(repository.applyVoteRequest).toHaveBeenLastCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 3n,
+      candidateMasterNodeId: otherMasterNodeId,
+      candidateLogIsUpToDate: false
+    });
+  });
+
+  test('observes a newer epoch and clears leadership through the repository', async () => {
+    repository.findState.mockResolvedValue(unclaimedState);
+
+    await expect(service.observeEpoch(3n)).resolves.toEqual({
+      ...unclaimedState,
+      currentEpoch: 3n,
+      revision: 1n
+    });
+    expect(repository.observeEpoch).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 3n
+    });
   });
 });

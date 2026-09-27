@@ -6,8 +6,12 @@ import type {
   FetchTaskEntriesResponse,
   FetchTaskPayloadRequest,
   FetchTaskPayloadResponse,
+  RecordLeaderHeartbeatRequest,
+  RecordLeaderHeartbeatResponse,
   RegisterMasterNodeRequest,
-  RegisterMasterNodeResponse
+  RegisterMasterNodeResponse,
+  RequestVoteRequest,
+  RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
 
 import type { MasterNodeGrpcControllerContract } from '../master-node.grpc-controller';
@@ -20,7 +24,10 @@ const createControllerMock = (): jest.Mocked<MasterNodeGrpcControllerContract> =
     fetchMasterInfo: jest.fn<MasterNodeGrpcControllerContract['fetchMasterInfo']>().mockResolvedValue(),
     registerMasterNode: jest.fn<MasterNodeGrpcControllerContract['registerMasterNode']>().mockResolvedValue(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcControllerContract['fetchTaskEntries']>().mockResolvedValue(),
-    fetchTaskPayload: jest.fn<MasterNodeGrpcControllerContract['fetchTaskPayload']>().mockResolvedValue()
+    fetchTaskPayload: jest.fn<MasterNodeGrpcControllerContract['fetchTaskPayload']>().mockResolvedValue(),
+    forwardTask: jest.fn<MasterNodeGrpcControllerContract['forwardTask']>().mockResolvedValue(),
+    requestVote: jest.fn<MasterNodeGrpcControllerContract['requestVote']>().mockResolvedValue(),
+    recordLeaderHeartbeat: jest.fn<MasterNodeGrpcControllerContract['recordLeaderHeartbeat']>().mockResolvedValue()
   };
 };
 
@@ -74,5 +81,45 @@ describe('master node gRPC routes', () => {
     await handler(call, callback);
 
     expect(controller.fetchTaskPayload).toHaveBeenCalledWith(call, callback);
+  });
+
+  test('delegates vote requests to the controller', async () => {
+    const controller = createControllerMock();
+    const routes = createMasterNodeGrpcRoutes({ controller });
+    const call = {
+      request: {
+        epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: 'master-node-candidate',
+        caller_session_id: '00000000-0000-4000-8000-000000000004',
+        last_log_epoch: '2'
+      }
+    } as ServerUnaryCall<RequestVoteRequest, RequestVoteResponse>;
+    const callback = jest.fn<sendUnaryData<RequestVoteResponse>>();
+    const handler = routes.masterService.requestVote as MasterNodeGrpcControllerContract['requestVote'];
+
+    await handler(call, callback);
+
+    expect(controller.requestVote).toHaveBeenCalledWith(call, callback);
+  });
+
+  test('delegates leader heartbeats to the controller', async () => {
+    const controller = createControllerMock();
+    const routes = createMasterNodeGrpcRoutes({ controller });
+    const call = {
+      request: {
+        epoch: '3',
+        last_committed_sequence: '4',
+        caller_master_id: 'master-node-leader',
+        caller_session_id: '00000000-0000-4000-8000-000000000004'
+      }
+    } as ServerUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>;
+    const callback = jest.fn<sendUnaryData<RecordLeaderHeartbeatResponse>>();
+    const handler = routes.masterService
+      .recordLeaderHeartbeat as MasterNodeGrpcControllerContract['recordLeaderHeartbeat'];
+
+    await handler(call, callback);
+
+    expect(controller.recordLeaderHeartbeat).toHaveBeenCalledWith(call, callback);
   });
 });

@@ -129,6 +129,31 @@ export interface ForwardTaskResponse {
   result?: Buffer | undefined;
 }
 
+export interface RequestVoteRequest {
+  epoch: string;
+  last_log_sequence: string;
+  caller_master_id: string;
+  caller_session_id: string;
+  last_log_epoch: string;
+}
+
+export interface RequestVoteResponse {
+  epoch: string;
+  vote_granted: boolean;
+}
+
+export interface RecordLeaderHeartbeatRequest {
+  epoch: string;
+  last_committed_sequence: string;
+  caller_master_id: string;
+  caller_session_id: string;
+}
+
+export interface RecordLeaderHeartbeatResponse {
+  epoch: string;
+  accepted: boolean;
+}
+
 function createBaseTaskEntry(): TaskEntry {
   return {
     id: "",
@@ -1253,6 +1278,424 @@ export const ForwardTaskResponse: MessageFns<ForwardTaskResponse> = {
   },
 };
 
+function createBaseRequestVoteRequest(): RequestVoteRequest {
+  return { epoch: "0", last_log_sequence: "0", caller_master_id: "", caller_session_id: "", last_log_epoch: "0" };
+}
+
+export const RequestVoteRequest: MessageFns<RequestVoteRequest> = {
+  encode(message: RequestVoteRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.epoch !== "0") {
+      writer.uint32(8).int64(message.epoch);
+    }
+    if (message.last_log_sequence !== "0") {
+      writer.uint32(16).int64(message.last_log_sequence);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(26).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(34).string(message.caller_session_id);
+    }
+    if (message.last_log_epoch !== "0") {
+      writer.uint32(40).int64(message.last_log_epoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RequestVoteRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRequestVoteRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.last_log_sequence = reader.int64().toString();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.last_log_epoch = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RequestVoteRequest {
+    return {
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+      last_log_sequence: isSet(object.lastLogSequence)
+        ? globalThis.String(object.lastLogSequence)
+        : isSet(object.last_log_sequence)
+        ? globalThis.String(object.last_log_sequence)
+        : "0",
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+      last_log_epoch: isSet(object.lastLogEpoch)
+        ? globalThis.String(object.lastLogEpoch)
+        : isSet(object.last_log_epoch)
+        ? globalThis.String(object.last_log_epoch)
+        : "0",
+    };
+  },
+
+  toJSON(message: RequestVoteRequest): unknown {
+    const obj: any = {};
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    if (message.last_log_sequence !== "0") {
+      obj.lastLogSequence = message.last_log_sequence;
+    }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    if (message.last_log_epoch !== "0") {
+      obj.lastLogEpoch = message.last_log_epoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RequestVoteRequest>, I>>(base?: I): RequestVoteRequest {
+    return RequestVoteRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RequestVoteRequest>, I>>(object: I): RequestVoteRequest {
+    const message = createBaseRequestVoteRequest();
+    message.epoch = object.epoch ?? "0";
+    message.last_log_sequence = object.last_log_sequence ?? "0";
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    message.last_log_epoch = object.last_log_epoch ?? "0";
+    return message;
+  },
+};
+
+function createBaseRequestVoteResponse(): RequestVoteResponse {
+  return { epoch: "0", vote_granted: false };
+}
+
+export const RequestVoteResponse: MessageFns<RequestVoteResponse> = {
+  encode(message: RequestVoteResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.epoch !== "0") {
+      writer.uint32(8).int64(message.epoch);
+    }
+    if (message.vote_granted !== false) {
+      writer.uint32(16).bool(message.vote_granted);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RequestVoteResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRequestVoteResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.vote_granted = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RequestVoteResponse {
+    return {
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+      vote_granted: isSet(object.voteGranted)
+        ? globalThis.Boolean(object.voteGranted)
+        : isSet(object.vote_granted)
+        ? globalThis.Boolean(object.vote_granted)
+        : false,
+    };
+  },
+
+  toJSON(message: RequestVoteResponse): unknown {
+    const obj: any = {};
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    if (message.vote_granted !== false) {
+      obj.voteGranted = message.vote_granted;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RequestVoteResponse>, I>>(base?: I): RequestVoteResponse {
+    return RequestVoteResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RequestVoteResponse>, I>>(object: I): RequestVoteResponse {
+    const message = createBaseRequestVoteResponse();
+    message.epoch = object.epoch ?? "0";
+    message.vote_granted = object.vote_granted ?? false;
+    return message;
+  },
+};
+
+function createBaseRecordLeaderHeartbeatRequest(): RecordLeaderHeartbeatRequest {
+  return { epoch: "0", last_committed_sequence: "0", caller_master_id: "", caller_session_id: "" };
+}
+
+export const RecordLeaderHeartbeatRequest: MessageFns<RecordLeaderHeartbeatRequest> = {
+  encode(message: RecordLeaderHeartbeatRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.epoch !== "0") {
+      writer.uint32(8).int64(message.epoch);
+    }
+    if (message.last_committed_sequence !== "0") {
+      writer.uint32(16).int64(message.last_committed_sequence);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(26).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(34).string(message.caller_session_id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordLeaderHeartbeatRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordLeaderHeartbeatRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.last_committed_sequence = reader.int64().toString();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RecordLeaderHeartbeatRequest {
+    return {
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+      last_committed_sequence: isSet(object.lastCommittedSequence)
+        ? globalThis.String(object.lastCommittedSequence)
+        : isSet(object.last_committed_sequence)
+        ? globalThis.String(object.last_committed_sequence)
+        : "0",
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+    };
+  },
+
+  toJSON(message: RecordLeaderHeartbeatRequest): unknown {
+    const obj: any = {};
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    if (message.last_committed_sequence !== "0") {
+      obj.lastCommittedSequence = message.last_committed_sequence;
+    }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordLeaderHeartbeatRequest>, I>>(base?: I): RecordLeaderHeartbeatRequest {
+    return RecordLeaderHeartbeatRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordLeaderHeartbeatRequest>, I>>(object: I): RecordLeaderHeartbeatRequest {
+    const message = createBaseRecordLeaderHeartbeatRequest();
+    message.epoch = object.epoch ?? "0";
+    message.last_committed_sequence = object.last_committed_sequence ?? "0";
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    return message;
+  },
+};
+
+function createBaseRecordLeaderHeartbeatResponse(): RecordLeaderHeartbeatResponse {
+  return { epoch: "0", accepted: false };
+}
+
+export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResponse> = {
+  encode(message: RecordLeaderHeartbeatResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.epoch !== "0") {
+      writer.uint32(8).int64(message.epoch);
+    }
+    if (message.accepted !== false) {
+      writer.uint32(16).bool(message.accepted);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RecordLeaderHeartbeatResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRecordLeaderHeartbeatResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.accepted = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RecordLeaderHeartbeatResponse {
+    return {
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+      accepted: isSet(object.accepted) ? globalThis.Boolean(object.accepted) : false,
+    };
+  },
+
+  toJSON(message: RecordLeaderHeartbeatResponse): unknown {
+    const obj: any = {};
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    if (message.accepted !== false) {
+      obj.accepted = message.accepted;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RecordLeaderHeartbeatResponse>, I>>(base?: I): RecordLeaderHeartbeatResponse {
+    return RecordLeaderHeartbeatResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RecordLeaderHeartbeatResponse>, I>>(
+    object: I,
+  ): RecordLeaderHeartbeatResponse {
+    const message = createBaseRecordLeaderHeartbeatResponse();
+    message.epoch = object.epoch ?? "0";
+    message.accepted = object.accepted ?? false;
+    return message;
+  },
+};
+
 export type MasterService = typeof MasterService;
 export const MasterService = {
   fetchMasterInfo: {
@@ -1308,6 +1751,26 @@ export const MasterService = {
     responseSerialize: (value: ForwardTaskResponse): Buffer => Buffer.from(ForwardTaskResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ForwardTaskResponse => ForwardTaskResponse.decode(value),
   },
+  requestVote: {
+    path: "/master.v1.Master/RequestVote" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RequestVoteRequest): Buffer => Buffer.from(RequestVoteRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RequestVoteRequest => RequestVoteRequest.decode(value),
+    responseSerialize: (value: RequestVoteResponse): Buffer => Buffer.from(RequestVoteResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RequestVoteResponse => RequestVoteResponse.decode(value),
+  },
+  recordLeaderHeartbeat: {
+    path: "/master.v1.Master/RecordLeaderHeartbeat" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RecordLeaderHeartbeatRequest): Buffer =>
+      Buffer.from(RecordLeaderHeartbeatRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RecordLeaderHeartbeatRequest => RecordLeaderHeartbeatRequest.decode(value),
+    responseSerialize: (value: RecordLeaderHeartbeatResponse): Buffer =>
+      Buffer.from(RecordLeaderHeartbeatResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RecordLeaderHeartbeatResponse => RecordLeaderHeartbeatResponse.decode(value),
+  },
 } as const;
 
 export interface MasterServer extends UntypedServiceImplementation {
@@ -1316,6 +1779,8 @@ export interface MasterServer extends UntypedServiceImplementation {
   fetchTaskEntries: handleUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>;
   fetchTaskPayload: handleUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>;
   forwardTask: handleUnaryCall<ForwardTaskRequest, ForwardTaskResponse>;
+  requestVote: handleUnaryCall<RequestVoteRequest, RequestVoteResponse>;
+  recordLeaderHeartbeat: handleUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>;
 }
 
 export interface MasterClient extends Client {
@@ -1393,6 +1858,36 @@ export interface MasterClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ForwardTaskResponse) => void,
+  ): ClientUnaryCall;
+  requestVote(
+    request: RequestVoteRequest,
+    callback: (error: ServiceError | null, response: RequestVoteResponse) => void,
+  ): ClientUnaryCall;
+  requestVote(
+    request: RequestVoteRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RequestVoteResponse) => void,
+  ): ClientUnaryCall;
+  requestVote(
+    request: RequestVoteRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RequestVoteResponse) => void,
+  ): ClientUnaryCall;
+  recordLeaderHeartbeat(
+    request: RecordLeaderHeartbeatRequest,
+    callback: (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  recordLeaderHeartbeat(
+    request: RecordLeaderHeartbeatRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void,
+  ): ClientUnaryCall;
+  recordLeaderHeartbeat(
+    request: RecordLeaderHeartbeatRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void,
   ): ClientUnaryCall;
 }
 

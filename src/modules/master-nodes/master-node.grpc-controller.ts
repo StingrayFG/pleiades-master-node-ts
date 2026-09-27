@@ -12,8 +12,12 @@ import type {
   FetchTaskPayloadResponse,
   ForwardTaskRequest,
   ForwardTaskResponse,
+  RecordLeaderHeartbeatRequest,
+  RecordLeaderHeartbeatResponse,
   RegisterMasterNodeRequest,
-  RegisterMasterNodeResponse
+  RegisterMasterNodeResponse,
+  RequestVoteRequest,
+  RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
 import { getGrpcPeerCertificateFingerprint } from '@/transports/grpc/server/auth/grpc-peer-auth';
 
@@ -22,7 +26,9 @@ import {
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcForwardTaskRequestToForwardTaskInternodeInput,
+  mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
   mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
+  mapGrpcRequestVoteRequestToRequestVoteInternodeInput,
   mapInternodeTaskEntryToGrpcTaskEntry
 } from './master-node.mappers';
 
@@ -48,6 +54,14 @@ type MasterNodeGrpcControllerContract = {
   forwardTask(
     call: ServerUnaryCall<ForwardTaskRequest, ForwardTaskResponse>,
     callback: sendUnaryData<ForwardTaskResponse>
+  ): Promise<void>;
+  requestVote(
+    call: ServerUnaryCall<RequestVoteRequest, RequestVoteResponse>,
+    callback: sendUnaryData<RequestVoteResponse>
+  ): Promise<void>;
+  recordLeaderHeartbeat(
+    call: ServerUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>,
+    callback: sendUnaryData<RecordLeaderHeartbeatResponse>
   ): Promise<void>;
 };
 
@@ -167,6 +181,61 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
 
     callback(null, {
       result: result === undefined ? undefined : Buffer.from(JSON.stringify(result))
+    });
+  }
+
+  async requestVote(
+    call: ServerUnaryCall<RequestVoteRequest, RequestVoteResponse>,
+    callback: sendUnaryData<RequestVoteResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcRequestVoteRequestToRequestVoteInternodeInput(call.request, certificateFingerprint);
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid vote request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    const result = await this.internodeService.requestVote(input);
+
+    callback(null, {
+      epoch: result.epoch.toString(),
+      vote_granted: result.voteGranted
+    });
+  }
+
+  async recordLeaderHeartbeat(
+    call: ServerUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>,
+    callback: sendUnaryData<RecordLeaderHeartbeatResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput(
+        call.request,
+        certificateFingerprint
+      );
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid leader heartbeat request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    const result = await this.internodeService.recordLeaderHeartbeat(input);
+
+    callback(null, {
+      epoch: result.epoch.toString(),
+      accepted: result.accepted
     });
   }
 }

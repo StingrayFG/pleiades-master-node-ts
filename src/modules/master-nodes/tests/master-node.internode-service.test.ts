@@ -12,6 +12,7 @@ import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domai
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -41,6 +42,8 @@ const consensusState: ConsensusState = {
   id: 'self',
   currentEpoch: 2n,
   leaderMasterId: selfMasterNodeId,
+  votedForMasterId: selfMasterNodeId,
+  lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
   lastCommittedSequence: 4n,
   lastAppliedSequence: 3n,
@@ -125,6 +128,21 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
   };
 };
 
+const createElectionServiceMock = (): jest.Mocked<ElectionServiceContract> => {
+  return {
+    requestVote: jest.fn<ElectionServiceContract['requestVote']>().mockResolvedValue({
+      epoch: consensusState.currentEpoch,
+      voteGranted: false
+    }),
+    recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>().mockResolvedValue({
+      epoch: consensusState.currentEpoch,
+      accepted: true
+    }),
+    runElection: jest.fn<ElectionServiceContract['runElection']>(),
+    broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>()
+  };
+};
+
 const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> => {
   return {
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>().mockResolvedValue(callerMasterNode),
@@ -137,6 +155,7 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
 describe('MasterNodeInternodeService', () => {
   let taskService: jest.Mocked<TaskServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
+  let electionService: jest.Mocked<ElectionServiceContract>;
   let clusterService: jest.Mocked<ClusterServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let service: MasterNodeInternodeService;
@@ -144,11 +163,13 @@ describe('MasterNodeInternodeService', () => {
   beforeEach(() => {
     taskService = createTaskServiceMock();
     consensusService = createConsensusServiceMock();
+    electionService = createElectionServiceMock();
     clusterService = createClusterServiceMock();
     masterNodeService = createMasterNodeServiceMock();
     service = new MasterNodeInternodeService(
       taskService,
       consensusService,
+      electionService,
       selfMasterNodeId,
       selfMasterNodeSessionId,
       clusterService,
@@ -193,6 +214,98 @@ describe('MasterNodeInternodeService', () => {
         scheme: callerMasterNode.scheme
       }
     });
+  });
+
+  test('delegates authenticated vote requests to the election service', async () => {
+    await expect(
+      service.requestVote({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).resolves.toEqual({
+      epoch: consensusState.currentEpoch,
+      voteGranted: false
+    });
+
+    expect(electionService.requestVote).toHaveBeenCalledWith({
+      candidateMasterNodeId: callerMasterNodeId,
+      epoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n
+    });
+  });
+
+  test('rejects vote requests from a draining candidate', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      mode: 'draining'
+    });
+
+    await expect(
+      service.requestVote({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(electionService.requestVote).not.toHaveBeenCalled();
+  });
+
+  test('delegates authenticated leader heartbeats to the election service', async () => {
+    await expect(
+      service.recordLeaderHeartbeat({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).resolves.toEqual({
+      epoch: consensusState.currentEpoch,
+      accepted: true
+    });
+
+    expect(electionService.recordLeaderHeartbeat).toHaveBeenCalledWith({
+      leaderMasterNodeId: callerMasterNodeId,
+      epoch: 3n,
+      lastCommittedSequence: 4n
+    });
+  });
+
+  test('rejects leader heartbeats from a draining master node', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      mode: 'draining'
+    });
+
+    await expect(
+      service.recordLeaderHeartbeat({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(electionService.recordLeaderHeartbeat).not.toHaveBeenCalled();
+  });
+
+  test('rejects a leader heartbeat when the authenticated record does not match the caller id', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      id: 'master-node-other'
+    });
+
+    await expect(
+      service.recordLeaderHeartbeat({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericForbiddenError);
+
+    expect(electionService.recordLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
   test('rejects registration from a different cluster', async () => {

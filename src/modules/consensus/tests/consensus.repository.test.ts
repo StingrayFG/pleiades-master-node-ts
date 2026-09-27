@@ -15,6 +15,9 @@ const prismaState: PrismaConsensusState = {
   id: CONSENSUS_STATE_ID,
   current_epoch: 2n,
   leader_master_id: 'master-node-a',
+  voted_for_master_id: 'master-node-a',
+  last_leader_contact_at: now,
+
   last_allocated_sequence: 4n,
   last_committed_sequence: 3n,
   last_applied_sequence: 2n,
@@ -27,6 +30,9 @@ const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
   leaderMasterId: 'master-node-a',
+  votedForMasterId: 'master-node-a',
+  lastLeaderContactAt: now,
+
   lastAllocatedSequence: 4n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,
@@ -283,18 +289,21 @@ describe('ConsensusStateRepository', () => {
       repository.claimLeadership({
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
-        leaderMasterId: 'master-node-b'
+        leaderMasterId: 'master-node-b',
+        lastLeaderContactAt: now
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
         leader_master_id: null,
-        current_epoch: { lt: 3n }
+        OR: [{ current_epoch: { lt: 3n } }, { current_epoch: 3n, voted_for_master_id: 'master-node-b' }]
       },
       data: {
         current_epoch: 3n,
         leader_master_id: 'master-node-b',
+        voted_for_master_id: 'master-node-b',
+        last_leader_contact_at: now,
         revision: { increment: 1 }
       }
     });
@@ -307,18 +316,21 @@ describe('ConsensusStateRepository', () => {
       repository.claimLeadership({
         id: CONSENSUS_STATE_ID,
         epoch: 10n,
-        leaderMasterId: 'master-node-b'
+        leaderMasterId: 'master-node-b',
+        lastLeaderContactAt: now
       })
     ).resolves.toBe(false);
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
         leader_master_id: null,
-        current_epoch: { lt: 10n }
+        OR: [{ current_epoch: { lt: 10n } }, { current_epoch: 10n, voted_for_master_id: 'master-node-b' }]
       },
       data: {
         current_epoch: 10n,
         leader_master_id: 'master-node-b',
+        voted_for_master_id: 'master-node-b',
+        last_leader_contact_at: now,
         revision: { increment: 1 }
       }
     });
@@ -329,18 +341,26 @@ describe('ConsensusStateRepository', () => {
       repository.acceptFollowership({
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
-        leaderMasterId: 'master-node-b'
+        leaderMasterId: 'master-node-b',
+        lastLeaderContactAt: now
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
-        current_epoch: { lte: 3n },
-        OR: [{ leader_master_id: null }, { leader_master_id: 'master-node-b' }]
+        OR: [
+          { current_epoch: { lt: 3n } },
+          {
+            current_epoch: 3n,
+            OR: [{ leader_master_id: null }, { leader_master_id: 'master-node-b' }]
+          }
+        ]
       },
       data: {
         current_epoch: 3n,
         leader_master_id: 'master-node-b',
+        voted_for_master_id: 'master-node-b',
+        last_leader_contact_at: now,
         revision: { increment: 1 }
       }
     });
@@ -353,9 +373,166 @@ describe('ConsensusStateRepository', () => {
       repository.acceptFollowership({
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
-        leaderMasterId: 'master-node-b'
+        leaderMasterId: 'master-node-b',
+        lastLeaderContactAt: now
       })
     ).resolves.toBe(false);
+  });
+
+  test('relinquishes leadership only for the expected leader and epoch', async () => {
+    await expect(
+      repository.relinquishLeadership({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a'
+      })
+    ).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-a'
+      },
+      data: {
+        leader_master_id: null,
+        last_leader_contact_at: null,
+        revision: { increment: 1 }
+      }
+    });
+  });
+
+  test('starts an election by advancing the epoch and voting for the candidate', async () => {
+    const electionPrismaState = {
+      ...prismaState,
+      current_epoch: 3n,
+      leader_master_id: null,
+      voted_for_master_id: 'master-node-b',
+      last_leader_contact_at: null,
+      revision: 6n
+    };
+
+    delegate.findUniqueOrThrow.mockResolvedValue(electionPrismaState);
+
+    await expect(
+      repository.startElection({
+        id: CONSENSUS_STATE_ID,
+        expectedEpoch: 2n,
+        electionEpoch: 3n,
+        candidateMasterNodeId: 'master-node-b'
+      })
+    ).resolves.toEqual({
+      ...state,
+      currentEpoch: 3n,
+      leaderMasterId: null,
+      votedForMasterId: 'master-node-b',
+      lastLeaderContactAt: null,
+      revision: 6n
+    });
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n
+      },
+      data: {
+        current_epoch: 3n,
+        leader_master_id: null,
+        voted_for_master_id: 'master-node-b',
+        last_leader_contact_at: null,
+        revision: { increment: 1 }
+      }
+    });
+  });
+
+  test('observes a newer epoch and clears local leader and vote state', async () => {
+    const observedPrismaState = {
+      ...prismaState,
+      current_epoch: 4n,
+      leader_master_id: null,
+      voted_for_master_id: null,
+      last_leader_contact_at: null,
+      revision: 6n
+    };
+
+    delegate.findUniqueOrThrow.mockResolvedValue(observedPrismaState);
+
+    await expect(repository.observeEpoch({ id: CONSENSUS_STATE_ID, epoch: 4n })).resolves.toEqual({
+      ...state,
+      currentEpoch: 4n,
+      leaderMasterId: null,
+      votedForMasterId: null,
+      lastLeaderContactAt: null,
+      revision: 6n
+    });
+  });
+
+  test('advances to a candidate epoch and persists one vote atomically', async () => {
+    const observedPrismaState = {
+      ...prismaState,
+      current_epoch: 3n,
+      leader_master_id: null,
+      voted_for_master_id: null,
+      last_leader_contact_at: null,
+      revision: 6n
+    };
+    const votedPrismaState = {
+      ...observedPrismaState,
+      voted_for_master_id: 'master-node-b',
+      revision: 7n
+    };
+
+    delegate.findUniqueOrThrow
+      .mockResolvedValueOnce(prismaState)
+      .mockResolvedValueOnce(observedPrismaState)
+      .mockResolvedValueOnce(votedPrismaState);
+
+    await expect(
+      repository.applyVoteRequest({
+        id: CONSENSUS_STATE_ID,
+        epoch: 3n,
+        candidateMasterNodeId: 'master-node-b',
+        candidateLogIsUpToDate: true
+      })
+    ).resolves.toEqual({
+      state: {
+        ...state,
+        currentEpoch: 3n,
+        leaderMasterId: null,
+        votedForMasterId: 'master-node-b',
+        lastLeaderContactAt: null,
+        revision: 7n
+      },
+      voteGranted: true
+    });
+    expect(delegate.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not grant a second vote in the same epoch', async () => {
+    delegate.findUniqueOrThrow.mockResolvedValue({
+      ...prismaState,
+      current_epoch: 3n,
+      leader_master_id: null,
+      voted_for_master_id: 'master-node-c',
+      last_leader_contact_at: null
+    });
+
+    await expect(
+      repository.applyVoteRequest({
+        id: CONSENSUS_STATE_ID,
+        epoch: 3n,
+        candidateMasterNodeId: 'master-node-b',
+        candidateLogIsUpToDate: true
+      })
+    ).resolves.toEqual({
+      state: {
+        ...state,
+        currentEpoch: 3n,
+        leaderMasterId: null,
+        votedForMasterId: 'master-node-c',
+        lastLeaderContactAt: null
+      },
+      voteGranted: false
+    });
+    expect(delegate.updateMany).not.toHaveBeenCalled();
   });
 
   test('propagates mapper errors from invalid persisted state', async () => {

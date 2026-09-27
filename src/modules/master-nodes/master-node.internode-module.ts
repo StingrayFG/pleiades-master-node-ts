@@ -1,5 +1,6 @@
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { MasterNodeConfig } from './master-node.config';
@@ -7,7 +8,10 @@ import type { MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import type { MasterNodeGrpcClientContract } from './master-node.grpc-client';
 import { MasterNodeGrpcController } from './master-node.grpc-controller';
 import { MasterNodeInternodeService } from './master-node.internode-service';
-import { MasterNodeReplicationHandler, type MasterNodeReplicationHandlerContract } from './master-node.replication-handler';
+import {
+  MasterNodeReplicationHandler,
+  type MasterNodeReplicationHandlerContract
+} from './master-node.replication-handler';
 import type { MasterNodeServiceContract } from './master-node.service';
 
 /* contract */
@@ -15,6 +19,7 @@ import type { MasterNodeServiceContract } from './master-node.service';
 type MasterNodeInternodeModuleDependencies = {
   taskService: TaskServiceContract;
   consensusService: ConsensusServiceContract;
+  electionService: ElectionServiceContract;
   selfMasterNodeId: MasterNodeId;
   selfMasterNodeSessionId: MasterNodeSessionId;
   clusterService: ClusterServiceContract;
@@ -34,6 +39,7 @@ type MasterNodeInternodeModule = {
 const createMasterNodeInternodeModule = ({
   taskService,
   consensusService,
+  electionService,
   selfMasterNodeId,
   selfMasterNodeSessionId,
   clusterService,
@@ -44,6 +50,7 @@ const createMasterNodeInternodeModule = ({
   const internodeService = new MasterNodeInternodeService(
     taskService,
     consensusService,
+    electionService,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService,

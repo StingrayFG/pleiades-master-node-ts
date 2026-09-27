@@ -21,6 +21,9 @@ export const consensusStateSchema = z
 
     currentEpoch: consensusEpochSchema,
     leaderMasterId: masterNodeIdSchema.nullable(),
+    votedForMasterId: masterNodeIdSchema.nullable(),
+    lastLeaderContactAt: z.date().nullable(),
+
     lastAllocatedSequence: consensusLastSequenceSchema,
     lastCommittedSequence: consensusLastSequenceSchema,
     lastAppliedSequence: consensusLastSequenceSchema,

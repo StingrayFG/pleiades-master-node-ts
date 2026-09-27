@@ -509,11 +509,13 @@ model ConsensusState {
   id String @id
 
   // consensus
-  current_epoch           BigInt  @default(0)
+  current_epoch           BigInt    @default(0)
   leader_master_id        String?
-  last_allocated_sequence BigInt  @default(-1)
-  last_committed_sequence BigInt  @default(-1)
-  last_applied_sequence   BigInt  @default(-1)
+  voted_for_master_id     String?
+  last_leader_contact_at  DateTime?
+  last_allocated_sequence BigInt    @default(-1)
+  last_committed_sequence BigInt    @default(-1)
+  last_applied_sequence   BigInt    @default(-1)
 
   // timestamps
   created_at DateTime @default(now())

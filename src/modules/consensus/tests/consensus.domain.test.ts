@@ -16,6 +16,9 @@ const state = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 0n,
   leaderMasterId: null,
+  votedForMasterId: null,
+  lastLeaderContactAt: null,
+
   lastAllocatedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
