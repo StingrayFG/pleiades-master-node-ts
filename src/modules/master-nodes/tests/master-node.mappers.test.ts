@@ -9,6 +9,8 @@ import { TaskExecutionScope } from '@/gen/proto/master/v1/master';
 import type { InternodeTaskEntry } from '../master-node.application';
 import type { MasterNode } from '../master-node.domain';
 import {
+  mapDomainMasterNodeToHttpMasterNodeResponse,
+  mapDomainMasterNodesToHttpMasterNodesResponse,
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
@@ -104,6 +106,32 @@ describe('master node mappers', () => {
       port: domainMasterNode.port,
       scheme: domainMasterNode.scheme
     });
+  });
+
+  test('maps master nodes to HTTP responses', () => {
+    const response = {
+      id: domainMasterNode.id,
+
+      certificateFingerprint: domainMasterNode.certificateFingerprint,
+      sessionId: domainMasterNode.sessionId,
+      state: domainMasterNode.state,
+      mode: domainMasterNode.mode,
+
+      hostname: domainMasterNode.hostname,
+      port: domainMasterNode.port,
+      scheme: domainMasterNode.scheme,
+
+      registeredAt: domainMasterNode.registeredAt.toISOString(),
+      lastContactAt: domainMasterNode.lastContactAt.toISOString(),
+      lastHealthCheckAt: domainMasterNode.lastHealthCheckAt?.toISOString() ?? null,
+      lastHeartbeatAt: domainMasterNode.lastHeartbeatAt?.toISOString() ?? null,
+      updatedAt: domainMasterNode.updatedAt.toISOString(),
+
+      revision: domainMasterNode.revision.toString()
+    };
+
+    expect(mapDomainMasterNodeToHttpMasterNodeResponse(domainMasterNode)).toEqual(response);
+    expect(mapDomainMasterNodesToHttpMasterNodesResponse([domainMasterNode])).toEqual([response]);
   });
 
   test('maps task-entry and payload gRPC requests to internode inputs', () => {

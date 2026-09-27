@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { GenericConflictError, GenericNotFoundError } from '@/errors/application.errors';
+import {
+  GenericAbortedError,
+  GenericConflictError,
+  GenericFailedPreconditionError,
+  GenericNotFoundError
+} from '@/errors/application.errors';
+import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ConsensusState } from '@/modules/consensus/consensus.domain';
+import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import type { RegisterMasterNodeInput } from '../master-node.application';
 import type { MasterNode } from '../master-node.domain';
@@ -49,26 +57,62 @@ const registrationInput: RegisterMasterNodeInput = {
   }
 };
 
+const consensusState: ConsensusState = {
+  id: 'self',
+  currentEpoch: 1n,
+  leaderMasterId: masterNodeId,
+  votedForMasterId: masterNodeId,
+  lastLeaderContactAt: lastContactAt,
+  lastAllocatedSequence: -1n,
+  lastCommittedSequence: -1n,
+  lastAppliedSequence: -1n,
+  createdAt: lastContactAt,
+  updatedAt: lastContactAt,
+  revision: 1n
+};
+
 /* mocks */
 
 const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContract> => {
   const repository = {
     listAll: jest.fn<MasterNodeRepositoryContract['listAll']>(),
     findById: jest.fn<MasterNodeRepositoryContract['findById']>(),
-    applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>()
+    applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>(),
+    transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>()
   };
 
   repository.listAll.mockResolvedValue([]);
   repository.findById.mockResolvedValue(null);
   repository.applyRegistration.mockResolvedValue(masterNode);
+  repository.transitionMode.mockResolvedValue(true);
 
   return repository;
+};
+
+const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {
+  return {
+    getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>().mockResolvedValue(consensusState)
+  } as unknown as jest.Mocked<ConsensusServiceContract>;
+};
+
+const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
+  return {
+    advanceMembershipRevision: jest.fn<ClusterServiceContract['advanceMembershipRevision']>().mockResolvedValue({
+      id: 'self',
+      clusterId: '00000000-0000-4000-8000-000000000001',
+      membershipRevision: 2n,
+      createdAt: lastContactAt,
+      updatedAt: lastContactAt
+    })
+  } as unknown as jest.Mocked<ClusterServiceContract>;
 };
 
 /* tests */
 
 describe('MasterNodeService', () => {
   let repository: jest.Mocked<MasterNodeRepositoryContract>;
+  let consensusService: jest.Mocked<ConsensusServiceContract>;
+  let clusterService: jest.Mocked<ClusterServiceContract>;
   let service: MasterNodeService;
 
   beforeEach(() => {
@@ -76,7 +120,9 @@ describe('MasterNodeService', () => {
     jest.setSystemTime(lastContactAt);
 
     repository = createMasterNodeRepositoryMock();
-    service = new MasterNodeService(repository);
+    consensusService = createConsensusServiceMock();
+    clusterService = createClusterServiceMock();
+    service = new MasterNodeService(repository, consensusService, clusterService, masterNodeId);
   });
 
   afterEach(() => {
@@ -147,5 +193,67 @@ describe('MasterNodeService', () => {
 
     await expect(service.registerMasterNode(conflictingInput)).rejects.toBeInstanceOf(GenericConflictError);
     expect(repository.applyRegistration).not.toHaveBeenCalled();
+  });
+
+  test('changes a master node mode and advances the membership revision', async () => {
+    const drainingMasterNode: MasterNode = {
+      ...masterNode,
+      mode: 'draining',
+      revision: 2n
+    };
+
+    repository.findById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
+
+    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
+    expect(repository.transitionMode).toHaveBeenCalledWith({
+      id: masterNodeId,
+      from: 'serving',
+      to: 'draining',
+      expectedRevision: masterNode.revision
+    });
+    expect(clusterService.advanceMembershipRevision).toHaveBeenCalledWith();
+  });
+
+  test('returns an already matching master node without another transition', async () => {
+    repository.findById.mockResolvedValue(masterNode);
+
+    await expect(service.setMasterNodeMode(masterNodeId, 'serving')).resolves.toBe(masterNode);
+    expect(repository.transitionMode).not.toHaveBeenCalled();
+    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
+  });
+
+  test('rejects mode changes submitted to a follower', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      leaderMasterId: 'master-node-fedcba654321'
+    });
+
+    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.transitionMode).not.toHaveBeenCalled();
+  });
+
+  test('accepts a concurrent transition that already reached the requested mode', async () => {
+    const drainingMasterNode: MasterNode = {
+      ...masterNode,
+      mode: 'draining',
+      revision: 2n
+    };
+
+    repository.findById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
+    repository.transitionMode.mockResolvedValue(false);
+
+    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
+    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
+  });
+
+  test('rejects a lost mode transition when the requested mode is not present', async () => {
+    repository.findById.mockResolvedValue(masterNode);
+    repository.transitionMode.mockResolvedValue(false);
+
+    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
+    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
   });
 });

@@ -178,6 +178,15 @@ export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNo
   lastContactAt: z.date()
 });
 
+export const transitionMasterNodeModeRepositoryInputSchema = z.object({
+  id: masterNodeIdSchema,
+
+  from: masterNodeModeSchema,
+  to: masterNodeModeSchema,
+
+  expectedRevision: z.bigint().nonnegative()
+});
+
 /* types */
 
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
@@ -205,3 +214,4 @@ export type RecordLeaderHeartbeatClientInput = z.infer<typeof recordLeaderHeartb
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
 >;
+export type TransitionMasterNodeModeRepositoryInput = z.infer<typeof transitionMasterNodeModeRepositoryInputSchema>;

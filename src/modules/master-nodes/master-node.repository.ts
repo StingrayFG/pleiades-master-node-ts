@@ -2,7 +2,10 @@ import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 
-import type { ApplyMasterNodeRegistrationRepositoryInput } from './master-node.application';
+import type {
+  ApplyMasterNodeRegistrationRepositoryInput,
+  TransitionMasterNodeModeRepositoryInput
+} from './master-node.application';
 import type { MasterNode, MasterNodeId } from './master-node.domain';
 import { mapPrismaMasterNodeToDomainMasterNode } from './master-node.mappers';
 
@@ -12,6 +15,7 @@ type MasterNodeRepositoryContract = {
   listAll(): Promise<MasterNode[]>;
   findById(id: MasterNodeId): Promise<MasterNode | null>;
   applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput): Promise<MasterNode>;
+  transitionMode(input: TransitionMasterNodeModeRepositoryInput): Promise<boolean>;
 };
 
 /* repository */
@@ -25,7 +29,11 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     let masterNodes;
 
     try {
-      masterNodes = await this.prisma.masterNode.findMany();
+      masterNodes = await this.prisma.masterNode.findMany({
+        orderBy: {
+          id: 'asc'
+        }
+      });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
@@ -94,6 +102,30 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     }
 
     return mapPrismaMasterNodeToDomainMasterNode(masterNode);
+  }
+
+  async transitionMode(input: TransitionMasterNodeModeRepositoryInput): Promise<boolean> {
+    let transitionResult;
+
+    try {
+      transitionResult = await this.prisma.masterNode.updateMany({
+        where: {
+          id: input.id,
+          mode: input.from,
+          revision: input.expectedRevision
+        },
+        data: {
+          mode: input.to,
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return transitionResult.count === 1;
   }
 }
 

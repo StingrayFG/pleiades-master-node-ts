@@ -104,6 +104,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     prisma,
     selfMasterNodeId,
     selfMasterNodeSessionId,
+    clusterService: clusterModule.service,
+    consensusService: consensusModule.service,
     grpcConfig: blobGrpcConfig,
     grpcClientCredentials
   });

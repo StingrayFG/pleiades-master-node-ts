@@ -84,12 +84,14 @@ const createMasterNodeDelegateMock = () => {
   const delegate = {
     findMany: jest.fn<() => Promise<PrismaMasterNode[]>>(),
     findUnique: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
-    upsert: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>()
+    upsert: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),
+    updateMany: jest.fn<(input: unknown) => Promise<{ count: number }>>()
   };
 
   delegate.findMany.mockResolvedValue([]);
   delegate.findUnique.mockResolvedValue(null);
   delegate.upsert.mockResolvedValue(prismaMasterNode);
+  delegate.updateMany.mockResolvedValue({ count: 1 });
 
   return delegate;
 };
@@ -114,7 +116,11 @@ describe('MasterNodeRepository', () => {
     delegate.findMany.mockResolvedValue([prismaMasterNode]);
 
     await expect(repository.listAll()).resolves.toEqual([domainMasterNode]);
-    expect(delegate.findMany).toHaveBeenCalledWith();
+    expect(delegate.findMany).toHaveBeenCalledWith({
+      orderBy: {
+        id: 'asc'
+      }
+    });
   });
 
   test('propagates mapper errors from invalid listed master nodes', async () => {
@@ -187,6 +193,43 @@ describe('MasterNodeRepository', () => {
     delegate.upsert.mockRejectedValue(createPrismaError('P2002'));
 
     await expect(repository.applyRegistration(registrationInput)).rejects.toBeInstanceOf(GenericAlreadyExistsError);
+  });
+
+  test('transitions a master node mode at the expected revision', async () => {
+    await expect(
+      repository.transitionMode({
+        id: masterNodeId,
+        from: 'serving',
+        to: 'draining',
+        expectedRevision: 1n
+      })
+    ).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId,
+        mode: 'serving',
+        revision: 1n
+      },
+      data: {
+        mode: 'draining',
+        revision: {
+          increment: 1
+        }
+      }
+    });
+  });
+
+  test('returns false when the master node mode transition loses its concurrency gate', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.transitionMode({
+        id: masterNodeId,
+        from: 'serving',
+        to: 'draining',
+        expectedRevision: 1n
+      })
+    ).resolves.toBe(false);
   });
 
   test('preserves unmapped Prisma failures', async () => {

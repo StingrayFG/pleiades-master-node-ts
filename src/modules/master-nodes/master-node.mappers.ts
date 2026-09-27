@@ -52,6 +52,7 @@ import {
   type MasterNodeCertificateFingerprint,
   type MasterNodeEndpoint
 } from './master-node.domain';
+import type { MasterNodeResponse, MasterNodesResponse } from './master-node.http-contracts';
 
 /* prisma -> domain */
 
@@ -88,6 +89,39 @@ export const mapMasterNodeToMasterNodeEndpoint = (masterNode: MasterNode): Maste
     port: masterNode.port,
     scheme: masterNode.scheme
   };
+};
+
+/* domain -> http */
+
+export const mapDomainMasterNodeToHttpMasterNodeResponse = (masterNode: MasterNode): MasterNodeResponse => {
+  return withMapperError('Failed to map domain master node to HTTP master node', () => {
+    return {
+      id: masterNode.id,
+
+      certificateFingerprint: masterNode.certificateFingerprint,
+      sessionId: masterNode.sessionId,
+      state: masterNode.state,
+      mode: masterNode.mode,
+
+      hostname: masterNode.hostname,
+      port: masterNode.port,
+      scheme: masterNode.scheme,
+
+      registeredAt: masterNode.registeredAt.toISOString(),
+      lastContactAt: masterNode.lastContactAt.toISOString(),
+      lastHealthCheckAt: masterNode.lastHealthCheckAt?.toISOString() ?? null,
+      lastHeartbeatAt: masterNode.lastHeartbeatAt?.toISOString() ?? null,
+      updatedAt: masterNode.updatedAt.toISOString(),
+
+      revision: masterNode.revision.toString()
+    };
+  });
+};
+
+export const mapDomainMasterNodesToHttpMasterNodesResponse = (masterNodes: MasterNode[]): MasterNodesResponse => {
+  return withMapperError('Failed to map domain master nodes to HTTP master nodes', () => {
+    return masterNodes.map(mapDomainMasterNodeToHttpMasterNodeResponse);
+  });
 };
 
 /* grpc -> application */

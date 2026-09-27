@@ -18,6 +18,7 @@ import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 // module routes
 import { createBootstrapHttpRoutes } from '@/modules/bootstrap/bootstrap.http-routes';
 import { createBucketHttpRoutes } from '@/modules/buckets/bucket.http-routes';
+import { createMasterNodeHttpRoutes } from '@/modules/master-nodes/master-node.http-routes';
 import { createObjectHttpRoutes } from '@/modules/objects/object.http-routes';
 import { createUserHttpRoutes } from '@/modules/users/user.http-routes';
 
@@ -75,6 +76,15 @@ app.register(
   }),
   {
     prefix: '/internal/bootstrap'
+  }
+);
+
+app.register(
+  createMasterNodeHttpRoutes({
+    controller: compositionRoot.masterNodeModule.controller
+  }),
+  {
+    prefix: '/internal/master-nodes'
   }
 );
 

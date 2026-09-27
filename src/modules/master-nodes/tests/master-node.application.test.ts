@@ -11,7 +11,8 @@ import {
   internodeTaskEntrySchema,
   registerMasterNodeClientInputSchema,
   registerMasterNodeInternodeInputSchema,
-  registerMasterNodeInputSchema
+  registerMasterNodeInputSchema,
+  transitionMasterNodeModeRepositoryInputSchema
 } from '../master-node.application';
 
 /* fixtures */
@@ -106,6 +107,17 @@ describe('master node application schemas', () => {
       ...registrationInput,
       lastContactAt
     });
+  });
+
+  test('accepts a gated master node mode transition', () => {
+    const input = {
+      id: registrationInput.id,
+      from: 'serving',
+      to: 'draining',
+      expectedRevision: 1n
+    } as const;
+
+    expect(transitionMasterNodeModeRepositoryInputSchema.parse(input)).toEqual(input);
   });
 
   test('accepts an internode task entry', () => {
