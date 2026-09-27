@@ -19,7 +19,7 @@ export const bootstrapAsFollowerInputSchema = z.object({
 export const masterBootstrapResultSchema = z.object({
   role: masterBootstrapRoleSchema,
   epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema.nullable()
+  leaderMasterId: masterNodeIdSchema
 });
 
 /* types */

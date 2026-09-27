@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/* schemas */
+/* field schemas */
 
 export const MASTER_BOOTSTRAP_ROLES = ['leader', 'follower'] as const;
 

@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-route';
 import {
   conflictHttpErrorResponseSchema,
-  internalServerErrorHttpErrorResponseSchema
+  internalServerErrorHttpErrorResponseSchema,
+  unauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
 import {
@@ -27,13 +28,14 @@ export const bootstrapFollowerBodySchema = z.object({
 
 export const bootstrapResultResponseSchema = z.object({
   role: masterBootstrapRoleSchema,
-  epoch: z.string(),
-  leaderMasterId: masterNodeIdSchema.nullable()
+  epoch: z.string().regex(/^\d+$/),
+  leaderMasterId: masterNodeIdSchema
 });
 
 export const bootstrapLeaderHttpSchema = {
   response: {
     200: bootstrapResultResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
     409: conflictHttpErrorResponseSchema,
     500: internalServerErrorHttpErrorResponseSchema
   }
@@ -43,6 +45,7 @@ export const bootstrapFollowerHttpSchema = {
   body: bootstrapFollowerBodySchema,
   response: {
     200: bootstrapResultResponseSchema,
+    401: unauthorizedHttpErrorResponseSchema,
     409: conflictHttpErrorResponseSchema,
     500: internalServerErrorHttpErrorResponseSchema
   }

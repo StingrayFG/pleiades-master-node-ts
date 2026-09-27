@@ -30,14 +30,16 @@ class BootstrapService implements BootstrapServiceContract {
     private readonly selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'>
   ) {}
 
-  async bootstrapAsLeader(): Promise<MasterBootstrapResult> {
-    const state = await this.consensusService.getConsensusState();
+  /* public methods */
 
-    if (state.leaderMasterId === this.selfMasterNode.id) {
+  async bootstrapAsLeader(): Promise<MasterBootstrapResult> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    if (consensusState.leaderMasterId === this.selfMasterNode.id) {
       throw new GenericConflictError('This master node is already the cluster leader');
     }
 
-    if (state.leaderMasterId !== null) {
+    if (consensusState.leaderMasterId !== null) {
       throw new GenericConflictError('Another master node is already the cluster leader');
     }
 
@@ -64,14 +66,14 @@ class BootstrapService implements BootstrapServiceContract {
     return {
       role: 'leader',
       epoch: leaderState.currentEpoch,
-      leaderMasterId: leaderState.leaderMasterId
+      leaderMasterId: this.selfMasterNode.id
     };
   }
 
   async bootstrapAsFollower(input: BootstrapAsFollowerInput): Promise<MasterBootstrapResult> {
-    const state = await this.consensusService.getConsensusState();
+    const consensusState = await this.consensusService.getConsensusState();
 
-    if (state.leaderMasterId === this.selfMasterNode.id) {
+    if (consensusState.leaderMasterId === this.selfMasterNode.id) {
       throw new GenericConflictError('This master node is the cluster leader and cannot become a follower');
     }
 
@@ -84,7 +86,7 @@ class BootstrapService implements BootstrapServiceContract {
       throw new GenericConflictError('A master node cannot follow itself');
     }
 
-    if (state.leaderMasterId !== null && state.leaderMasterId !== leaderInfo.masterId) {
+    if (consensusState.leaderMasterId !== null && consensusState.leaderMasterId !== leaderInfo.masterId) {
       throw new GenericConflictError('This master node already belongs to a different leader');
     }
 
@@ -114,7 +116,7 @@ class BootstrapService implements BootstrapServiceContract {
     return {
       role: 'follower',
       epoch: followerState.currentEpoch,
-      leaderMasterId: followerState.leaderMasterId
+      leaderMasterId: leaderInfo.masterId
     };
   }
 
