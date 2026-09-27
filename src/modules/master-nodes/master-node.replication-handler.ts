@@ -1,9 +1,12 @@
 import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
+import type { ClusterMembershipRevision } from '@/modules/cluster/cluster.domain';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { TaskSequence } from '@/modules/tasks/task.domain';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
-import type { InternodeTaskEntry } from './master-node.application';
+import type { FetchTaskEntriesInternodeResult, InternodeTaskEntry } from './master-node.application';
 import type { MasterNodeConfig } from './master-node.config';
 import type { MasterNodeCertificateFingerprint, MasterNodeEndpoint, MasterNodeId } from './master-node.domain';
 import type { MasterNodeGrpcClientContract } from './master-node.grpc-client';
@@ -47,6 +50,30 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       limit: this.masterNodeConfig.replication.batchSize
     });
 
+    this.verifyFetchResult(consensusState, fetchResult);
+
+    await this.synchronizeClusterMembership(
+      leaderEndpoint,
+      leader.certificateFingerprint,
+      fetchResult.clusterMembershipRevision
+    );
+
+    await this.consensusService.acceptFollowership(consensusState.leaderMasterId, fetchResult.epoch);
+
+    const replicatedThroughSequence = await this.replicateEntries(
+      leaderEndpoint,
+      leader.certificateFingerprint,
+      fetchResult.entries,
+      consensusState.lastCommittedSequence,
+      fetchResult.lastCommittedSequence
+    );
+
+    await this.reconcileTaskHistory(consensusState, replicatedThroughSequence, fetchResult.lastCommittedSequence);
+  }
+
+  /* private methods */
+
+  private verifyFetchResult(consensusState: ConsensusState, fetchResult: FetchTaskEntriesInternodeResult): void {
     if (fetchResult.epoch < consensusState.currentEpoch) {
       throw new GenericFailedPreconditionError('The leader returned a stale consensus epoch');
     }
@@ -58,68 +85,68 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
     if (fetchResult.entries.length > this.masterNodeConfig.replication.batchSize) {
       throw new GenericFailedPreconditionError('The leader returned more task entries than requested');
     }
+  }
 
+  private async synchronizeClusterMembership(
+    masterNodeEndpoint: MasterNodeEndpoint,
+    expectedCertificateFingerprint: MasterNodeCertificateFingerprint,
+    leaderMembershipRevision: ClusterMembershipRevision
+  ): Promise<void> {
     const cluster = await this.clusterService.getCluster();
 
-    if (fetchResult.clusterMembershipRevision < cluster.membershipRevision) {
+    if (leaderMembershipRevision < cluster.membershipRevision) {
       throw new GenericFailedPreconditionError('The leader returned a regressed cluster membership revision');
     }
 
-    if (fetchResult.clusterMembershipRevision > cluster.membershipRevision) {
-      const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
-        masterNodeEndpoint: leaderEndpoint,
-        expectedCertificateFingerprint: leader.certificateFingerprint
-      });
-
-      if (snapshot.cluster.membershipRevision < fetchResult.clusterMembershipRevision) {
-        throw new GenericFailedPreconditionError('The leader returned a stale cluster membership snapshot');
-      }
-
-      await this.clusterService.applyMembershipSnapshot(snapshot);
+    if (leaderMembershipRevision === cluster.membershipRevision) {
+      return;
     }
 
-    await this.consensusService.acceptFollowership(consensusState.leaderMasterId, fetchResult.epoch);
+    const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
+      masterNodeEndpoint,
+      expectedCertificateFingerprint
+    });
 
-    let replicatedThroughSequence = consensusState.lastCommittedSequence;
+    if (snapshot.cluster.membershipRevision < leaderMembershipRevision) {
+      throw new GenericFailedPreconditionError('The leader returned a stale cluster membership snapshot');
+    }
 
-    for (const entry of fetchResult.entries) {
+    await this.clusterService.applyMembershipSnapshot(snapshot);
+  }
+
+  private async replicateEntries(
+    masterNodeEndpoint: MasterNodeEndpoint,
+    expectedCertificateFingerprint: MasterNodeCertificateFingerprint,
+    entries: InternodeTaskEntry[],
+    initialSequence: TaskSequence,
+    leaderLastCommittedSequence: TaskSequence
+  ): Promise<TaskSequence> {
+    let replicatedThroughSequence = initialSequence;
+
+    for (const entry of entries) {
       if (entry.sequence !== replicatedThroughSequence + 1n) {
         throw new GenericFailedPreconditionError('The leader returned a non-contiguous task sequence');
       }
 
-      if (entry.sequence > fetchResult.lastCommittedSequence) {
+      if (entry.sequence > leaderLastCommittedSequence) {
         throw new GenericFailedPreconditionError('The leader returned an uncommitted task entry');
       }
 
       try {
-        await this.replicateEntry(leaderEndpoint, leader.certificateFingerprint, entry);
+        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry);
       } catch (err) {
         if (!(err instanceof GenericConflictError)) {
           throw err;
         }
 
         await this.taskService.deleteTasksFromSequence(entry.sequence);
-        await this.replicateEntry(leaderEndpoint, leader.certificateFingerprint, entry);
+        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry);
       }
 
       replicatedThroughSequence = entry.sequence;
     }
 
-    if (
-      replicatedThroughSequence === fetchResult.lastCommittedSequence &&
-      consensusState.lastAllocatedSequence > fetchResult.lastCommittedSequence
-    ) {
-      await this.taskService.deleteTasksFromSequence(fetchResult.lastCommittedSequence + 1n);
-    }
-
-    const nextCommittedSequence =
-      replicatedThroughSequence < fetchResult.lastCommittedSequence
-        ? replicatedThroughSequence
-        : fetchResult.lastCommittedSequence;
-
-    if (nextCommittedSequence > consensusState.lastCommittedSequence) {
-      await this.consensusService.advanceLastCommittedSequence(nextCommittedSequence);
-    }
+    return replicatedThroughSequence;
   }
 
   private async replicateEntry(
@@ -140,6 +167,26 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       ...entry,
       payload
     });
+  }
+
+  private async reconcileTaskHistory(
+    consensusState: ConsensusState,
+    replicatedThroughSequence: TaskSequence,
+    leaderLastCommittedSequence: TaskSequence
+  ): Promise<void> {
+    if (
+      replicatedThroughSequence === leaderLastCommittedSequence &&
+      consensusState.lastAllocatedSequence > leaderLastCommittedSequence
+    ) {
+      await this.taskService.deleteTasksFromSequence(leaderLastCommittedSequence + 1n);
+    }
+
+    const nextCommittedSequence =
+      replicatedThroughSequence < leaderLastCommittedSequence ? replicatedThroughSequence : leaderLastCommittedSequence;
+
+    if (nextCommittedSequence > consensusState.lastCommittedSequence) {
+      await this.consensusService.advanceLastCommittedSequence(nextCommittedSequence);
+    }
   }
 }
 
