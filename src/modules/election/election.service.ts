@@ -1,8 +1,9 @@
 import { GenericAbortedError, GenericConflictError, GenericInternalServerError } from '@/errors/application.errors';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { MasterNode, MasterNodeId } from '@/modules/master-nodes/master-node.domain';
+import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
+import { mapMasterNodeToMasterNodeEndpoint } from '@/modules/master-nodes/master-node.mappers';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -22,8 +23,11 @@ import {
 /* contract */
 
 type ElectionServiceContract = {
+  // rpc
   requestVote(input: RequestVoteInput): Promise<RequestVoteResult>;
   recordLeaderHeartbeat(input: RecordLeaderHeartbeatInput): Promise<RecordLeaderHeartbeatResult>;
+
+  // election
   runElection(): Promise<boolean>;
   broadcastLeaderHeartbeat(now?: Date): Promise<void>;
 };
@@ -134,7 +138,7 @@ class ElectionService implements ElectionServiceContract {
     const results = await Promise.allSettled(
       peers.map((masterNode) =>
         this.masterNodeGrpcClient.requestVote({
-          masterNodeEndpoint: this.toMasterNodeEndpoint(masterNode),
+          masterNodeEndpoint: mapMasterNodeToMasterNodeEndpoint(masterNode),
           expectedCertificateFingerprint: masterNode.certificateFingerprint,
           epoch: electionState.currentEpoch,
           lastLogEpoch: localLog.epoch,
@@ -218,7 +222,7 @@ class ElectionService implements ElectionServiceContract {
     const results = await Promise.allSettled(
       peers.map((masterNode) =>
         this.masterNodeGrpcClient.recordLeaderHeartbeat({
-          masterNodeEndpoint: this.toMasterNodeEndpoint(masterNode),
+          masterNodeEndpoint: mapMasterNodeToMasterNodeEndpoint(masterNode),
           expectedCertificateFingerprint: masterNode.certificateFingerprint,
           epoch: consensusState.currentEpoch,
           lastCommittedSequence: consensusState.lastCommittedSequence
@@ -244,9 +248,7 @@ class ElectionService implements ElectionServiceContract {
       1 +
       results.filter(
         (result) =>
-          result.status === 'fulfilled' &&
-          result.value.epoch === consensusState.currentEpoch &&
-          result.value.accepted
+          result.status === 'fulfilled' && result.value.epoch === consensusState.currentEpoch && result.value.accepted
       ).length;
 
     if (acceptedNodeCount >= resolveElectionQuorumSize(masterNodes.filter(isMasterNodeVotingMember).length)) {
@@ -287,18 +289,6 @@ class ElectionService implements ElectionServiceContract {
     return {
       epoch: lastTask.epoch,
       sequence: lastTask.sequence
-    };
-  }
-
-  private toMasterNodeEndpoint(masterNode: MasterNode): {
-    hostname: string;
-    port: number;
-    scheme: 'grpcs';
-  } {
-    return {
-      hostname: masterNode.hostname,
-      port: masterNode.port,
-      scheme: masterNode.scheme
     };
   }
 }

@@ -128,11 +128,13 @@ describe('master node application schemas', () => {
       fetchTaskEntriesInternodeResultSchema.parse({
         epoch: 0n,
         lastCommittedSequence: -1n,
+        clusterMembershipRevision: 0n,
         entries: []
       })
     ).toEqual({
       epoch: 0n,
       lastCommittedSequence: -1n,
+      clusterMembershipRevision: 0n,
       entries: []
     });
   });

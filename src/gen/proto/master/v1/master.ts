@@ -84,6 +84,7 @@ export interface FetchTaskEntriesResponse {
   epoch: string;
   last_committed_sequence: string;
   entries: TaskEntry[];
+  cluster_membership_revision: string;
 }
 
 export interface FetchTaskPayloadRequest {
@@ -116,6 +117,15 @@ export interface RegisterMasterNodeRequest {
 }
 
 export interface RegisterMasterNodeResponse {
+}
+
+export interface FetchClusterMembershipSnapshotRequest {
+  caller_master_id: string;
+  caller_session_id: string;
+}
+
+export interface FetchClusterMembershipSnapshotResponse {
+  snapshot: Buffer;
 }
 
 export interface ForwardTaskRequest {
@@ -489,7 +499,7 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
 };
 
 function createBaseFetchTaskEntriesResponse(): FetchTaskEntriesResponse {
-  return { epoch: "0", last_committed_sequence: "0", entries: [] };
+  return { epoch: "0", last_committed_sequence: "0", entries: [], cluster_membership_revision: "0" };
 }
 
 export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
@@ -502,6 +512,9 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
     }
     for (const v of message.entries) {
       TaskEntry.encode(v!, writer.uint32(26).fork()).join();
+    }
+    if (message.cluster_membership_revision !== "0") {
+      writer.uint32(32).int64(message.cluster_membership_revision);
     }
     return writer;
   },
@@ -537,6 +550,14 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
           message.entries.push(TaskEntry.decode(reader, reader.uint32()));
           continue;
         }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.cluster_membership_revision = reader.int64().toString();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -555,6 +576,11 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
         ? globalThis.String(object.last_committed_sequence)
         : "0",
       entries: globalThis.Array.isArray(object?.entries) ? object.entries.map((e: any) => TaskEntry.fromJSON(e)) : [],
+      cluster_membership_revision: isSet(object.clusterMembershipRevision)
+        ? globalThis.String(object.clusterMembershipRevision)
+        : isSet(object.cluster_membership_revision)
+        ? globalThis.String(object.cluster_membership_revision)
+        : "0",
     };
   },
 
@@ -569,6 +595,9 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
     if (message.entries?.length) {
       obj.entries = message.entries.map((e) => TaskEntry.toJSON(e));
     }
+    if (message.cluster_membership_revision !== "0") {
+      obj.clusterMembershipRevision = message.cluster_membership_revision;
+    }
     return obj;
   },
 
@@ -580,6 +609,7 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
     message.epoch = object.epoch ?? "0";
     message.last_committed_sequence = object.last_committed_sequence ?? "0";
     message.entries = object.entries?.map((e) => TaskEntry.fromPartial(e)) || [];
+    message.cluster_membership_revision = object.cluster_membership_revision ?? "0";
     return message;
   },
 };
@@ -1100,6 +1130,156 @@ export const RegisterMasterNodeResponse: MessageFns<RegisterMasterNodeResponse> 
   },
   fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(_: I): RegisterMasterNodeResponse {
     const message = createBaseRegisterMasterNodeResponse();
+    return message;
+  },
+};
+
+function createBaseFetchClusterMembershipSnapshotRequest(): FetchClusterMembershipSnapshotRequest {
+  return { caller_master_id: "", caller_session_id: "" };
+}
+
+export const FetchClusterMembershipSnapshotRequest: MessageFns<FetchClusterMembershipSnapshotRequest> = {
+  encode(message: FetchClusterMembershipSnapshotRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.caller_master_id !== "") {
+      writer.uint32(10).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(18).string(message.caller_session_id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchClusterMembershipSnapshotRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchClusterMembershipSnapshotRequest {
+    return {
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+    };
+  },
+
+  toJSON(message: FetchClusterMembershipSnapshotRequest): unknown {
+    const obj: any = {};
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
+    base?: I,
+  ): FetchClusterMembershipSnapshotRequest {
+    return FetchClusterMembershipSnapshotRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
+    object: I,
+  ): FetchClusterMembershipSnapshotRequest {
+    const message = createBaseFetchClusterMembershipSnapshotRequest();
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    return message;
+  },
+};
+
+function createBaseFetchClusterMembershipSnapshotResponse(): FetchClusterMembershipSnapshotResponse {
+  return { snapshot: Buffer.alloc(0) };
+}
+
+export const FetchClusterMembershipSnapshotResponse: MessageFns<FetchClusterMembershipSnapshotResponse> = {
+  encode(message: FetchClusterMembershipSnapshotResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.snapshot.length !== 0) {
+      writer.uint32(10).bytes(message.snapshot);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchClusterMembershipSnapshotResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.snapshot = Buffer.from(reader.bytes());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchClusterMembershipSnapshotResponse {
+    return { snapshot: isSet(object.snapshot) ? Buffer.from(bytesFromBase64(object.snapshot)) : Buffer.alloc(0) };
+  },
+
+  toJSON(message: FetchClusterMembershipSnapshotResponse): unknown {
+    const obj: any = {};
+    if (message.snapshot.length !== 0) {
+      obj.snapshot = base64FromBytes(message.snapshot);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
+    base?: I,
+  ): FetchClusterMembershipSnapshotResponse {
+    return FetchClusterMembershipSnapshotResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
+    object: I,
+  ): FetchClusterMembershipSnapshotResponse {
+    const message = createBaseFetchClusterMembershipSnapshotResponse();
+    message.snapshot = object.snapshot ?? Buffer.alloc(0);
     return message;
   },
 };
@@ -1720,6 +1900,19 @@ export const MasterService = {
       Buffer.from(RegisterMasterNodeResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RegisterMasterNodeResponse => RegisterMasterNodeResponse.decode(value),
   },
+  fetchClusterMembershipSnapshot: {
+    path: "/master.v1.Master/FetchClusterMembershipSnapshot" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: FetchClusterMembershipSnapshotRequest): Buffer =>
+      Buffer.from(FetchClusterMembershipSnapshotRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): FetchClusterMembershipSnapshotRequest =>
+      FetchClusterMembershipSnapshotRequest.decode(value),
+    responseSerialize: (value: FetchClusterMembershipSnapshotResponse): Buffer =>
+      Buffer.from(FetchClusterMembershipSnapshotResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): FetchClusterMembershipSnapshotResponse =>
+      FetchClusterMembershipSnapshotResponse.decode(value),
+  },
   fetchTaskEntries: {
     path: "/master.v1.Master/FetchTaskEntries" as const,
     requestStream: false as const,
@@ -1776,6 +1969,10 @@ export const MasterService = {
 export interface MasterServer extends UntypedServiceImplementation {
   fetchMasterInfo: handleUnaryCall<FetchMasterInfoRequest, FetchMasterInfoResponse>;
   registerMasterNode: handleUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>;
+  fetchClusterMembershipSnapshot: handleUnaryCall<
+    FetchClusterMembershipSnapshotRequest,
+    FetchClusterMembershipSnapshotResponse
+  >;
   fetchTaskEntries: handleUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>;
   fetchTaskPayload: handleUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>;
   forwardTask: handleUnaryCall<ForwardTaskRequest, ForwardTaskResponse>;
@@ -1813,6 +2010,21 @@ export interface MasterClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RegisterMasterNodeResponse) => void,
+  ): ClientUnaryCall;
+  fetchClusterMembershipSnapshot(
+    request: FetchClusterMembershipSnapshotRequest,
+    callback: (error: ServiceError | null, response: FetchClusterMembershipSnapshotResponse) => void,
+  ): ClientUnaryCall;
+  fetchClusterMembershipSnapshot(
+    request: FetchClusterMembershipSnapshotRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: FetchClusterMembershipSnapshotResponse) => void,
+  ): ClientUnaryCall;
+  fetchClusterMembershipSnapshot(
+    request: FetchClusterMembershipSnapshotRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: FetchClusterMembershipSnapshotResponse) => void,
   ): ClientUnaryCall;
   fetchTaskEntries(
     request: FetchTaskEntriesRequest,

@@ -7,14 +7,15 @@ import { GenericMapperError } from '@/errors/application.errors';
 import {
   TaskExecutionScope as GrpcTaskExecutionScope,
   type FetchMasterInfoResponse,
+  type RegisterMasterNodeRequest,
+  type FetchClusterMembershipSnapshotRequest,
   type FetchTaskEntriesRequest,
   type FetchTaskPayloadRequest,
   type ForwardTaskRequest,
-  type RecordLeaderHeartbeatRequest,
-  type RecordLeaderHeartbeatResponse,
-  type RegisterMasterNodeRequest,
   type RequestVoteRequest,
   type RequestVoteResponse,
+  type RecordLeaderHeartbeatRequest,
+  type RecordLeaderHeartbeatResponse,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
 import {
@@ -26,24 +27,31 @@ import {
 import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
 
 import {
+  internodeTaskEntrySchema,
   fetchMasterInfoInternodeResultSchema,
+  registerMasterNodeInternodeInputSchema,
+  fetchClusterMembershipSnapshotInternodeInputSchema,
   fetchTaskEntriesInternodeInputSchema,
   fetchTaskPayloadInternodeInputSchema,
   forwardTaskInternodeInputSchema,
-  internodeTaskEntrySchema,
-  recordLeaderHeartbeatInternodeInputSchema,
-  registerMasterNodeInternodeInputSchema,
   requestVoteInternodeInputSchema,
+  recordLeaderHeartbeatInternodeInputSchema,
+  type InternodeTaskEntry,
   type FetchMasterInfoInternodeResult,
+  type RegisterMasterNodeInternodeInput,
+  type FetchClusterMembershipSnapshotInternodeInput,
   type FetchTaskEntriesInternodeInput,
   type FetchTaskPayloadInternodeInput,
   type ForwardTaskInternodeInput,
-  type InternodeTaskEntry,
-  type RecordLeaderHeartbeatInternodeInput,
-  type RegisterMasterNodeInternodeInput,
-  type RequestVoteInternodeInput
+  type RequestVoteInternodeInput,
+  type RecordLeaderHeartbeatInternodeInput
 } from './master-node.application';
-import { masterNodeSchema, type MasterNode, type MasterNodeCertificateFingerprint } from './master-node.domain';
+import {
+  masterNodeSchema,
+  type MasterNode,
+  type MasterNodeCertificateFingerprint,
+  type MasterNodeEndpoint
+} from './master-node.domain';
 
 /* prisma -> domain */
 
@@ -72,6 +80,16 @@ export const mapPrismaMasterNodeToDomainMasterNode = (masterNode: PrismaMasterNo
   });
 };
 
+/* domain */
+
+export const mapMasterNodeToMasterNodeEndpoint = (masterNode: MasterNode): MasterNodeEndpoint => {
+  return {
+    hostname: masterNode.hostname,
+    port: masterNode.port,
+    scheme: masterNode.scheme
+  };
+};
+
 /* grpc -> application */
 
 export const mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult = (
@@ -84,57 +102,6 @@ export const mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult = (
       clusterId: response.cluster_id,
 
       epoch: BigInt(response.epoch)
-    });
-  });
-};
-
-export const mapGrpcRequestVoteResponseToRequestVoteResult = (response: RequestVoteResponse): RequestVoteResult => {
-  return withMapperError('Failed to map gRPC request vote response', () => {
-    return requestVoteResultSchema.parse({
-      epoch: BigInt(response.epoch),
-      voteGranted: response.vote_granted
-    });
-  });
-};
-
-export const mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult = (
-  response: RecordLeaderHeartbeatResponse
-): RecordLeaderHeartbeatResult => {
-  return withMapperError('Failed to map gRPC record leader heartbeat response', () => {
-    return recordLeaderHeartbeatResultSchema.parse({
-      epoch: BigInt(response.epoch),
-      accepted: response.accepted
-    });
-  });
-};
-
-export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
-  request: FetchTaskEntriesRequest,
-  callerCertificateFingerprint: MasterNodeCertificateFingerprint
-): FetchTaskEntriesInternodeInput => {
-  return withMapperError('Failed to map gRPC fetch task entries request', () => {
-    return fetchTaskEntriesInternodeInputSchema.parse({
-      callerMasterNodeId: request.caller_master_id,
-      callerMasterNodeSessionId: request.caller_session_id,
-      callerCertificateFingerprint,
-
-      afterSequence: BigInt(request.after_sequence),
-      limit: request.limit
-    });
-  });
-};
-
-export const mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput = (
-  request: FetchTaskPayloadRequest,
-  callerCertificateFingerprint: MasterNodeCertificateFingerprint
-): FetchTaskPayloadInternodeInput => {
-  return withMapperError('Failed to map gRPC fetch task payload request', () => {
-    return fetchTaskPayloadInternodeInputSchema.parse({
-      payloadId: request.payload_id,
-
-      callerMasterNodeId: request.caller_master_id,
-      callerMasterNodeSessionId: request.caller_session_id,
-      callerCertificateFingerprint
     });
   });
 };
@@ -156,6 +123,81 @@ export const mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput 
         port: request.port,
         scheme: request.scheme
       }
+    });
+  });
+};
+
+export const mapGrpcFetchClusterMembershipSnapshotRequestToFetchClusterMembershipSnapshotInternodeInput = (
+  request: FetchClusterMembershipSnapshotRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): FetchClusterMembershipSnapshotInternodeInput => {
+  return withMapperError('Failed to map gRPC fetch cluster membership snapshot request', () => {
+    return fetchClusterMembershipSnapshotInternodeInputSchema.parse({
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
+    });
+  });
+};
+
+export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
+  request: FetchTaskEntriesRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): FetchTaskEntriesInternodeInput => {
+  return withMapperError('Failed to map gRPC fetch task entries request', () => {
+    return fetchTaskEntriesInternodeInputSchema.parse({
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint,
+
+      afterSequence: BigInt(request.after_sequence),
+      limit: request.limit
+    });
+  });
+};
+
+export const mapGrpcTaskExecutionScopeToTaskExecutionScope = (scope: GrpcTaskExecutionScope): TaskExecutionScope => {
+  switch (scope) {
+    case GrpcTaskExecutionScope.TASK_EXECUTION_SCOPE_LOCAL:
+      return 'local';
+    case GrpcTaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER:
+      return 'cluster';
+    default:
+      throw new GenericMapperError(`Unsupported gRPC task execution scope: ${String(scope)}`);
+  }
+};
+
+export const mapGrpcTaskEntryToInternodeTaskEntry = (entry: GrpcTaskEntry): InternodeTaskEntry => {
+  return withMapperError('Failed to map gRPC task entry to internode task entry', () => {
+    return internodeTaskEntrySchema.parse({
+      id: entry.id,
+
+      originMasterNodeId: entry.origin_master_id,
+      epoch: BigInt(entry.epoch),
+      sequence: BigInt(entry.sequence),
+
+      type: entry.type,
+      executionScope: mapGrpcTaskExecutionScopeToTaskExecutionScope(entry.execution_scope),
+      data: JSON.parse(entry.data.toString('utf8')),
+
+      payloadId: entry.payload_id ?? null,
+
+      createdAt: entry.created_at
+    });
+  });
+};
+
+export const mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput = (
+  request: FetchTaskPayloadRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): FetchTaskPayloadInternodeInput => {
+  return withMapperError('Failed to map gRPC fetch task payload request', () => {
+    return fetchTaskPayloadInternodeInputSchema.parse({
+      payloadId: request.payload_id,
+
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
     });
   });
 };
@@ -193,6 +235,15 @@ export const mapGrpcRequestVoteRequestToRequestVoteInternodeInput = (
   });
 };
 
+export const mapGrpcRequestVoteResponseToRequestVoteResult = (response: RequestVoteResponse): RequestVoteResult => {
+  return withMapperError('Failed to map gRPC request vote response', () => {
+    return requestVoteResultSchema.parse({
+      epoch: BigInt(response.epoch),
+      voteGranted: response.vote_granted
+    });
+  });
+};
+
 export const mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput = (
   request: RecordLeaderHeartbeatRequest,
   callerCertificateFingerprint: MasterNodeCertificateFingerprint
@@ -209,22 +260,13 @@ export const mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternode
   });
 };
 
-export const mapGrpcTaskEntryToInternodeTaskEntry = (entry: GrpcTaskEntry): InternodeTaskEntry => {
-  return withMapperError('Failed to map gRPC task entry to internode task entry', () => {
-    return internodeTaskEntrySchema.parse({
-      id: entry.id,
-
-      originMasterNodeId: entry.origin_master_id,
-      epoch: BigInt(entry.epoch),
-      sequence: BigInt(entry.sequence),
-
-      type: entry.type,
-      executionScope: mapGrpcTaskExecutionScopeToTaskExecutionScope(entry.execution_scope),
-      data: JSON.parse(entry.data.toString('utf8')),
-
-      payloadId: entry.payload_id ?? null,
-
-      createdAt: entry.created_at
+export const mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult = (
+  response: RecordLeaderHeartbeatResponse
+): RecordLeaderHeartbeatResult => {
+  return withMapperError('Failed to map gRPC record leader heartbeat response', () => {
+    return recordLeaderHeartbeatResultSchema.parse({
+      epoch: BigInt(response.epoch),
+      accepted: response.accepted
     });
   });
 };
@@ -239,17 +281,6 @@ export const mapTaskExecutionScopeToGrpcTaskExecutionScope = (scope: TaskExecuti
       return GrpcTaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER;
     default:
       throw new GenericMapperError(`Unsupported task execution scope: ${String(scope)}`);
-  }
-};
-
-export const mapGrpcTaskExecutionScopeToTaskExecutionScope = (scope: GrpcTaskExecutionScope): TaskExecutionScope => {
-  switch (scope) {
-    case GrpcTaskExecutionScope.TASK_EXECUTION_SCOPE_LOCAL:
-      return 'local';
-    case GrpcTaskExecutionScope.TASK_EXECUTION_SCOPE_CLUSTER:
-      return 'cluster';
-    default:
-      throw new GenericMapperError(`Unsupported gRPC task execution scope: ${String(scope)}`);
   }
 };
 

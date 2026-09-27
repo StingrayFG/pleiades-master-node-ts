@@ -19,6 +19,7 @@ const createMasterNodeGrpcRoutes = ({ controller }: MasterNodeGrpcRoutesDependen
     masterService: {
       fetchMasterInfo: (call, callback) => controller.fetchMasterInfo(call, callback),
       registerMasterNode: (call, callback) => controller.registerMasterNode(call, callback),
+      fetchClusterMembershipSnapshot: (call, callback) => controller.fetchClusterMembershipSnapshot(call, callback),
       fetchTaskEntries: (call, callback) => controller.fetchTaskEntries(call, callback),
       fetchTaskPayload: (call, callback) => controller.fetchTaskPayload(call, callback),
       forwardTask: (call, callback) => controller.forwardTask(call, callback),

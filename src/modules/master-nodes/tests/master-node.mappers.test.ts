@@ -19,6 +19,7 @@ import {
   mapGrpcTaskEntryToInternodeTaskEntry,
   mapGrpcTaskExecutionScopeToTaskExecutionScope,
   mapInternodeTaskEntryToGrpcTaskEntry,
+  mapMasterNodeToMasterNodeEndpoint,
   mapPrismaMasterNodeToDomainMasterNode,
   mapTaskExecutionScopeToGrpcTaskExecutionScope
 } from '../master-node.mappers';
@@ -95,6 +96,14 @@ describe('master node mappers', () => {
     };
 
     expect(() => mapPrismaMasterNodeToDomainMasterNode(invalidMasterNode)).toThrow(GenericMapperError);
+  });
+
+  test('maps a master node to its endpoint', () => {
+    expect(mapMasterNodeToMasterNodeEndpoint(domainMasterNode)).toEqual({
+      hostname: domainMasterNode.hostname,
+      port: domainMasterNode.port,
+      scheme: domainMasterNode.scheme
+    });
   });
 
   test('maps task-entry and payload gRPC requests to internode inputs', () => {

@@ -1,17 +1,27 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
-import { GenericAlreadyExistsError } from '@/errors/application.errors';
+import { GenericAlreadyExistsError, GenericConflictError } from '@/errors/application.errors';
+import { mapPrismaMasterNodeToDomainMasterNode } from '@/modules/master-nodes/master-node.mappers';
 
 import type { CreateClusterRepositoryInput } from './cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from './cluster.domain';
 import { mapPrismaClusterToDomainCluster } from './cluster.mappers';
+import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 
 /* contract */
 
 type ClusterRepositoryContract = {
+  // find
   find(): Promise<Cluster | null>;
+  findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null>;
+
+  // create
   create(input: CreateClusterRepositoryInput): Promise<Cluster>;
+
+  // membership
+  advanceMembershipRevision(): Promise<Cluster>;
+  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
 /* repository */
@@ -27,6 +37,8 @@ const errorMap: PrismaErrorMapperOverrides = {
 
 class ClusterRepository implements ClusterRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
+
+  /* find methods */
 
   async find(): Promise<Cluster | null> {
     let cluster;
@@ -44,6 +56,56 @@ class ClusterRepository implements ClusterRepositoryContract {
     return cluster ? mapPrismaClusterToDomainCluster(cluster) : null;
   }
 
+  async findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null> {
+    let snapshot;
+
+    try {
+      snapshot = await this.prisma.$transaction(
+        async (transaction) => {
+          const cluster = await transaction.cluster.findUnique({
+            where: {
+              id: CLUSTER_RECORD_ID
+            }
+          });
+
+          if (!cluster) {
+            return null;
+          }
+
+          const masterNodes = await transaction.masterNode.findMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID
+            },
+            orderBy: {
+              id: 'asc'
+            }
+          });
+
+          return {
+            cluster,
+            masterNodes
+          };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead
+        }
+      );
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    if (!snapshot) {
+      return null;
+    }
+
+    return {
+      cluster: mapPrismaClusterToDomainCluster(snapshot.cluster),
+      masterNodes: snapshot.masterNodes.map(mapPrismaMasterNodeToDomainMasterNode)
+    };
+  }
+
+  /* create methods */
+
   async create(input: CreateClusterRepositoryInput): Promise<Cluster> {
     let cluster;
 
@@ -59,6 +121,132 @@ class ClusterRepository implements ClusterRepositoryContract {
     }
 
     return mapPrismaClusterToDomainCluster(cluster);
+  }
+
+  /* membership methods */
+
+  async advanceMembershipRevision(): Promise<Cluster> {
+    let cluster;
+
+    try {
+      cluster = await this.prisma.cluster.update({
+        where: {
+          id: CLUSTER_RECORD_ID
+        },
+        data: {
+          membership_revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaClusterToDomainCluster(cluster);
+  }
+
+  async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
+    try {
+      await this.prisma.$transaction(
+        async (transaction) => {
+          const cluster = await transaction.cluster.findUnique({
+            where: {
+              id: CLUSTER_RECORD_ID
+            }
+          });
+
+          if (!cluster) {
+            throw new GenericConflictError('The local cluster has not been registered');
+          }
+
+          if (cluster.cluster_id !== snapshot.cluster.clusterId) {
+            throw new GenericConflictError('Cluster membership snapshot belongs to a different cluster');
+          }
+
+          if (cluster.membership_revision > snapshot.cluster.membershipRevision) {
+            return;
+          }
+
+          const existingMasterNodes = await transaction.masterNode.findMany({
+            where: {
+              id: {
+                in: snapshot.masterNodes.map((masterNode) => masterNode.id)
+              }
+            }
+          });
+
+          for (const existingMasterNode of existingMasterNodes) {
+            const snapshotMasterNode = snapshot.masterNodes.find(
+              (masterNode) => masterNode.id === existingMasterNode.id
+            );
+
+            if (snapshotMasterNode?.certificateFingerprint !== existingMasterNode.certificate_fingerprint) {
+              throw new GenericConflictError('Cluster membership snapshot changes an existing master node certificate');
+            }
+          }
+
+          for (const masterNode of snapshot.masterNodes) {
+            await transaction.masterNode.upsert({
+              where: {
+                id: masterNode.id
+              },
+              create: {
+                id: masterNode.id,
+                cluster_record_id: CLUSTER_RECORD_ID,
+
+                certificate_fingerprint: masterNode.certificateFingerprint,
+                session_id: masterNode.sessionId,
+                state: masterNode.state,
+                mode: masterNode.mode,
+
+                hostname: masterNode.hostname,
+                port: masterNode.port,
+                scheme: masterNode.scheme,
+
+                registered_at: masterNode.registeredAt,
+                last_contact_at: masterNode.lastContactAt,
+                last_health_check_at: masterNode.lastHealthCheckAt,
+                last_heartbeat_at: masterNode.lastHeartbeatAt,
+                updated_at: masterNode.updatedAt,
+
+                revision: masterNode.revision
+              },
+              update: {
+                session_id: masterNode.sessionId,
+                state: masterNode.state,
+                mode: masterNode.mode,
+
+                hostname: masterNode.hostname,
+                port: masterNode.port,
+                scheme: masterNode.scheme,
+
+                last_contact_at: masterNode.lastContactAt,
+                last_health_check_at: masterNode.lastHealthCheckAt,
+                last_heartbeat_at: masterNode.lastHeartbeatAt,
+                updated_at: masterNode.updatedAt,
+
+                revision: masterNode.revision
+              }
+            });
+          }
+
+          await transaction.cluster.update({
+            where: {
+              id: CLUSTER_RECORD_ID
+            },
+            data: {
+              membership_revision: snapshot.cluster.membershipRevision
+            }
+          });
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead
+        }
+      );
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
   }
 }
 

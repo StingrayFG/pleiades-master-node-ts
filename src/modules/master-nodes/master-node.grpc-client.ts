@@ -5,13 +5,16 @@ import { Metadata } from '@grpc/grpc-js';
 import {
   MasterClient as GrpcMasterClient,
   type FetchMasterInfoResponse,
+  type RegisterMasterNodeResponse,
+  type FetchClusterMembershipSnapshotResponse,
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadResponse,
   type ForwardTaskResponse,
-  type RecordLeaderHeartbeatResponse,
-  type RegisterMasterNodeResponse,
-  type RequestVoteResponse
+  type RequestVoteResponse,
+  type RecordLeaderHeartbeatResponse
 } from '@/gen/proto/master/v1/master';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
+import { parseClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot.serializer';
 import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
@@ -21,20 +24,21 @@ import { mapGrpcErrorToInternodeApplicationError } from '@/transports/grpc/mappe
 import type {
   FetchMasterInfoClientInput,
   FetchMasterInfoInternodeResult,
+  RegisterMasterNodeClientInput,
+  FetchClusterMembershipSnapshotClientInput,
   FetchTaskEntriesClientInput,
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadClientInput,
   ForwardTaskClientInput,
-  RecordLeaderHeartbeatClientInput,
-  RegisterMasterNodeClientInput,
-  RequestVoteClientInput
+  RequestVoteClientInput,
+  RecordLeaderHeartbeatClientInput
 } from './master-node.application';
 import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
-  mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult,
+  mapGrpcTaskEntryToInternodeTaskEntry,
   mapGrpcRequestVoteResponseToRequestVoteResult,
-  mapGrpcTaskEntryToInternodeTaskEntry
+  mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult
 } from './master-node.mappers';
 
 /* contract */
@@ -42,6 +46,7 @@ import {
 type MasterNodeGrpcClientContract = {
   fetchMasterInfo(input: FetchMasterInfoClientInput): Promise<FetchMasterInfoInternodeResult>;
   registerMasterNode(input: RegisterMasterNodeClientInput): Promise<void>;
+  fetchClusterMembershipSnapshot(input: FetchClusterMembershipSnapshotClientInput): Promise<ClusterMembershipSnapshot>;
   fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer>;
   forwardTask(input: ForwardTaskClientInput): Promise<Buffer | undefined>;
@@ -114,6 +119,33 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     });
   }
 
+  async fetchClusterMembershipSnapshot(
+    input: FetchClusterMembershipSnapshotClientInput
+  ): Promise<ClusterMembershipSnapshot> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<FetchClusterMembershipSnapshotResponse>((resolve, reject) => {
+      client.fetchClusterMembershipSnapshot(
+        {
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
+
+    return parseClusterMembershipSnapshot(response.snapshot);
+  }
+
   async fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult> {
     const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
 
@@ -141,6 +173,7 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     return {
       epoch: BigInt(response.epoch),
       lastCommittedSequence: BigInt(response.last_committed_sequence),
+      clusterMembershipRevision: BigInt(response.cluster_membership_revision),
       entries: response.entries.map(mapGrpcTaskEntryToInternodeTaskEntry)
     };
   }
@@ -284,11 +317,12 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
 
 export { MasterNodeGrpcClient };
 export type {
+  FetchClusterMembershipSnapshotClientInput,
   FetchTaskEntriesClientInput,
   FetchTaskPayloadClientInput,
   ForwardTaskClientInput,
   MasterNodeGrpcClientContract,
-  RecordLeaderHeartbeatClientInput,
   RegisterMasterNodeClientInput,
-  RequestVoteClientInput
+  RequestVoteClientInput,
+  RecordLeaderHeartbeatClientInput
 };

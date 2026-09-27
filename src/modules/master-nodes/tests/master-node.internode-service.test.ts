@@ -34,6 +34,7 @@ const callerCertificateFingerprint = 'ab'.repeat(32);
 const cluster: Cluster = {
   id: CLUSTER_RECORD_ID,
   clusterId,
+  membershipRevision: 2n,
   createdAt: now,
   updatedAt: now
 };
@@ -90,6 +91,11 @@ const authenticatedCaller = {
   callerCertificateFingerprint
 };
 
+const clusterMembershipSnapshot = {
+  cluster,
+  masterNodes: [callerMasterNode]
+};
+
 /* mocks */
 
 const createTaskServiceMock = (): jest.Mocked<TaskServiceContract> => {
@@ -123,8 +129,15 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
 const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
   return {
     getCluster: jest.fn<ClusterServiceContract['getCluster']>().mockResolvedValue(cluster),
+    captureMembershipSnapshot: jest
+      .fn<ClusterServiceContract['captureMembershipSnapshot']>()
+      .mockResolvedValue(clusterMembershipSnapshot),
     initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>(),
-    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>()
+    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>(),
+    advanceMembershipRevision: jest
+      .fn<ClusterServiceContract['advanceMembershipRevision']>()
+      .mockResolvedValue(cluster),
+    applyMembershipSnapshot: jest.fn<ClusterServiceContract['applyMembershipSnapshot']>()
   };
 };
 
@@ -214,6 +227,7 @@ describe('MasterNodeInternodeService', () => {
         scheme: callerMasterNode.scheme
       }
     });
+    expect(clusterService.advanceMembershipRevision).toHaveBeenCalledWith();
   });
 
   test('delegates authenticated vote requests to the election service', async () => {
@@ -330,6 +344,7 @@ describe('MasterNodeInternodeService', () => {
     await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
+      clusterMembershipRevision: cluster.membershipRevision,
       entries: [
         {
           id: task.id,
@@ -358,8 +373,14 @@ describe('MasterNodeInternodeService', () => {
     await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: 4n, limit: 8 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
+      clusterMembershipRevision: cluster.membershipRevision,
       entries: []
     });
+  });
+
+  test('returns the cluster membership snapshot to an authenticated master node', async () => {
+    await expect(service.fetchClusterMembershipSnapshot(authenticatedCaller)).resolves.toBe(clusterMembershipSnapshot);
+    expect(clusterService.captureMembershipSnapshot).toHaveBeenCalledWith();
   });
 
   test('retrieves a task payload from byte storage', async () => {

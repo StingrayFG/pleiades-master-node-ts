@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { GenericConflictError } from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type {
@@ -21,6 +22,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const cluster: Cluster = {
   id: CLUSTER_RECORD_ID,
   clusterId: '00000000-0000-4000-8000-000000000010',
+  membershipRevision: 1n,
   createdAt: now,
   updatedAt: now
 };
@@ -61,6 +63,28 @@ const leaderEndpoint = {
 };
 
 const leaderCertificateFingerprint = 'cd'.repeat(32);
+
+const leaderMasterNode: MasterNode = {
+  id: leaderMasterNodeId,
+  certificateFingerprint: leaderCertificateFingerprint,
+  sessionId: leaderMasterNodeSessionId,
+  state: 'active',
+  mode: 'serving',
+  hostname: leaderEndpoint.hostname,
+  port: leaderEndpoint.port,
+  scheme: leaderEndpoint.scheme,
+  registeredAt: now,
+  lastContactAt: now,
+  lastHealthCheckAt: null,
+  lastHeartbeatAt: null,
+  updatedAt: now,
+  revision: 1n
+};
+
+const clusterMembershipSnapshot: ClusterMembershipSnapshot = {
+  cluster,
+  masterNodes: [leaderMasterNode, masterNode]
+};
 
 const leaderInfo: FetchMasterInfoInternodeResult = {
   masterId: leaderMasterNodeId,
@@ -111,8 +135,15 @@ const followerInput = {
 const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
   return {
     getCluster: jest.fn<ClusterServiceContract['getCluster']>().mockResolvedValue(cluster),
+    captureMembershipSnapshot: jest
+      .fn<ClusterServiceContract['captureMembershipSnapshot']>()
+      .mockResolvedValue(clusterMembershipSnapshot),
     initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>().mockResolvedValue(cluster),
-    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>().mockResolvedValue(cluster)
+    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>().mockResolvedValue(cluster),
+    advanceMembershipRevision: jest
+      .fn<ClusterServiceContract['advanceMembershipRevision']>()
+      .mockResolvedValue(cluster),
+    applyMembershipSnapshot: jest.fn<ClusterServiceContract['applyMembershipSnapshot']>().mockResolvedValue()
   };
 };
 
@@ -134,6 +165,9 @@ const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContr
   return {
     fetchMasterInfo: jest.fn<MasterNodeGrpcClientContract['fetchMasterInfo']>().mockResolvedValue(leaderInfo),
     registerMasterNode: jest.fn<MasterNodeGrpcClientContract['registerMasterNode']>().mockResolvedValue(),
+    fetchClusterMembershipSnapshot: jest
+      .fn<MasterNodeGrpcClientContract['fetchClusterMembershipSnapshot']>()
+      .mockResolvedValue(clusterMembershipSnapshot),
     fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcClientContract['fetchTaskPayload']>(),
     close: jest.fn<MasterNodeGrpcClientContract['close']>()
@@ -179,7 +213,7 @@ describe('BootstrapService', () => {
     expect(consensusService.bootstrapLeadership).toHaveBeenCalledWith(selfMasterNodeId);
   });
 
-  test('fetches the leader information and registers the cluster and both master rows', async () => {
+  test('registers with the leader and installs its authenticated cluster membership snapshot', async () => {
     await expect(service.bootstrapAsFollower(followerInput)).resolves.toEqual({
       role: 'follower',
       epoch: followerState.currentEpoch,
@@ -191,19 +225,6 @@ describe('BootstrapService', () => {
       expectedCertificateFingerprint: leaderCertificateFingerprint
     });
     expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
-    expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(1, {
-      id: leaderMasterNodeId,
-      certificateFingerprint: leaderCertificateFingerprint,
-      sessionId: leaderMasterNodeSessionId,
-      state: 'active',
-      mode: 'serving',
-      endpoint: leaderEndpoint
-    });
-    expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(2, {
-      ...selfMasterNode,
-      state: 'joining',
-      mode: 'serving'
-    });
     expect(masterNodeGrpcClient.registerMasterNode).toHaveBeenCalledWith({
       masterNodeEndpoint: leaderEndpoint,
       expectedCertificateFingerprint: leaderCertificateFingerprint,
@@ -212,20 +233,17 @@ describe('BootstrapService', () => {
       clusterId: cluster.clusterId,
       endpoint: selfMasterNode.endpoint
     });
-    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, leaderInfo.epoch);
-    expect(masterNodeService.registerMasterNode).toHaveBeenNthCalledWith(3, {
-      ...selfMasterNode,
-      state: 'active',
-      mode: 'serving'
+    expect(masterNodeGrpcClient.fetchClusterMembershipSnapshot).toHaveBeenCalledWith({
+      masterNodeEndpoint: leaderEndpoint,
+      expectedCertificateFingerprint: leaderCertificateFingerprint
     });
-    expect(masterNodeService.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
-      consensusService.acceptFollowership.mock.invocationCallOrder[0]
-    );
+    expect(clusterService.applyMembershipSnapshot).toHaveBeenCalledWith(clusterMembershipSnapshot);
+    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, leaderInfo.epoch);
     expect(masterNodeGrpcClient.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
-      consensusService.acceptFollowership.mock.invocationCallOrder[0]
+      masterNodeGrpcClient.fetchClusterMembershipSnapshot.mock.invocationCallOrder[0]
     );
-    expect(clusterService.registerCluster.mock.invocationCallOrder[0]).toBeLessThan(
-      masterNodeService.registerMasterNode.mock.invocationCallOrder[0]
+    expect(clusterService.applyMembershipSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+      consensusService.acceptFollowership.mock.invocationCallOrder[0]
     );
   });
 
@@ -291,24 +309,24 @@ describe('BootstrapService', () => {
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
 
-  test('does not accept followership when the leader row cannot be registered', async () => {
-    const registrationError = new Error('Master node storage unavailable');
-
-    masterNodeService.registerMasterNode.mockRejectedValueOnce(registrationError);
-
-    await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(registrationError);
-    expect(clusterService.registerCluster).toHaveBeenCalledWith(cluster.clusterId);
-    expect(masterNodeService.registerMasterNode).toHaveBeenCalledTimes(1);
-    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
-  });
-
   test('does not accept followership when leader-side registration fails', async () => {
     const registrationError = new Error('Leader rejected master node registration');
 
     masterNodeGrpcClient.registerMasterNode.mockRejectedValue(registrationError);
 
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBe(registrationError);
-    expect(masterNodeService.registerMasterNode).toHaveBeenCalledTimes(2);
+    expect(masterNodeGrpcClient.fetchClusterMembershipSnapshot).not.toHaveBeenCalled();
+    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
+  });
+
+  test('does not accept followership when the membership snapshot does not contain the registered local node', async () => {
+    masterNodeGrpcClient.fetchClusterMembershipSnapshot.mockResolvedValue({
+      ...clusterMembershipSnapshot,
+      masterNodes: [leaderMasterNode]
+    });
+
+    await expect(service.bootstrapAsFollower(followerInput)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(clusterService.applyMembershipSnapshot).not.toHaveBeenCalled();
     expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
   });
 });

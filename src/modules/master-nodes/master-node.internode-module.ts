@@ -64,6 +64,7 @@ const createMasterNodeInternodeModule = ({
     masterNodeService,
     taskService,
     consensusService,
+    clusterService,
     selfMasterNodeId,
     masterNodeConfig
   );

@@ -8,6 +8,7 @@ import { GenericMapperError } from '@/errors/application.errors';
 import { InternodeUnavailableError } from '@/errors/internode.errors';
 import type {
   FetchMasterInfoResponse,
+  FetchClusterMembershipSnapshotResponse,
   FetchTaskEntriesResponse,
   FetchTaskPayloadResponse,
   MasterClient as GrpcMasterClient,
@@ -49,6 +50,7 @@ const masterInfoResponse: FetchMasterInfoResponse = {
 const entriesResponse: FetchTaskEntriesResponse = {
   epoch: '2',
   last_committed_sequence: '4',
+  cluster_membership_revision: '3',
   entries: [
     {
       id: '00000000-0000-4000-8000-000000000002',
@@ -78,10 +80,29 @@ const heartbeatResponse: RecordLeaderHeartbeatResponse = {
   accepted: true
 };
 
+const clusterMembershipSnapshotResponse: FetchClusterMembershipSnapshotResponse = {
+  snapshot: Buffer.from(
+    JSON.stringify({
+      cluster: {
+        id: 'self',
+        clusterId: masterInfoResponse.cluster_id,
+        membershipRevision: '3',
+        createdAt: createdAt.toISOString(),
+        updatedAt: createdAt.toISOString()
+      },
+      masterNodes: []
+    })
+  )
+};
+
 /* mocks */
 
 type EntriesCallback = (error: ServiceError | null, response: FetchTaskEntriesResponse) => void;
 type MasterInfoCallback = (error: ServiceError | null, response: FetchMasterInfoResponse) => void;
+type ClusterMembershipSnapshotCallback = (
+  error: ServiceError | null,
+  response: FetchClusterMembershipSnapshotResponse
+) => void;
 type PayloadCallback = (error: ServiceError | null, response: FetchTaskPayloadResponse) => void;
 type RegistrationCallback = (error: ServiceError | null, response: RegisterMasterNodeResponse) => void;
 type VoteCallback = (error: ServiceError | null, response: RequestVoteResponse) => void;
@@ -93,6 +114,9 @@ type GrpcMasterClientMock = {
   >;
   registerMasterNode: jest.Mock<
     (_request: unknown, _metadata: unknown, _options: unknown, callback: RegistrationCallback) => void
+  >;
+  fetchClusterMembershipSnapshot: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: ClusterMembershipSnapshotCallback) => void
   >;
   fetchTaskEntries: jest.Mock<
     (_request: unknown, _metadata: unknown, _options: unknown, callback: EntriesCallback) => void
@@ -161,6 +185,11 @@ describe('MasterNodeGrpcClient', () => {
         registerMasterNode: jest.fn((_request, _metadata, _options, callback: RegistrationCallback) => {
           callback(null, {});
         }),
+        fetchClusterMembershipSnapshot: jest.fn(
+          (_request, _metadata, _options, callback: ClusterMembershipSnapshotCallback) => {
+            callback(null, clusterMembershipSnapshotResponse);
+          }
+        ),
         fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
           callback(null, entriesResponse);
         }),
@@ -221,6 +250,7 @@ describe('MasterNodeGrpcClient', () => {
           });
         }),
         registerMasterNode: jest.fn(),
+        fetchClusterMembershipSnapshot: jest.fn(),
         fetchTaskEntries: jest.fn(),
         fetchTaskPayload: jest.fn(),
         requestVote: jest.fn(),
@@ -268,6 +298,37 @@ describe('MasterNodeGrpcClient', () => {
         hostname: 'follower.internal',
         port: 4410,
         scheme: 'grpcs'
+      },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('fetches and validates the authenticated cluster membership snapshot', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+
+    await expect(
+      client.fetchClusterMembershipSnapshot({
+        masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint
+      })
+    ).resolves.toEqual({
+      cluster: {
+        id: 'self',
+        clusterId: masterInfoResponse.cluster_id,
+        membershipRevision: 3n,
+        createdAt,
+        updatedAt: createdAt
+      },
+      masterNodes: []
+    });
+
+    expect(createdClients[0].fetchClusterMembershipSnapshot).toHaveBeenCalledWith(
+      {
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId
       },
       expect.any(Metadata),
       expect.objectContaining({ deadline: expect.any(Date) }),
@@ -349,6 +410,7 @@ describe('MasterNodeGrpcClient', () => {
     ).resolves.toEqual({
       epoch: 2n,
       lastCommittedSequence: 4n,
+      clusterMembershipRevision: 3n,
       entries: [
         {
           id: entriesResponse.entries[0].id,
@@ -463,6 +525,7 @@ describe('MasterNodeGrpcClient', () => {
       const grpcClient: GrpcMasterClientMock = {
         fetchMasterInfo: jest.fn(),
         registerMasterNode: jest.fn(),
+        fetchClusterMembershipSnapshot: jest.fn(),
         fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
           callback(grpcError, entriesResponse);
         }),
@@ -495,6 +558,7 @@ describe('MasterNodeGrpcClient', () => {
       const grpcClient: GrpcMasterClientMock = {
         fetchMasterInfo: jest.fn(),
         registerMasterNode: jest.fn(),
+        fetchClusterMembershipSnapshot: jest.fn(),
         fetchTaskEntries: jest.fn((_request, _metadata, _options, callback: EntriesCallback) => {
           callback(null, {
             ...entriesResponse,

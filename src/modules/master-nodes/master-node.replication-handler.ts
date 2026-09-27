@@ -1,4 +1,5 @@
 import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
+import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -6,6 +7,7 @@ import type { InternodeTaskEntry } from './master-node.application';
 import type { MasterNodeConfig } from './master-node.config';
 import type { MasterNodeCertificateFingerprint, MasterNodeEndpoint, MasterNodeId } from './master-node.domain';
 import type { MasterNodeGrpcClientContract } from './master-node.grpc-client';
+import { mapMasterNodeToMasterNodeEndpoint } from './master-node.mappers';
 import type { MasterNodeServiceContract } from './master-node.service';
 
 /* contract */
@@ -22,6 +24,7 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
     private readonly masterNodeService: MasterNodeServiceContract,
     private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
+    private readonly clusterService: ClusterServiceContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly masterNodeConfig: MasterNodeConfig
   ) {}
@@ -35,11 +38,7 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
 
     const leader = await this.masterNodeService.getMasterNodeById(consensusState.leaderMasterId);
 
-    const leaderEndpoint: MasterNodeEndpoint = {
-      hostname: leader.hostname,
-      port: leader.port,
-      scheme: leader.scheme
-    };
+    const leaderEndpoint = mapMasterNodeToMasterNodeEndpoint(leader);
 
     const fetchResult = await this.masterNodeGrpcClient.fetchTaskEntries({
       masterNodeEndpoint: leaderEndpoint,
@@ -58,6 +57,25 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
 
     if (fetchResult.entries.length > this.masterNodeConfig.replication.batchSize) {
       throw new GenericFailedPreconditionError('The leader returned more task entries than requested');
+    }
+
+    const cluster = await this.clusterService.getCluster();
+
+    if (fetchResult.clusterMembershipRevision < cluster.membershipRevision) {
+      throw new GenericFailedPreconditionError('The leader returned a regressed cluster membership revision');
+    }
+
+    if (fetchResult.clusterMembershipRevision > cluster.membershipRevision) {
+      const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
+        masterNodeEndpoint: leaderEndpoint,
+        expectedCertificateFingerprint: leader.certificateFingerprint
+      });
+
+      if (snapshot.cluster.membershipRevision < fetchResult.clusterMembershipRevision) {
+        throw new GenericFailedPreconditionError('The leader returned a stale cluster membership snapshot');
+      }
+
+      await this.clusterService.applyMembershipSnapshot(snapshot);
     }
 
     await this.consensusService.acceptFollowership(consensusState.leaderMasterId, fetchResult.epoch);

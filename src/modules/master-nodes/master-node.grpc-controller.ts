@@ -6,30 +6,34 @@ import { GenericBadRequestError, GenericMapperError } from '@/errors/application
 import type {
   FetchMasterInfoRequest,
   FetchMasterInfoResponse,
+  RegisterMasterNodeRequest,
+  RegisterMasterNodeResponse,
+  FetchClusterMembershipSnapshotRequest,
+  FetchClusterMembershipSnapshotResponse,
   FetchTaskEntriesRequest,
   FetchTaskEntriesResponse,
   FetchTaskPayloadRequest,
   FetchTaskPayloadResponse,
   ForwardTaskRequest,
   ForwardTaskResponse,
-  RecordLeaderHeartbeatRequest,
-  RecordLeaderHeartbeatResponse,
-  RegisterMasterNodeRequest,
-  RegisterMasterNodeResponse,
   RequestVoteRequest,
-  RequestVoteResponse
+  RequestVoteResponse,
+  RecordLeaderHeartbeatRequest,
+  RecordLeaderHeartbeatResponse
 } from '@/gen/proto/master/v1/master';
+import { serializeClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot.serializer';
 import { getGrpcPeerCertificateFingerprint } from '@/transports/grpc/server/auth/grpc-peer-auth';
 
 import type { MasterNodeInternodeServiceContract } from './master-node.internode-service';
 import {
+  mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
+  mapGrpcFetchClusterMembershipSnapshotRequestToFetchClusterMembershipSnapshotInternodeInput,
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
+  mapInternodeTaskEntryToGrpcTaskEntry,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcForwardTaskRequestToForwardTaskInternodeInput,
-  mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
-  mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
   mapGrpcRequestVoteRequestToRequestVoteInternodeInput,
-  mapInternodeTaskEntryToGrpcTaskEntry
+  mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput
 } from './master-node.mappers';
 
 /* contract */
@@ -42,6 +46,10 @@ type MasterNodeGrpcControllerContract = {
   registerMasterNode(
     call: ServerUnaryCall<RegisterMasterNodeRequest, RegisterMasterNodeResponse>,
     callback: sendUnaryData<RegisterMasterNodeResponse>
+  ): Promise<void>;
+  fetchClusterMembershipSnapshot(
+    call: ServerUnaryCall<FetchClusterMembershipSnapshotRequest, FetchClusterMembershipSnapshotResponse>,
+    callback: sendUnaryData<FetchClusterMembershipSnapshotResponse>
   ): Promise<void>;
   fetchTaskEntries(
     call: ServerUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>,
@@ -107,6 +115,34 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
     callback(null, {});
   }
 
+  async fetchClusterMembershipSnapshot(
+    call: ServerUnaryCall<FetchClusterMembershipSnapshotRequest, FetchClusterMembershipSnapshotResponse>,
+    callback: sendUnaryData<FetchClusterMembershipSnapshotResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcFetchClusterMembershipSnapshotRequestToFetchClusterMembershipSnapshotInternodeInput(
+        call.request,
+        certificateFingerprint
+      );
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid fetch cluster membership snapshot request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    const snapshot = await this.internodeService.fetchClusterMembershipSnapshot(input);
+
+    callback(null, {
+      snapshot: serializeClusterMembershipSnapshot(snapshot)
+    });
+  }
+
   async fetchTaskEntries(
     call: ServerUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>,
     callback: sendUnaryData<FetchTaskEntriesResponse>
@@ -130,6 +166,7 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
     callback(null, {
       epoch: result.epoch.toString(),
       last_committed_sequence: result.lastCommittedSequence.toString(),
+      cluster_membership_revision: result.clusterMembershipRevision.toString(),
       entries: result.entries.map(mapInternodeTaskEntryToGrpcTaskEntry)
     });
   }

@@ -8,19 +8,30 @@ import {
 
 import { CLUSTER_RECORD_ID, clusterIdSchema, type Cluster, type ClusterId } from './cluster.domain';
 import type { ClusterRepositoryContract } from './cluster.repository';
+import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 
 /* contract */
 
 type ClusterServiceContract = {
+  // query
   getCluster(): Promise<Cluster>;
+  captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot>;
+
+  // initialization
   initializeCluster(): Promise<Cluster>;
   registerCluster(clusterId: ClusterId): Promise<Cluster>;
+
+  // membership
+  advanceMembershipRevision(): Promise<Cluster>;
+  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
 /* service */
 
 class ClusterService implements ClusterServiceContract {
   constructor(private readonly repository: ClusterRepositoryContract) {}
+
+  /* query methods */
 
   async getCluster(): Promise<Cluster> {
     const cluster = await this.repository.find();
@@ -31,6 +42,18 @@ class ClusterService implements ClusterServiceContract {
 
     return cluster;
   }
+
+  async captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot> {
+    const snapshot = await this.repository.findMembershipSnapshot();
+
+    if (!snapshot) {
+      throw new GenericFailedPreconditionError('The cluster has not been initialized');
+    }
+
+    return snapshot;
+  }
+
+  /* initialization methods */
 
   async initializeCluster(): Promise<Cluster> {
     const existingCluster = await this.repository.find();
@@ -92,6 +115,24 @@ class ClusterService implements ClusterServiceContract {
 
       return concurrentlyCreatedCluster;
     }
+  }
+
+  /* membership methods */
+
+  async advanceMembershipRevision(): Promise<Cluster> {
+    await this.getCluster();
+
+    return this.repository.advanceMembershipRevision();
+  }
+
+  async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
+    const cluster = await this.getCluster();
+
+    if (cluster.clusterId !== snapshot.cluster.clusterId) {
+      throw new GenericConflictError('Cluster membership snapshot belongs to a different cluster');
+    }
+
+    await this.repository.applyMembershipSnapshot(snapshot);
   }
 }
 

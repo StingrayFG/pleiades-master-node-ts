@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   GenericAlreadyExistsError,
+  GenericConflictError,
   GenericFailedPreconditionError,
   GenericInternalServerError
 } from '@/errors/application.errors';
@@ -10,6 +11,7 @@ import {
 import { CLUSTER_RECORD_ID, type Cluster } from '../cluster.domain';
 import type { ClusterRepositoryContract } from '../cluster.repository';
 import { ClusterService } from '../cluster.service';
+import type { ClusterMembershipSnapshot } from '../cluster.membership-snapshot';
 
 /* fixtures */
 
@@ -18,8 +20,14 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const cluster: Cluster = {
   id: CLUSTER_RECORD_ID,
   clusterId: '00000000-0000-4000-8000-000000000001',
+  membershipRevision: 0n,
   createdAt: now,
   updatedAt: now
+};
+
+const snapshot: ClusterMembershipSnapshot = {
+  cluster,
+  masterNodes: []
 };
 
 /* mocks */
@@ -27,7 +35,12 @@ const cluster: Cluster = {
 const createClusterRepositoryMock = (): jest.Mocked<ClusterRepositoryContract> => {
   return {
     find: jest.fn<ClusterRepositoryContract['find']>().mockResolvedValue(null),
-    create: jest.fn<ClusterRepositoryContract['create']>().mockResolvedValue(cluster)
+    findMembershipSnapshot: jest.fn<ClusterRepositoryContract['findMembershipSnapshot']>().mockResolvedValue(null),
+    create: jest.fn<ClusterRepositoryContract['create']>().mockResolvedValue(cluster),
+    advanceMembershipRevision: jest
+      .fn<ClusterRepositoryContract['advanceMembershipRevision']>()
+      .mockResolvedValue(cluster),
+    applyMembershipSnapshot: jest.fn<ClusterRepositoryContract['applyMembershipSnapshot']>().mockResolvedValue()
   };
 };
 
@@ -46,6 +59,16 @@ describe('ClusterService', () => {
     repository.find.mockResolvedValue(cluster);
 
     await expect(service.getCluster()).resolves.toBe(cluster);
+  });
+
+  test('captures the current master membership snapshot', async () => {
+    repository.findMembershipSnapshot.mockResolvedValue(snapshot);
+
+    await expect(service.captureMembershipSnapshot()).resolves.toBe(snapshot);
+  });
+
+  test('rejects membership snapshot capture before the cluster has been initialized', async () => {
+    await expect(service.captureMembershipSnapshot()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
   });
 
   test('rejects reads before the cluster has been initialized', async () => {
@@ -96,5 +119,27 @@ describe('ClusterService', () => {
 
     await expect(service.initializeCluster()).rejects.toBe(createError);
     expect(repository.find).toHaveBeenCalledTimes(1);
+  });
+
+  test('applies a membership snapshot from the registered cluster', async () => {
+    repository.find.mockResolvedValue(cluster);
+
+    await expect(service.applyMembershipSnapshot(snapshot)).resolves.toBeUndefined();
+    expect(repository.applyMembershipSnapshot).toHaveBeenCalledWith(snapshot);
+  });
+
+  test('rejects a membership snapshot from another cluster', async () => {
+    repository.find.mockResolvedValue(cluster);
+
+    await expect(
+      service.applyMembershipSnapshot({
+        ...snapshot,
+        cluster: {
+          ...cluster,
+          clusterId: '00000000-0000-4000-8000-000000000099'
+        }
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+    expect(repository.applyMembershipSnapshot).not.toHaveBeenCalled();
   });
 });

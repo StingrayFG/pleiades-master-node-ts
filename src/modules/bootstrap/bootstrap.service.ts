@@ -85,24 +85,6 @@ class BootstrapService implements BootstrapServiceContract {
 
     await this.clusterService.registerCluster(leaderInfo.clusterId);
 
-    // the leader's row must exist locally so replicated entries can reference it
-    await this.masterNodeService.registerMasterNode({
-      id: leaderInfo.masterId,
-
-      certificateFingerprint: input.leaderCertificateFingerprint,
-      sessionId: leaderInfo.sessionId,
-      state: 'active',
-      mode: 'serving',
-
-      endpoint: input.leaderEndpoint
-    });
-
-    await this.masterNodeService.registerMasterNode({
-      ...this.selfMasterNode,
-      state: 'joining',
-      mode: 'serving'
-    });
-
     await this.masterNodeGrpcClient.registerMasterNode({
       masterNodeEndpoint: input.leaderEndpoint,
       expectedCertificateFingerprint: input.leaderCertificateFingerprint,
@@ -113,13 +95,33 @@ class BootstrapService implements BootstrapServiceContract {
       endpoint: this.selfMasterNode.endpoint
     });
 
-    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
-
-    await this.masterNodeService.registerMasterNode({
-      ...this.selfMasterNode,
-      state: 'active',
-      mode: 'serving'
+    const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
+      masterNodeEndpoint: input.leaderEndpoint,
+      expectedCertificateFingerprint: input.leaderCertificateFingerprint
     });
+
+    const snapshotLeader = snapshot.masterNodes.find((masterNode) => masterNode.id === leaderInfo.masterId);
+    const snapshotSelf = snapshot.masterNodes.find((masterNode) => masterNode.id === this.selfMasterNode.id);
+
+    if (
+      !snapshotLeader ||
+      snapshotLeader.certificateFingerprint !== input.leaderCertificateFingerprint ||
+      snapshotLeader.sessionId !== leaderInfo.sessionId
+    ) {
+      throw new GenericConflictError('Cluster membership snapshot does not match the authenticated leader');
+    }
+
+    if (
+      !snapshotSelf ||
+      snapshotSelf.certificateFingerprint !== this.selfMasterNode.certificateFingerprint ||
+      snapshotSelf.sessionId !== this.selfMasterNode.sessionId
+    ) {
+      throw new GenericConflictError('Cluster membership snapshot does not contain the registered local master node');
+    }
+
+    await this.clusterService.applyMembershipSnapshot(snapshot);
+
+    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
 
     return {
       role: 'follower',

@@ -39,6 +39,7 @@ message FetchTaskEntriesResponse {
   int64 epoch = 1;
   int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
   repeated TaskEntry entries = 3;
+  int64 cluster_membership_revision = 4 [(buf.validate.field).int64.gte = 0];
 }
 
 message FetchTaskPayloadRequest {
@@ -73,6 +74,15 @@ message RegisterMasterNodeRequest {
 }
 
 message RegisterMasterNodeResponse {}
+
+message FetchClusterMembershipSnapshotRequest {
+  string caller_master_id = 1 [(buf.validate.field).string.min_len = 1];
+  string caller_session_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message FetchClusterMembershipSnapshotResponse {
+  bytes snapshot = 1;
+}
 
 message ForwardTaskRequest {
   string type = 1 [(buf.validate.field).string.min_len = 1];
@@ -113,6 +123,7 @@ message RecordLeaderHeartbeatResponse {
 service Master {
   rpc FetchMasterInfo(FetchMasterInfoRequest) returns (FetchMasterInfoResponse);
   rpc RegisterMasterNode(RegisterMasterNodeRequest) returns (RegisterMasterNodeResponse);
+  rpc FetchClusterMembershipSnapshot(FetchClusterMembershipSnapshotRequest) returns (FetchClusterMembershipSnapshotResponse);
   rpc FetchTaskEntries(FetchTaskEntriesRequest) returns (FetchTaskEntriesResponse);
   rpc FetchTaskPayload(FetchTaskPayloadRequest) returns (FetchTaskPayloadResponse);
   rpc ForwardTask(ForwardTaskRequest) returns (ForwardTaskResponse);

@@ -14,12 +14,14 @@ describe('cluster domain', () => {
       clusterSchema.parse({
         id: CLUSTER_RECORD_ID,
         clusterId: '00000000-0000-4000-8000-000000000001',
+        membershipRevision: 0n,
         createdAt: now,
         updatedAt: now
       })
     ).toEqual({
       id: CLUSTER_RECORD_ID,
       clusterId: '00000000-0000-4000-8000-000000000001',
+      membershipRevision: 0n,
       createdAt: now,
       updatedAt: now
     });
@@ -30,6 +32,7 @@ describe('cluster domain', () => {
       clusterSchema.safeParse({
         id: 'another-cluster-row',
         clusterId: '00000000-0000-4000-8000-000000000001',
+        membershipRevision: 0n,
         createdAt: now,
         updatedAt: now
       }).success
@@ -41,6 +44,7 @@ describe('cluster domain', () => {
       clusterSchema.safeParse({
         id: CLUSTER_RECORD_ID,
         clusterId: 'development-cluster',
+        membershipRevision: 0n,
         createdAt: now,
         updatedAt: now
       }).success

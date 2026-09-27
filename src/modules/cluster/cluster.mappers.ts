@@ -11,6 +11,7 @@ export const mapPrismaClusterToDomainCluster = (cluster: PrismaCluster): Cluster
     return clusterSchema.parse({
       id: cluster.id,
       clusterId: cluster.cluster_id,
+      membershipRevision: cluster.membership_revision,
 
       createdAt: cluster.created_at,
       updatedAt: cluster.updated_at

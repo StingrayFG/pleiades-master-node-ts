@@ -7,6 +7,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { GenericBadRequestError } from '@/errors/application.errors';
 import {
   TaskExecutionScope,
+  type FetchClusterMembershipSnapshotRequest,
+  type FetchClusterMembershipSnapshotResponse,
   type FetchTaskEntriesRequest,
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
@@ -20,6 +22,7 @@ import {
 } from '@/gen/proto/master/v1/master';
 
 import type { InternodeTaskEntry } from '../master-node.application';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import { MasterNodeGrpcController } from '../master-node.grpc-controller';
 import type { MasterNodeInternodeServiceContract } from '../master-node.internode-service';
 
@@ -44,6 +47,17 @@ const entry: InternodeTaskEntry = {
   createdAt
 };
 
+const clusterMembershipSnapshot: ClusterMembershipSnapshot = {
+  cluster: {
+    id: 'self',
+    clusterId: '00000000-0000-4000-8000-000000000010',
+    membershipRevision: 3n,
+    createdAt,
+    updatedAt: createdAt
+  },
+  masterNodes: []
+};
+
 /* helpers */
 
 const createCall = <TRequest, TResponse>(request: TRequest): ServerUnaryCall<TRequest, TResponse> => {
@@ -59,6 +73,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
   const service = {
     fetchMasterInfo: jest.fn<MasterNodeInternodeServiceContract['fetchMasterInfo']>(),
     registerMasterNode: jest.fn<MasterNodeInternodeServiceContract['registerMasterNode']>(),
+    fetchClusterMembershipSnapshot: jest.fn<MasterNodeInternodeServiceContract['fetchClusterMembershipSnapshot']>(),
     fetchTaskEntries: jest.fn<MasterNodeInternodeServiceContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeInternodeServiceContract['fetchTaskPayload']>(),
     forwardTask: jest.fn<MasterNodeInternodeServiceContract['forwardTask']>(),
@@ -69,8 +84,10 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
   service.fetchTaskEntries.mockResolvedValue({
     epoch: 2n,
     lastCommittedSequence: 4n,
+    clusterMembershipRevision: 3n,
     entries: [entry]
   });
+  service.fetchClusterMembershipSnapshot.mockResolvedValue(clusterMembershipSnapshot);
   service.fetchTaskPayload.mockResolvedValue(Buffer.from('task payload'));
   service.requestVote.mockResolvedValue({ epoch: 2n, voteGranted: false });
   service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true });
@@ -81,6 +98,29 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
 /* tests */
 
 describe('MasterNodeGrpcController', () => {
+  test('returns a serialized authenticated cluster membership snapshot', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<FetchClusterMembershipSnapshotResponse>>();
+
+    await controller.fetchClusterMembershipSnapshot(
+      createCall<FetchClusterMembershipSnapshotRequest, FetchClusterMembershipSnapshotResponse>({
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
+      }),
+      callback
+    );
+
+    expect(service.fetchClusterMembershipSnapshot).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint
+    });
+    expect(callback).toHaveBeenCalledWith(null, {
+      snapshot: expect.any(Buffer)
+    });
+  });
+
   test('fetches task entries and maps the response to gRPC', async () => {
     const service = createInternodeServiceMock();
     const controller = new MasterNodeGrpcController(service);
@@ -106,6 +146,7 @@ describe('MasterNodeGrpcController', () => {
     expect(callback).toHaveBeenCalledWith(null, {
       epoch: '2',
       last_committed_sequence: '4',
+      cluster_membership_revision: '3',
       entries: [
         {
           id: entry.id,

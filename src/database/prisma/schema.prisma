@@ -422,6 +422,9 @@ model DataNode {
   storage_free_bytes  BigInt
 
   // relations
+  cluster_record_id String @default("self")
+
+  cluster  Cluster                    @relation(fields: [cluster_record_id], references: [id])
   replicas ObjectVersionPartReplica[]
 
   // timestamps
@@ -435,6 +438,7 @@ model DataNode {
   revision BigInt @default(0)
 
   // database metadata
+  @@index([cluster_record_id])
   @@index([state])
   @@index([last_heartbeat_at])
   @@map("data_nodes")
@@ -468,6 +472,9 @@ model MasterNode {
   scheme   String @default("grpcs")
 
   // relations
+  cluster_record_id String @default("self")
+
+  cluster         Cluster         @relation(fields: [cluster_record_id], references: [id])
   tasks           Task[]
   task_executions TaskExecution[]
 
@@ -482,6 +489,7 @@ model MasterNode {
   revision BigInt @default(0)
 
   // database metadata
+  @@index([cluster_record_id])
   @@map("master_nodes")
 }
 
@@ -493,6 +501,13 @@ model Cluster {
 
   // cluster identity
   cluster_id String @unique @db.Uuid
+
+  // membership
+  membership_revision BigInt @default(0)
+
+  // relations
+  master_nodes MasterNode[]
+  data_nodes   DataNode[]
 
   // timestamps
   created_at DateTime @default(now())

@@ -10,6 +10,7 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
@@ -18,15 +19,16 @@ import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
   AuthenticatedMasterNodeCaller,
+  InternodeTaskEntry,
   FetchMasterInfoInternodeResult,
+  RegisterMasterNodeInternodeInput,
+  FetchClusterMembershipSnapshotInternodeInput,
   FetchTaskEntriesInternodeInput,
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadInternodeInput,
   ForwardTaskInternodeInput,
-  InternodeTaskEntry,
-  RecordLeaderHeartbeatInternodeInput,
-  RegisterMasterNodeInternodeInput,
-  RequestVoteInternodeInput
+  RequestVoteInternodeInput,
+  RecordLeaderHeartbeatInternodeInput
 } from './master-node.application';
 import type { MasterNode, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import type { MasterNodeServiceContract } from './master-node.service';
@@ -36,6 +38,9 @@ import type { MasterNodeServiceContract } from './master-node.service';
 type MasterNodeInternodeServiceContract = {
   fetchMasterInfo(): Promise<FetchMasterInfoInternodeResult>;
   registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void>;
+  fetchClusterMembershipSnapshot(
+    input: FetchClusterMembershipSnapshotInternodeInput
+  ): Promise<ClusterMembershipSnapshot>;
   fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer>;
   forwardTask(input: ForwardTaskInternodeInput): Promise<unknown>;
@@ -88,11 +93,23 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
       endpoint: input.endpoint
     });
+
+    await this.clusterService.advanceMembershipRevision();
+  }
+
+  async fetchClusterMembershipSnapshot(
+    input: FetchClusterMembershipSnapshotInternodeInput
+  ): Promise<ClusterMembershipSnapshot> {
+    await this.requireLeadershipState();
+    await this.requireAuthenticatedMasterNodeCaller(input);
+
+    return this.clusterService.captureMembershipSnapshot();
   }
 
   async fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult> {
     const consensusState = await this.requireLeadershipState();
     await this.requireAuthenticatedMasterNodeCaller(input);
+    const cluster = await this.clusterService.getCluster();
 
     const tasks = await this.taskService.listTasksInSequenceRange({
       afterSequence: input.afterSequence,
@@ -119,6 +136,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return {
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
+      clusterMembershipRevision: cluster.membershipRevision,
       entries
     };
   }
