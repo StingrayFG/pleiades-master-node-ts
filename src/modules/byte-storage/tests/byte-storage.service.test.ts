@@ -61,6 +61,7 @@ const createRepositoryMock = (): jest.Mocked<ByteStorageRepositoryContract> => {
     findById: jest.fn<ByteStorageRepositoryContract['findById']>(),
     create: jest.fn<ByteStorageRepositoryContract['create']>(),
     transitionState: jest.fn<ByteStorageRepositoryContract['transitionState']>(),
+    touchDeletionCandidate: jest.fn<ByteStorageRepositoryContract['touchDeletionCandidate']>(),
     deleteByIdIfState: jest.fn<ByteStorageRepositoryContract['deleteByIdIfState']>()
   };
 
@@ -69,6 +70,7 @@ const createRepositoryMock = (): jest.Mocked<ByteStorageRepositoryContract> => {
   repository.findById.mockResolvedValue(null);
   repository.create.mockResolvedValue(pendingObject);
   repository.transitionState.mockResolvedValue(true);
+  repository.touchDeletionCandidate.mockResolvedValue(true);
   repository.deleteByIdIfState.mockResolvedValue(true);
 
   return repository;

@@ -42,7 +42,6 @@ const createByteStorageModule = ({
 
   const pendingByteStorageObjectCleanupHandler = new PendingByteStorageObjectCleanupHandler(
     repository,
-    diskService,
     byteStorageConfig
   );
 

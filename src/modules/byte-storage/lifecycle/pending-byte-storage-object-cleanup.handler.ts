@@ -4,16 +4,13 @@ import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-
 import type { ListPendingCleanupCandidatesRepositoryInput } from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';
 import type { ByteStorageObject } from '../byte-storage.domain';
-import { mapByteStorageObjectToByteStorageReference } from '../byte-storage.mappers';
 import type { ByteStorageRepositoryContract } from '../byte-storage.repository';
-import type { DiskByteStorageServiceContract } from '../disk-byte-storage.service';
 
 /* handler */
 
 class PendingByteStorageObjectCleanupHandler {
   constructor(
     private readonly repository: ByteStorageRepositoryContract,
-    private readonly diskService: DiskByteStorageServiceContract,
     private readonly byteStorageConfig: ByteStorageConfig
   ) {}
 
@@ -54,11 +51,14 @@ class PendingByteStorageObjectCleanupHandler {
       return;
     }
 
-    // the row delete only lands if the object is still pending,
-    // so a concurrent store completing its activation is never clobbered;
-    // a failed delete leaves the row pending, so the next sweep retries it
-    await this.diskService.delete(mapByteStorageObjectToByteStorageReference(object));
-    await this.repository.deleteByIdIfState(object.id, 'pending');
+    // Claim the stale object before cleanup. The deletion worker removes its
+    // payload after the deletion grace period, so an in-flight store can finish
+    // observing the lost activation race without having its file removed here.
+    await this.repository.transitionState({
+      id: object.id,
+      from: 'pending',
+      to: 'deleting'
+    });
   }
 }
 

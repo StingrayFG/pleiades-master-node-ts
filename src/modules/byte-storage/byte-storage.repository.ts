@@ -6,6 +6,7 @@ import type {
   CreateByteStorageObjectRepositoryInput,
   ListDeletingCleanupCandidatesRepositoryInput,
   ListPendingCleanupCandidatesRepositoryInput,
+  TouchByteStorageObjectDeletionCandidateRepositoryInput,
   TransitionByteStorageObjectStateRepositoryInput
 } from './byte-storage.application';
 import type { ByteStorageId, ByteStorageObject, ByteStorageObjectState } from './byte-storage.domain';
@@ -19,6 +20,7 @@ type ByteStorageRepositoryContract = {
   findById(id: ByteStorageId): Promise<ByteStorageObject | null>;
   create(input: CreateByteStorageObjectRepositoryInput): Promise<ByteStorageObject>;
   transitionState(input: TransitionByteStorageObjectStateRepositoryInput): Promise<boolean>;
+  touchDeletionCandidate(input: TouchByteStorageObjectDeletionCandidateRepositoryInput): Promise<boolean>;
   deleteByIdIfState(id: ByteStorageId, state: ByteStorageObjectState): Promise<boolean>;
 };
 
@@ -52,7 +54,9 @@ class ByteStorageRepository implements ByteStorageRepositoryContract {
     return objects.map(mapPrismaByteStorageObjectToDomainByteStorageObject);
   }
 
-  async listDeletingCleanupCandidates(input: ListDeletingCleanupCandidatesRepositoryInput): Promise<ByteStorageObject[]> {
+  async listDeletingCleanupCandidates(
+    input: ListDeletingCleanupCandidatesRepositoryInput
+  ): Promise<ByteStorageObject[]> {
     let objects;
 
     try {
@@ -131,6 +135,26 @@ class ByteStorageRepository implements ByteStorageRepositoryContract {
     }
 
     return transitionResult.count === 1;
+  }
+
+  async touchDeletionCandidate(input: TouchByteStorageObjectDeletionCandidateRepositoryInput): Promise<boolean> {
+    let touchResult;
+
+    try {
+      touchResult = await this.prisma.byteStorageObject.updateMany({
+        where: {
+          id: input.id,
+          state: 'deleting'
+        },
+        data: {
+          state: 'deleting'
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return touchResult.count === 1;
   }
 
   async deleteByIdIfState(id: ByteStorageId, state: ByteStorageObjectState): Promise<boolean> {

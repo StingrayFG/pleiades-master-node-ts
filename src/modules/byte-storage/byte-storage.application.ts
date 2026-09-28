@@ -15,6 +15,10 @@ export const transitionByteStorageObjectStateRepositoryInputSchema = z.object({
   to: byteStorageObjectStateSchema
 });
 
+export const touchByteStorageObjectDeletionCandidateRepositoryInputSchema = z.object({
+  id: byteStorageIdSchema
+});
+
 export const listPendingCleanupCandidatesRepositoryInputSchema = z.object({
   updatedBefore: z.date(),
   limit: z.number().int().positive()
@@ -31,5 +35,12 @@ export type CreateByteStorageObjectRepositoryInput = z.infer<typeof createByteSt
 export type TransitionByteStorageObjectStateRepositoryInput = z.infer<
   typeof transitionByteStorageObjectStateRepositoryInputSchema
 >;
-export type ListPendingCleanupCandidatesRepositoryInput = z.infer<typeof listPendingCleanupCandidatesRepositoryInputSchema>;
-export type ListDeletingCleanupCandidatesRepositoryInput = z.infer<typeof listDeletingCleanupCandidatesRepositoryInputSchema>;
+export type TouchByteStorageObjectDeletionCandidateRepositoryInput = z.infer<
+  typeof touchByteStorageObjectDeletionCandidateRepositoryInputSchema
+>;
+export type ListPendingCleanupCandidatesRepositoryInput = z.infer<
+  typeof listPendingCleanupCandidatesRepositoryInputSchema
+>;
+export type ListDeletingCleanupCandidatesRepositoryInput = z.infer<
+  typeof listDeletingCleanupCandidatesRepositoryInputSchema
+>;

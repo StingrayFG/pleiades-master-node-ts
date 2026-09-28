@@ -153,6 +153,18 @@ describe('ByteStorageRepository', () => {
     await expect(repository.transitionState({ id, from: 'pending', to: 'active' })).resolves.toBe(false);
   });
 
+  test('touches deleting cleanup candidates without changing their state', async () => {
+    await expect(repository.touchDeletionCandidate({ id })).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: { id, state: 'deleting' },
+      data: { state: 'deleting' }
+    });
+
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(repository.touchDeletionCandidate({ id })).resolves.toBe(false);
+  });
+
   test('deletes rows only while they remain in the expected state', async () => {
     await expect(repository.deleteByIdIfState(id, 'deleting')).resolves.toBe(true);
     expect(delegate.deleteMany).toHaveBeenCalledWith({ where: { id, state: 'deleting' } });

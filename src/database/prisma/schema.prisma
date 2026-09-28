@@ -288,8 +288,7 @@ model ByteStorageObject {
   updated_at DateTime @updatedAt
 
   // database metadata
-  @@index([state])
-  @@index([created_at])
+  @@index([state, updated_at])
   @@map("byte_storage_objects")
 }
 

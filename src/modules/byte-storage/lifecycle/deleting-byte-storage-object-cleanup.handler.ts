@@ -1,7 +1,10 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 
-import type { ListDeletingCleanupCandidatesRepositoryInput } from '../byte-storage.application';
+import type {
+  ListDeletingCleanupCandidatesRepositoryInput,
+  TouchByteStorageObjectDeletionCandidateRepositoryInput
+} from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';
 import type { ByteStorageObject } from '../byte-storage.domain';
 import { mapByteStorageObjectToByteStorageReference } from '../byte-storage.mappers';
@@ -54,9 +57,20 @@ class DeletingByteStorageObjectCleanupHandler {
       return;
     }
 
-    // a failed delete leaves the row in deleting state, so the next sweep retries it
-    await this.diskService.delete(mapByteStorageObjectToByteStorageReference(object));
-    await this.repository.deleteByIdIfState(object.id, 'deleting');
+    try {
+      await this.diskService.delete(mapByteStorageObjectToByteStorageReference(object));
+      await this.repository.deleteByIdIfState(object.id, 'deleting');
+    } catch (err) {
+      const touchDeletionCandidateInput: TouchByteStorageObjectDeletionCandidateRepositoryInput = {
+        id: object.id
+      };
+
+      // move a failed candidate behind older untouched rows. Its updated
+      // timestamp also provides the configured delay before the next retry.
+      await this.repository.touchDeletionCandidate(touchDeletionCandidateInput);
+
+      throw err;
+    }
   }
 }
 

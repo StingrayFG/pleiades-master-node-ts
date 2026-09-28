@@ -48,12 +48,14 @@ const createRepositoryMock = (): jest.Mocked<ByteStorageRepositoryContract> => {
     findById: jest.fn<ByteStorageRepositoryContract['findById']>(),
     create: jest.fn<ByteStorageRepositoryContract['create']>(),
     transitionState: jest.fn<ByteStorageRepositoryContract['transitionState']>(),
+    touchDeletionCandidate: jest.fn<ByteStorageRepositoryContract['touchDeletionCandidate']>(),
     deleteByIdIfState: jest.fn<ByteStorageRepositoryContract['deleteByIdIfState']>()
   };
 
   repository.listPendingCleanupCandidates.mockResolvedValue([]);
   repository.listDeletingCleanupCandidates.mockResolvedValue([]);
   repository.transitionState.mockResolvedValue(true);
+  repository.touchDeletionCandidate.mockResolvedValue(true);
   repository.deleteByIdIfState.mockResolvedValue(true);
 
   return repository;
@@ -77,12 +79,12 @@ describe('byte storage lifecycle handlers', () => {
     diskService = createDiskServiceMock();
   });
 
-  test('directly deletes files and rows for stale pending objects without transitioning their state', async () => {
+  test('marks stale pending objects deleting without touching their payloads', async () => {
     repository.listPendingCleanupCandidates.mockResolvedValue([
       pendingObject,
       { ...pendingObject, id: 'active-object', state: 'active' }
     ]);
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     await handler.run(now);
 
@@ -90,51 +92,59 @@ describe('byte storage lifecycle handlers', () => {
       updatedBefore: new Date(now.getTime() - config.lifecycle.pendingCleanup.afterMs),
       limit: config.lifecycle.pendingCleanup.batchSize
     });
-    expect(diskService.delete).toHaveBeenCalledTimes(1);
-    expect(diskService.delete).toHaveBeenCalledWith({
+    expect(repository.transitionState).toHaveBeenCalledTimes(1);
+    expect(repository.transitionState).toHaveBeenCalledWith({
       id: pendingObject.id,
-      sizeBytes: pendingObject.sizeBytes,
-      checksum: pendingObject.checksum,
-      checksumAlgorithm: pendingObject.checksumAlgorithm
+      from: 'pending',
+      to: 'deleting'
     });
-    expect(repository.deleteByIdIfState).toHaveBeenCalledTimes(1);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledWith(pendingObject.id, 'pending');
-    expect(repository.transitionState).not.toHaveBeenCalled();
-  });
-
-  test('keeps a pending row when file cleanup fails', async () => {
-    repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject]);
-    diskService.delete.mockRejectedValue(new GenericInternalServerError('Disk unavailable'));
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
-
-    await expect(handler.run(now)).rejects.toBeInstanceOf(GenericInternalServerError);
+    expect(diskService.delete).not.toHaveBeenCalled();
     expect(repository.deleteByIdIfState).not.toHaveBeenCalled();
   });
 
-  test('ignores a pending row that changed state before cleanup deletion', async () => {
+  test('keeps a pending row when the cleanup transition fails', async () => {
+    const transitionError = new GenericInternalServerError('Database unavailable');
+
     repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject]);
-    repository.deleteByIdIfState.mockResolvedValue(false);
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    repository.transitionState.mockRejectedValue(transitionError);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
+
+    await expect(handler.run(now)).rejects.toBeInstanceOf(GenericInternalServerError);
+    expect(diskService.delete).not.toHaveBeenCalled();
+    expect(repository.deleteByIdIfState).not.toHaveBeenCalled();
+  });
+
+  test('ignores a pending row that changed state before cleanup claims it', async () => {
+    repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject]);
+    repository.transitionState.mockResolvedValue(false);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     await expect(handler.run(now)).resolves.toBeUndefined();
 
-    expect(diskService.delete).toHaveBeenCalledTimes(1);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledWith(pendingObject.id, 'pending');
+    expect(repository.transitionState).toHaveBeenCalledWith({
+      id: pendingObject.id,
+      from: 'pending',
+      to: 'deleting'
+    });
+    expect(diskService.delete).not.toHaveBeenCalled();
   });
 
   test('continues cleaning pending objects after another cleanup fails', async () => {
     const secondObject = { ...pendingObject, id: 'second-object' };
-    const error = new GenericInternalServerError('Disk unavailable');
+    const error = new GenericInternalServerError('Database unavailable');
 
     repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject, secondObject]);
-    diskService.delete.mockRejectedValueOnce(error).mockResolvedValueOnce();
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    repository.transitionState.mockRejectedValueOnce(error).mockResolvedValueOnce(true);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     await expect(handler.run(now)).rejects.toBeInstanceOf(GenericInternalServerError);
 
-    expect(diskService.delete).toHaveBeenCalledTimes(2);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledTimes(1);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledWith(secondObject.id, 'pending');
+    expect(repository.transitionState).toHaveBeenCalledTimes(2);
+    expect(repository.transitionState).toHaveBeenCalledWith({
+      id: secondObject.id,
+      from: 'pending',
+      to: 'deleting'
+    });
   });
 
   test('aggregates failed pending object cleanups with object ids as sources', async () => {
@@ -143,8 +153,8 @@ describe('byte storage lifecycle handlers', () => {
     const secondError = new GenericInternalServerError('Second failure');
 
     repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject, secondObject]);
-    diskService.delete.mockRejectedValueOnce(firstError).mockRejectedValueOnce(secondError);
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    repository.transitionState.mockRejectedValueOnce(firstError).mockRejectedValueOnce(secondError);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     let thrown: unknown;
 
@@ -169,24 +179,30 @@ describe('byte storage lifecycle handlers', () => {
     const secondError = new GenericInternalServerError('Second failure');
 
     repository.listPendingCleanupCandidates.mockResolvedValue([pendingObject, secondObject, thirdObject]);
-    diskService.delete.mockRejectedValueOnce(firstError).mockRejectedValueOnce(secondError).mockResolvedValueOnce();
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    repository.transitionState
+      .mockRejectedValueOnce(firstError)
+      .mockRejectedValueOnce(secondError)
+      .mockResolvedValueOnce(true);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     await expect(handler.run(now)).rejects.toBeInstanceOf(GenericInternalServerError);
 
-    expect(diskService.delete).toHaveBeenCalledTimes(3);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledTimes(1);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledWith(thirdObject.id, 'pending');
+    expect(repository.transitionState).toHaveBeenCalledTimes(3);
+    expect(repository.transitionState).toHaveBeenCalledWith({
+      id: thirdObject.id,
+      from: 'pending',
+      to: 'deleting'
+    });
   });
 
   test('cleans other pending objects and aggregates per-object failures', async () => {
     const failingObject = { ...pendingObject, id: 'failing-pending-object' };
-    const diskError = new GenericInternalServerError('Disk unavailable');
+    const transitionError = new GenericInternalServerError('Database unavailable');
 
     repository.listPendingCleanupCandidates.mockResolvedValue([failingObject, pendingObject]);
-    diskService.delete.mockRejectedValueOnce(diskError);
+    repository.transitionState.mockRejectedValueOnce(transitionError);
 
-    const handler = new PendingByteStorageObjectCleanupHandler(repository, diskService, config);
+    const handler = new PendingByteStorageObjectCleanupHandler(repository, config);
 
     let thrown: unknown;
 
@@ -198,9 +214,10 @@ describe('byte storage lifecycle handlers', () => {
 
     expect(thrown).toBeInstanceOf(GenericInternalServerError);
     expect((thrown as Error).cause).toBeInstanceOf(AggregateError);
-    expect(((thrown as Error).cause as AggregateError).errors).toEqual([{ source: failingObject.id, error: diskError }]);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledTimes(1);
-    expect(repository.deleteByIdIfState).toHaveBeenCalledWith(pendingObject.id, 'pending');
+    expect(((thrown as Error).cause as AggregateError).errors).toEqual([
+      { source: failingObject.id, error: transitionError }
+    ]);
+    expect(repository.transitionState).toHaveBeenCalledTimes(2);
   });
 
   test('deletes files and rows for stale deleting objects', async () => {
@@ -213,6 +230,7 @@ describe('byte storage lifecycle handlers', () => {
       updatedBefore: new Date(now.getTime() - config.lifecycle.deletion.afterMs),
       limit: config.lifecycle.deletion.batchSize
     });
+    expect(repository.touchDeletionCandidate).not.toHaveBeenCalled();
     expect(diskService.delete).toHaveBeenCalledWith({
       id: deletingObject.id,
       sizeBytes: deletingObject.sizeBytes,
@@ -222,12 +240,13 @@ describe('byte storage lifecycle handlers', () => {
     expect(repository.deleteByIdIfState).toHaveBeenCalledWith(deletingObject.id, 'deleting');
   });
 
-  test('keeps a deleting row when file cleanup fails', async () => {
+  test('defers a deleting row when file cleanup fails', async () => {
     repository.listDeletingCleanupCandidates.mockResolvedValue([deletingObject]);
     diskService.delete.mockRejectedValue(new GenericInternalServerError('Disk unavailable'));
     const handler = new DeletingByteStorageObjectCleanupHandler(repository, diskService, config);
 
     await expect(handler.run(now)).rejects.toBeInstanceOf(GenericInternalServerError);
+    expect(repository.touchDeletionCandidate).toHaveBeenCalledWith({ id: deletingObject.id });
     expect(repository.deleteByIdIfState).not.toHaveBeenCalled();
   });
 
@@ -240,6 +259,7 @@ describe('byte storage lifecycle handlers', () => {
 
     expect(diskService.delete).toHaveBeenCalledTimes(1);
     expect(repository.deleteByIdIfState).toHaveBeenCalledWith(deletingObject.id, 'deleting');
+    expect(repository.touchDeletionCandidate).not.toHaveBeenCalled();
   });
 
   test('cleans other deleting objects and aggregates per-object failures', async () => {
@@ -261,7 +281,10 @@ describe('byte storage lifecycle handlers', () => {
 
     expect(thrown).toBeInstanceOf(GenericInternalServerError);
     expect((thrown as Error).cause).toBeInstanceOf(AggregateError);
-    expect(((thrown as Error).cause as AggregateError).errors).toEqual([{ source: failingObject.id, error: diskError }]);
+    expect(((thrown as Error).cause as AggregateError).errors).toEqual([
+      { source: failingObject.id, error: diskError }
+    ]);
+    expect(repository.touchDeletionCandidate).toHaveBeenCalledWith({ id: failingObject.id });
     expect(repository.deleteByIdIfState).toHaveBeenCalledTimes(1);
     expect(repository.deleteByIdIfState).toHaveBeenCalledWith(deletingObject.id, 'deleting');
   });
