@@ -41,7 +41,7 @@ type ConsensusServiceContract = {
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
-  // membership
+  // leadership
   bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
   relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
@@ -58,7 +58,7 @@ type ConsensusServiceContract = {
 class ConsensusService implements ConsensusServiceContract {
   constructor(private readonly repository: ConsensusStateRepositoryContract) {}
 
-  /* consensus methods */
+  /* state methods */
 
   async getConsensusState(): Promise<ConsensusState> {
     const existingState = await this.repository.findState();
@@ -164,7 +164,7 @@ class ConsensusService implements ConsensusServiceContract {
     return this.repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, epoch, sequence, action);
   }
 
-  /* membership methods */
+  /* leadership methods */
 
   async bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const state = await this.getConsensusState();

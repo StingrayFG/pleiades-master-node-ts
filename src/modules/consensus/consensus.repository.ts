@@ -4,18 +4,18 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
-  AcceptFollowershipRepositoryInput,
-  ApplyVoteRequestRepositoryInput,
-  AdvanceLastAllocatedSequenceRepositoryInput,
-  AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastCommittedSequenceRepositoryInput,
-  ConsensusVoteResult,
-  ClaimLeadershipRepositoryInput,
+  AdvanceLastAppliedSequenceRepositoryInput,
+  AdvanceLastAllocatedSequenceRepositoryInput,
   AllocatedSequenceTransactionAction,
-  ObserveEpochRepositoryInput,
+  RewoundSequenceTransactionAction,
+  ClaimLeadershipRepositoryInput,
+  AcceptFollowershipRepositoryInput,
   RelinquishLeadershipRepositoryInput,
   StartElectionRepositoryInput,
-  RewoundSequenceTransactionAction
+  ObserveEpochRepositoryInput,
+  ApplyVoteRequestRepositoryInput,
+  ConsensusVoteResult
 } from './consensus.application';
 import {
   CONSENSUS_STATE_ID,
@@ -49,7 +49,7 @@ type ConsensusStateRepositoryContract = {
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
-  // membership
+  // leadership
   claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
   acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean>;
   relinquishLeadership(input: RelinquishLeadershipRepositoryInput): Promise<boolean>;
@@ -67,7 +67,7 @@ const errorMap: PrismaErrorMapperOverrides = {};
 class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
 
-  /* consensus methods */
+  /* state methods */
 
   async findState(): Promise<ConsensusState | null> {
     let state;
@@ -139,7 +139,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -147,12 +147,15 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: input.id,
-            last_allocated_sequence: {
+            last_applied_sequence: {
               lt: input.sequence
+            },
+            last_committed_sequence: {
+              gte: input.sequence
             }
           },
           data: {
-            last_allocated_sequence: input.sequence,
+            last_applied_sequence: input.sequence,
             revision: {
               increment: 1
             }
@@ -172,7 +175,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -180,15 +183,12 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: input.id,
-            last_applied_sequence: {
+            last_allocated_sequence: {
               lt: input.sequence
-            },
-            last_committed_sequence: {
-              gte: input.sequence
             }
           },
           data: {
-            last_applied_sequence: input.sequence,
+            last_allocated_sequence: input.sequence,
             revision: {
               increment: 1
             }
@@ -293,7 +293,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return result;
   }
 
-  /* membership methods */
+  /* leadership methods */
 
   async claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean> {
     let claimResult;

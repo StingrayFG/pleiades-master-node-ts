@@ -5,11 +5,11 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 
 import {
   consensusEpochSchema,
-  type ConsensusLastSequence,
-  type ConsensusSequence,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
   consensusStateIdSchema,
+  type ConsensusLastSequence,
+  type ConsensusSequence,
   type ConsensusState
 } from './consensus.domain';
 
