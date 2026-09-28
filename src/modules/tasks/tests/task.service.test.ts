@@ -81,6 +81,11 @@ const consensusState: ConsensusState = {
   revision: 0n
 };
 
+const leadershipContext = {
+  epoch: consensusState.currentEpoch,
+  leaderMasterId: selfMasterNodeId
+};
+
 const definition = createTaskDefinition({
   type: 'test.execute',
   dataSchema: z.object({ value: z.string() }),
@@ -150,10 +155,10 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
   service.getConsensusState.mockResolvedValue(consensusState);
   service.advanceLastCommittedSequence.mockResolvedValue(consensusState);
   service.advanceLastAllocatedSequence.mockResolvedValue(consensusState);
-  service.withAdvancedLastAllocatedSequence.mockImplementation(async (_epoch, action) => {
+  service.withAdvancedLastAllocatedSequence.mockImplementation(async (_leadershipContext, action) => {
     return action(transaction, task.sequence);
   });
-  service.withRewoundLastAllocatedSequence.mockImplementation(async (_epoch, sequence, action) => {
+  service.withRewoundLastAllocatedSequence.mockImplementation(async (_leadershipContext, sequence, action) => {
     return action(transaction, sequence);
   });
 
@@ -255,22 +260,81 @@ describe('TaskService', () => {
     expect(repository.findBySequence).toHaveBeenCalledWith(task.sequence);
   });
 
+  test('rejects task replication before writing when the cluster has no leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      leaderMasterId: null,
+      votedForMasterId: null,
+      lastLeaderContactAt: null
+    });
+
+    await expect(
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: task.payloadId,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(repository.findBySequence).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('rejects task replication when the supplied leadership context is stale', async () => {
+    await expect(
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: task.payloadId,
+          createdAt: task.createdAt
+        },
+        {
+          ...leadershipContext,
+          epoch: leadershipContext.epoch - 1n
+        }
+      )
+    ).rejects.toBeInstanceOf(GenericAbortedError);
+
+    expect(repository.findBySequence).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
   test('persists replicated tasks and their payloads through the task module', async () => {
     const payload = Buffer.from('payload');
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: execution.id,
-        payload,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: execution.id,
+          payload,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).resolves.toBe(task);
 
     expect(repository.create).toHaveBeenCalledWith({
@@ -286,7 +350,7 @@ describe('TaskService', () => {
       updatedAt: task.createdAt
     });
     expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
   });
 
   test('persists next-sequence history from an older consensus epoch', async () => {
@@ -298,17 +362,20 @@ describe('TaskService', () => {
     repository.create.mockResolvedValue(historicalTask);
 
     await expect(
-      service.replicateTask({
-        id: historicalTask.id,
-        originMasterNodeId: historicalTask.originMasterNodeId,
-        epoch: historicalTask.epoch,
-        sequence: historicalTask.sequence,
-        type: historicalTask.type,
-        executionScope: historicalTask.executionScope,
-        data: historicalTask.data,
-        payloadId: historicalTask.payloadId,
-        createdAt: historicalTask.createdAt
-      })
+      service.replicateTask(
+        {
+          id: historicalTask.id,
+          originMasterNodeId: historicalTask.originMasterNodeId,
+          epoch: historicalTask.epoch,
+          sequence: historicalTask.sequence,
+          type: historicalTask.type,
+          executionScope: historicalTask.executionScope,
+          data: historicalTask.data,
+          payloadId: historicalTask.payloadId,
+          createdAt: historicalTask.createdAt
+        },
+        leadershipContext
+      )
     ).resolves.toBe(historicalTask);
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -317,22 +384,28 @@ describe('TaskService', () => {
         sequence: historicalTask.sequence
       })
     );
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(historicalTask.sequence);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(
+      historicalTask.sequence,
+      leadershipContext
+    );
   });
 
   test('rejects replicated payload references without bytes before advancing the sequence', async () => {
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: execution.id,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: execution.id,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBeInstanceOf(GenericInternalServerError);
 
     expect(repository.create).toHaveBeenCalled();
@@ -346,18 +419,21 @@ describe('TaskService', () => {
     repository.create.mockRejectedValue(creationError);
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: execution.id,
-        payload: Buffer.from('payload'),
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: execution.id,
+          payload: Buffer.from('payload'),
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBe(creationError);
 
     expect(byteStorageService.store).not.toHaveBeenCalled();
@@ -371,23 +447,26 @@ describe('TaskService', () => {
     repository.findBySequence.mockResolvedValue(taskWithPayload);
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: execution.id,
-        payload,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: execution.id,
+          payload,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).resolves.toBe(taskWithPayload);
 
     expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
     expect(repository.create).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
   });
 
   test('accepts an exact replay of an already allocated task without advancing the sequence again', async () => {
@@ -398,17 +477,20 @@ describe('TaskService', () => {
     });
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: task.payloadId,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: task.payloadId,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).resolves.toBe(task);
 
     expect(repository.create).not.toHaveBeenCalled();
@@ -424,38 +506,47 @@ describe('TaskService', () => {
     repository.findBySequence.mockResolvedValue(historicalTask);
 
     await expect(
-      service.replicateTask({
-        id: historicalTask.id,
-        originMasterNodeId: historicalTask.originMasterNodeId,
-        epoch: historicalTask.epoch,
-        sequence: historicalTask.sequence,
-        type: historicalTask.type,
-        executionScope: historicalTask.executionScope,
-        data: historicalTask.data,
-        payloadId: historicalTask.payloadId,
-        createdAt: historicalTask.createdAt
-      })
+      service.replicateTask(
+        {
+          id: historicalTask.id,
+          originMasterNodeId: historicalTask.originMasterNodeId,
+          epoch: historicalTask.epoch,
+          sequence: historicalTask.sequence,
+          type: historicalTask.type,
+          executionScope: historicalTask.executionScope,
+          data: historicalTask.data,
+          payloadId: historicalTask.payloadId,
+          createdAt: historicalTask.createdAt
+        },
+        leadershipContext
+      )
     ).resolves.toBe(historicalTask);
 
     expect(repository.create).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(historicalTask.sequence);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(
+      historicalTask.sequence,
+      leadershipContext
+    );
   });
 
   test('rejects a replay whose immutable task data differs', async () => {
     repository.findBySequence.mockResolvedValue(task);
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: { value: 'different' },
-        payloadId: task.payloadId,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: { value: 'different' },
+          payloadId: task.payloadId,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBeInstanceOf(GenericConflictError);
 
     expect(repository.create).not.toHaveBeenCalled();
@@ -470,18 +561,21 @@ describe('TaskService', () => {
     byteStorageService.store.mockRejectedValue(storageError);
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: execution.id,
-        payload: Buffer.from('payload'),
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: execution.id,
+          payload: Buffer.from('payload'),
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBe(storageError);
 
     expect(repository.create).not.toHaveBeenCalled();
@@ -498,17 +592,20 @@ describe('TaskService', () => {
     repository.findBySequence.mockResolvedValue(divergentTask);
 
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: null,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: null,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBeInstanceOf(GenericConflictError);
 
     expect(repository.truncateFromSequence).not.toHaveBeenCalled();
@@ -519,17 +616,20 @@ describe('TaskService', () => {
     'rejects a new replicated task at non-next sequence %s',
     async (sequence) => {
       await expect(
-        service.replicateTask({
-          id: task.id,
-          originMasterNodeId: task.originMasterNodeId,
-          epoch: task.epoch,
-          sequence,
-          type: task.type,
-          executionScope: task.executionScope,
-          data: task.data,
-          payloadId: null,
-          createdAt: task.createdAt
-        })
+        service.replicateTask(
+          {
+            id: task.id,
+            originMasterNodeId: task.originMasterNodeId,
+            epoch: task.epoch,
+            sequence,
+            type: task.type,
+            executionScope: task.executionScope,
+            data: task.data,
+            payloadId: null,
+            createdAt: task.createdAt
+          },
+          leadershipContext
+        )
       ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
 
       expect(repository.create).not.toHaveBeenCalled();
@@ -539,17 +639,20 @@ describe('TaskService', () => {
 
   test('rejects a next-sequence task from a future consensus epoch', async () => {
     await expect(
-      service.replicateTask({
-        id: task.id,
-        originMasterNodeId: task.originMasterNodeId,
-        epoch: task.epoch + 1n,
-        sequence: task.sequence,
-        type: task.type,
-        executionScope: task.executionScope,
-        data: task.data,
-        payloadId: null,
-        createdAt: task.createdAt
-      })
+      service.replicateTask(
+        {
+          id: task.id,
+          originMasterNodeId: task.originMasterNodeId,
+          epoch: task.epoch + 1n,
+          sequence: task.sequence,
+          type: task.type,
+          executionScope: task.executionScope,
+          data: task.data,
+          payloadId: null,
+          createdAt: task.createdAt
+        },
+        leadershipContext
+      )
     ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
 
     expect(repository.create).not.toHaveBeenCalled();
@@ -571,10 +674,10 @@ describe('TaskService', () => {
       lastAllocatedSequence: inlineTask.sequence
     });
 
-    await expect(service.deleteTasksFromSequence(task.sequence)).resolves.toBe(2);
+    await expect(service.deleteTasksFromSequence(task.sequence, leadershipContext)).resolves.toBe(2);
 
     expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      consensusState.currentEpoch,
+      leadershipContext,
       task.sequence - 1n,
       expect.any(Function)
     );
@@ -585,6 +688,19 @@ describe('TaskService', () => {
     expect(repository.truncateFromSequence.mock.invocationCallOrder[0]).toBeLessThan(
       byteStorageService.delete.mock.invocationCallOrder[0]
     );
+  });
+
+  test('rejects task-tail deletion when the supplied leadership context is stale', async () => {
+    await expect(
+      service.deleteTasksFromSequence(task.sequence, {
+        ...leadershipContext,
+        leaderMasterId: 'master-node-b'
+      })
+    ).rejects.toBeInstanceOf(GenericAbortedError);
+
+    expect(consensusService.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
+    expect(repository.listTasksFromSequence).not.toHaveBeenCalled();
+    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
   });
 
   test('preserves a completed sequence rewind when payload cleanup fails', async () => {
@@ -598,7 +714,7 @@ describe('TaskService', () => {
     });
     byteStorageService.delete.mockRejectedValue(cleanupError);
 
-    await expect(service.deleteTasksFromSequence(task.sequence)).rejects.toBe(cleanupError);
+    await expect(service.deleteTasksFromSequence(task.sequence, leadershipContext)).rejects.toBe(cleanupError);
 
     expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
   });
@@ -607,10 +723,10 @@ describe('TaskService', () => {
     repository.listTasksFromSequence.mockResolvedValue([task]);
     repository.truncateFromSequence.mockResolvedValue(1);
 
-    await expect(service.deleteTasksFromSequence(task.sequence)).resolves.toBe(1);
+    await expect(service.deleteTasksFromSequence(task.sequence, leadershipContext)).resolves.toBe(1);
 
     expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      consensusState.currentEpoch,
+      leadershipContext,
       consensusState.lastAllocatedSequence,
       expect.any(Function)
     );
@@ -618,7 +734,7 @@ describe('TaskService', () => {
   });
 
   test('returns without rewinding when the requested tail starts beyond the allocated sequence', async () => {
-    await expect(service.deleteTasksFromSequence(task.sequence + 1n)).resolves.toBe(0);
+    await expect(service.deleteTasksFromSequence(task.sequence + 1n, leadershipContext)).resolves.toBe(0);
 
     expect(consensusService.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
     expect(repository.listTasksFromSequence).not.toHaveBeenCalled();
@@ -626,9 +742,9 @@ describe('TaskService', () => {
   });
 
   test('rejects deletion of committed task history', async () => {
-    await expect(service.deleteTasksFromSequence(consensusState.lastCommittedSequence)).rejects.toBeInstanceOf(
-      GenericFailedPreconditionError
-    );
+    await expect(
+      service.deleteTasksFromSequence(consensusState.lastCommittedSequence, leadershipContext)
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
 
     expect(repository.listTasksFromSequence).not.toHaveBeenCalled();
     expect(repository.truncateFromSequence).not.toHaveBeenCalled();
@@ -646,7 +762,7 @@ describe('TaskService', () => {
     await expect(service.submitTask(definition, { value: 'test' })).resolves.toBe(task);
 
     expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
-      consensusState.currentEpoch,
+      leadershipContext,
       expect.any(Function)
     );
     expect(repository.create).toHaveBeenCalledWith(
@@ -665,7 +781,7 @@ describe('TaskService', () => {
       expect.any(Object)
     );
     expect(byteStorageService.store).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
   });
 
   test('rejects task submission when this master node is not the leader', async () => {
@@ -725,7 +841,7 @@ describe('TaskService', () => {
       expect.any(Object)
     );
     expect(resultWaiter.wait).toHaveBeenCalledWith(createInput.id, config.executionWaitTimeoutMs);
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
     expect(applyHandler.run).toHaveBeenCalled();
   });
 
@@ -775,7 +891,7 @@ describe('TaskService', () => {
 
     expect(repository.create).toHaveBeenCalled();
     expect(repository.createExecutions).toHaveBeenCalled();
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
     expect(applyHandler.run).toHaveBeenCalled();
   });
 

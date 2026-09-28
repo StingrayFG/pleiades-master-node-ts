@@ -15,20 +15,33 @@ import {
 
 /* schemas */
 
-export const advanceLastCommittedSequenceRepositoryInputSchema = z.object({
-  id: consensusStateIdSchema,
-  sequence: consensusSequenceSchema
+export const consensusLeadershipContextSchema = z.object({
+  epoch: consensusEpochSchema,
+  leaderMasterId: masterNodeIdSchema
 });
+
+export const advanceLastCommittedSequenceRepositoryInputSchema = z
+  .object({
+    id: consensusStateIdSchema
+  })
+  .extend(consensusLeadershipContextSchema.shape)
+  .extend({
+    sequence: consensusSequenceSchema
+  });
 
 export const advanceLastAppliedSequenceRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   sequence: consensusSequenceSchema
 });
 
-export const advanceLastAllocatedSequenceRepositoryInputSchema = z.object({
-  id: consensusStateIdSchema,
-  sequence: consensusSequenceSchema
-});
+export const advanceLastAllocatedSequenceRepositoryInputSchema = z
+  .object({
+    id: consensusStateIdSchema
+  })
+  .extend(consensusLeadershipContextSchema.shape)
+  .extend({
+    sequence: consensusSequenceSchema
+  });
 
 export const claimLeadershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
@@ -80,6 +93,7 @@ export const requestConsensusVoteInputSchema = z.object({
 
 /* types */
 
+export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
 export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
   typeof advanceLastCommittedSequenceRepositoryInputSchema
 >;

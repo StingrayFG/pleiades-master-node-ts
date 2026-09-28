@@ -13,6 +13,7 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
+import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
@@ -38,8 +39,11 @@ type TaskServiceContract = {
   retrieveTaskPayload(payloadId: TaskPayloadId): Promise<Buffer>;
 
   // replication
-  replicateTask(input: ReplicateTaskInput): Promise<PersistedTask>;
-  deleteTasksFromSequence(sequence: TaskSequence): Promise<number>;
+  replicateTask(input: ReplicateTaskInput, leadershipContext: ConsensusLeadershipContext): Promise<PersistedTask>;
+  deleteTasksFromSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<number>;
 
   // registration
   registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
@@ -115,8 +119,14 @@ class TaskService implements TaskServiceContract {
 
   /* replication methods */
 
-  async replicateTask(input: ReplicateTaskInput): Promise<PersistedTask> {
+  async replicateTask(
+    input: ReplicateTaskInput,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<PersistedTask> {
     const consensusState = await this.consensusService.getConsensusState();
+
+    this.requireLeadershipContext(consensusState, leadershipContext);
+
     const existingTask = await this.repository.findBySequence(input.sequence);
 
     if (existingTask) {
@@ -135,7 +145,7 @@ class TaskService implements TaskServiceContract {
       await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
 
       if (input.sequence === nextSequence) {
-        await this.consensusService.advanceLastAllocatedSequence(input.sequence);
+        await this.consensusService.advanceLastAllocatedSequence(input.sequence, leadershipContext);
       }
 
       return existingTask;
@@ -167,13 +177,18 @@ class TaskService implements TaskServiceContract {
     });
 
     await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
-    await this.consensusService.advanceLastAllocatedSequence(input.sequence);
+    await this.consensusService.advanceLastAllocatedSequence(input.sequence, leadershipContext);
 
     return task;
   }
 
-  async deleteTasksFromSequence(sequence: TaskSequence): Promise<number> {
+  async deleteTasksFromSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<number> {
     const consensusState = await this.consensusService.getConsensusState();
+
+    this.requireLeadershipContext(consensusState, leadershipContext);
 
     if (sequence <= consensusState.lastCommittedSequence) {
       throw new GenericFailedPreconditionError('Committed task history cannot be deleted');
@@ -184,7 +199,7 @@ class TaskService implements TaskServiceContract {
     }
 
     const result = await this.consensusService.withRewoundLastAllocatedSequence(
-      consensusState.currentEpoch,
+      leadershipContext,
       sequence - 1n,
       async (tx) => {
         const tasks = await this.repository.listTasksFromSequence(sequence, tx);
@@ -228,7 +243,10 @@ class TaskService implements TaskServiceContract {
 
     const task = await this.submitTaskWithId(definition, data, id);
 
-    await this.consensusService.advanceLastCommittedSequence(task.sequence);
+    await this.consensusService.advanceLastCommittedSequence(task.sequence, {
+      epoch: task.epoch,
+      leaderMasterId: this.selfMasterNodeId
+    });
 
     return task;
   }
@@ -289,7 +307,10 @@ class TaskService implements TaskServiceContract {
     try {
       const task = await this.submitTaskWithExecutions(definition, data, targetMasterIds, id);
 
-      await this.consensusService.advanceLastCommittedSequence(task.sequence);
+      await this.consensusService.advanceLastCommittedSequence(task.sequence, {
+        epoch: task.epoch,
+        leaderMasterId: this.selfMasterNodeId
+      });
     } catch (err) {
       this.resultWaiter.fail(id, err);
     }
@@ -317,6 +338,22 @@ class TaskService implements TaskServiceContract {
     TResult
   >(definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>): void {
     this.handlerRegistry.resolve(definition);
+  }
+
+  private requireLeadershipContext(
+    consensusState: ConsensusState,
+    leadershipContext: ConsensusLeadershipContext
+  ): void {
+    if (consensusState.leaderMasterId === null) {
+      throw new GenericFailedPreconditionError('Task history mutation was rejected because the cluster has no leader');
+    }
+
+    if (
+      consensusState.currentEpoch !== leadershipContext.epoch ||
+      consensusState.leaderMasterId !== leadershipContext.leaderMasterId
+    ) {
+      throw new GenericAbortedError('Task history mutation was aborted because cluster leadership changed');
+    }
   }
 
   private requireExactTaskReplay(existingTask: PersistedTask, input: ReplicateTaskInput): void {
@@ -399,7 +436,10 @@ class TaskService implements TaskServiceContract {
     const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
 
     const task = await this.consensusService.withAdvancedLastAllocatedSequence(
-      consensusState.currentEpoch,
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      },
       (tx, sequence) =>
         this.repository.create(
           {
@@ -445,7 +485,10 @@ class TaskService implements TaskServiceContract {
     const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
 
     const task = await this.consensusService.withAdvancedLastAllocatedSequence(
-      consensusState.currentEpoch,
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      },
       async (tx, sequence) => {
         const createdTask = await this.repository.create(
           {

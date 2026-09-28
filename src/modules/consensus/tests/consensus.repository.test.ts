@@ -120,7 +120,14 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(advancedPrismaState);
 
-    await expect(repository.advanceLastCommittedSequence({ id: CONSENSUS_STATE_ID, sequence: 4n })).resolves.toEqual({
+    await expect(
+      repository.advanceLastCommittedSequence({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        sequence: 4n
+      })
+    ).resolves.toEqual({
       ...state,
       lastCommittedSequence: 4n,
       revision: 6n
@@ -128,6 +135,8 @@ describe('ConsensusStateRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-a',
         last_committed_sequence: { lt: 4n },
         last_allocated_sequence: { gte: 4n }
       },
@@ -144,9 +153,14 @@ describe('ConsensusStateRepository', () => {
   test('returns the existing committed sequence when a stale advancement loses its gate', async () => {
     delegate.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(repository.advanceLastCommittedSequence({ id: CONSENSUS_STATE_ID, sequence: 2n })).resolves.toEqual(
-      state
-    );
+    await expect(
+      repository.advanceLastCommittedSequence({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        sequence: 2n
+      })
+    ).resolves.toEqual(state);
   });
 
   test('advances the applied sequence monotonically', async () => {
@@ -176,6 +190,41 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
+  test('advances the allocated sequence only under the expected leadership state', async () => {
+    const advancedPrismaState = {
+      ...prismaState,
+      last_allocated_sequence: 5n,
+      revision: 6n
+    };
+
+    delegate.findUniqueOrThrow.mockResolvedValue(advancedPrismaState);
+
+    await expect(
+      repository.advanceLastAllocatedSequence({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        sequence: 5n
+      })
+    ).resolves.toEqual({
+      ...state,
+      lastAllocatedSequence: 5n,
+      revision: 6n
+    });
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-a',
+        last_allocated_sequence: { lt: 5n }
+      },
+      data: {
+        last_allocated_sequence: 5n,
+        revision: { increment: 1 }
+      }
+    });
+  });
+
   test('allocates a sequence under the expected epoch and runs the action in the transaction', async () => {
     const allocatedPrismaState = {
       ...prismaState,
@@ -188,11 +237,15 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(allocatedPrismaState);
 
-    await expect(repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, action)).resolves.toBe(
-      'allocated-5'
-    );
+    await expect(
+      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+    ).resolves.toBe('allocated-5');
     expect(delegate.updateMany).toHaveBeenCalledWith({
-      where: { id: CONSENSUS_STATE_ID, current_epoch: 2n },
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-a'
+      },
       data: {
         last_allocated_sequence: { increment: 1 },
         revision: { increment: 1 }
@@ -201,14 +254,14 @@ describe('ConsensusStateRepository', () => {
     expect(action).toHaveBeenCalledWith(transactionClient as unknown as Prisma.TransactionClient, 5n);
   });
 
-  test('aborts sequence allocation when the epoch has changed', async () => {
+  test('aborts sequence allocation after leadership is lost in the same epoch', async () => {
     const action = jest.fn<AllocatedSequenceTransactionAction<string>>();
 
     delegate.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 1n, action)).rejects.toBeInstanceOf(
-      GenericAbortedError
-    );
+    await expect(
+      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+    ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(delegate.findUniqueOrThrow).not.toHaveBeenCalled();
     expect(action).not.toHaveBeenCalled();
   });
@@ -217,23 +270,24 @@ describe('ConsensusStateRepository', () => {
     const actionError = new Error('Task creation failed');
     const action = jest.fn<AllocatedSequenceTransactionAction<void>>().mockRejectedValue(actionError);
 
-    await expect(repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, action)).rejects.toBe(
-      actionError
-    );
+    await expect(
+      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+    ).rejects.toBe(actionError);
   });
 
-  test('rewinds the allocated sequence under the expected epoch and runs the action in the transaction', async () => {
+  test('rewinds the allocated sequence under the expected leadership state and runs the action in the transaction', async () => {
     const action = jest
       .fn<RewoundSequenceTransactionAction<string>>()
       .mockImplementation(async (_tx, sequence) => `rewound-${sequence}`);
 
-    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)).resolves.toBe(
-      'rewound-3'
-    );
+    await expect(
+      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
+    ).resolves.toBe('rewound-3');
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
+        leader_master_id: 'master-node-a',
         last_allocated_sequence: { gte: 3n },
         last_committed_sequence: { lte: 3n }
       },
@@ -251,7 +305,7 @@ describe('ConsensusStateRepository', () => {
     delegate.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)
+      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
     ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(action).not.toHaveBeenCalled();
   });
@@ -259,9 +313,9 @@ describe('ConsensusStateRepository', () => {
   test('runs sequence-tail work while keeping an already matching allocated sequence', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<string>>().mockResolvedValue('deleted-crash-window-row');
 
-    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 4n, action)).resolves.toBe(
-      'deleted-crash-window-row'
-    );
+    await expect(
+      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 4n, action)
+    ).resolves.toBe('deleted-crash-window-row');
     expect(delegate.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -279,9 +333,9 @@ describe('ConsensusStateRepository', () => {
     const actionError = new Error('Task truncation failed');
     const action = jest.fn<RewoundSequenceTransactionAction<void>>().mockRejectedValue(actionError);
 
-    await expect(repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 3n, action)).rejects.toBe(
-      actionError
-    );
+    await expect(
+      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
+    ).rejects.toBe(actionError);
   });
 
   test('claims leadership while no leader exists and the epoch is older', async () => {

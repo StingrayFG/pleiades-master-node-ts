@@ -1,9 +1,11 @@
 import { describe, expect, test } from '@jest/globals';
 
 import {
+  advanceLastAllocatedSequenceRepositoryInputSchema,
   advanceLastAppliedSequenceRepositoryInputSchema,
   advanceLastCommittedSequenceRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
+  consensusLeadershipContextSchema,
   relinquishLeadershipRepositoryInputSchema
 } from '../consensus.application';
 import { CONSENSUS_STATE_ID } from '../consensus.domain';
@@ -12,12 +14,27 @@ import { CONSENSUS_STATE_ID } from '../consensus.domain';
 
 describe('consensus application schemas', () => {
   const now = new Date('2026-01-01T00:00:00.000Z');
+  const leadershipContext = {
+    epoch: 2n,
+    leaderMasterId: 'master-node-a'
+  };
 
   test('parses sequence advancement inputs', () => {
-    const input = { id: CONSENSUS_STATE_ID, sequence: 3n };
+    const appliedSequenceInput = { id: CONSENSUS_STATE_ID, sequence: 3n };
+    const leadershipFencedInput = {
+      id: CONSENSUS_STATE_ID,
+      ...leadershipContext,
+      sequence: 3n
+    };
 
-    expect(advanceLastCommittedSequenceRepositoryInputSchema.parse(input)).toEqual(input);
-    expect(advanceLastAppliedSequenceRepositoryInputSchema.parse(input)).toEqual(input);
+    expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
+    expect(advanceLastCommittedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
+      leadershipFencedInput
+    );
+    expect(advanceLastAppliedSequenceRepositoryInputSchema.parse(appliedSequenceInput)).toEqual(appliedSequenceInput);
+    expect(advanceLastAllocatedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
+      leadershipFencedInput
+    );
   });
 
   test('parses leadership claims', () => {
@@ -43,7 +60,11 @@ describe('consensus application schemas', () => {
 
   test('rejects negative sequences and epochs', () => {
     expect(() =>
-      advanceLastCommittedSequenceRepositoryInputSchema.parse({ id: CONSENSUS_STATE_ID, sequence: -1n })
+      advanceLastCommittedSequenceRepositoryInputSchema.parse({
+        id: CONSENSUS_STATE_ID,
+        ...leadershipContext,
+        sequence: -1n
+      })
     ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({

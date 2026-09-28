@@ -19,6 +19,10 @@ import { ConsensusService } from '../consensus.service';
 const now = new Date('2026-01-01T00:00:00.000Z');
 const selfMasterNodeId = 'master-node-a';
 const otherMasterNodeId = 'master-node-b';
+const leadershipContext = {
+  epoch: 2n,
+  leaderMasterId: selfMasterNodeId
+};
 
 const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
@@ -71,12 +75,15 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   repository.createState.mockResolvedValue(state);
   repository.advanceLastCommittedSequence.mockResolvedValue(state);
   repository.advanceLastAppliedSequence.mockResolvedValue(state);
-  repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_id, _epoch, action) => {
+  repository.advanceLastAllocatedSequence.mockResolvedValue(state);
+  repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_id, _epoch, _leaderMasterId, action) => {
     return action(transaction, 5n);
   });
-  repository.withRewoundLastAllocatedSequence.mockImplementation(async (_id, _epoch, sequence, action) => {
-    return action(transaction, sequence);
-  });
+  repository.withRewoundLastAllocatedSequence.mockImplementation(
+    async (_id, _epoch, _leaderMasterId, sequence, action) => {
+      return action(transaction, sequence);
+    }
+  );
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
   repository.relinquishLeadership.mockResolvedValue(true);
@@ -151,15 +158,19 @@ describe('ConsensusService', () => {
 
     repository.advanceLastCommittedSequence.mockResolvedValue(advancedState);
 
-    await expect(service.advanceLastCommittedSequence(4n)).resolves.toBe(advancedState);
+    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastCommittedSequence).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
+      epoch: 2n,
+      leaderMasterId: selfMasterNodeId,
       sequence: 4n
     });
   });
 
   test('rejects a committed sequence beyond the allocated sequence', async () => {
-    await expect(service.advanceLastCommittedSequence(5n)).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    await expect(service.advanceLastCommittedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
     expect(repository.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
@@ -169,7 +180,22 @@ describe('ConsensusService', () => {
       lastAllocatedSequence: 3n
     });
 
-    await expect(service.advanceLastCommittedSequence(4n)).rejects.toBeInstanceOf(GenericAbortedError);
+    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
+  });
+
+  test('rejects committed-sequence advancement after leadership is lost in the same epoch', async () => {
+    repository.advanceLastCommittedSequence.mockResolvedValue({
+      ...state,
+      leaderMasterId: null,
+      lastLeaderContactAt: null,
+      lastCommittedSequence: 4n
+    });
+
+    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
   });
 
   test('advances the applied sequence up to the committed sequence', async () => {
@@ -198,13 +224,44 @@ describe('ConsensusService', () => {
     await expect(service.advanceLastAppliedSequence(3n)).rejects.toBeInstanceOf(GenericAbortedError);
   });
 
-  test('delegates allocated-sequence work with the singleton id and expected epoch', async () => {
+  test('advances the allocated sequence under the expected leadership state', async () => {
+    const advancedState = { ...state, lastAllocatedSequence: 5n };
+
+    repository.advanceLastAllocatedSequence.mockResolvedValue(advancedState);
+
+    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).resolves.toBe(advancedState);
+    expect(repository.advanceLastAllocatedSequence).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 2n,
+      leaderMasterId: selfMasterNodeId,
+      sequence: 5n
+    });
+  });
+
+  test('reports allocated-sequence advancement after leadership is lost', async () => {
+    repository.advanceLastAllocatedSequence.mockResolvedValue({
+      ...state,
+      leaderMasterId: null,
+      lastLeaderContactAt: null
+    });
+
+    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
+  });
+
+  test('delegates allocated-sequence work with the singleton id and expected leadership state', async () => {
     const action = jest
       .fn<AllocatedSequenceTransactionAction<string>>()
       .mockImplementation(async (_tx, sequence) => `task-${sequence}`);
 
-    await expect(service.withAdvancedLastAllocatedSequence(2n, action)).resolves.toBe('task-5');
-    expect(repository.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, action);
+    await expect(service.withAdvancedLastAllocatedSequence(leadershipContext, action)).resolves.toBe('task-5');
+    expect(repository.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
+      CONSENSUS_STATE_ID,
+      2n,
+      selfMasterNodeId,
+      action
+    );
   });
 
   test('delegates an allowed allocated-sequence rewind through the singleton state', async () => {
@@ -212,14 +269,20 @@ describe('ConsensusService', () => {
       .fn<RewoundSequenceTransactionAction<string>>()
       .mockImplementation(async (_tx, sequence) => `task-${sequence}`);
 
-    await expect(service.withRewoundLastAllocatedSequence(2n, 3n, action)).resolves.toBe('task-3');
-    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, 3n, action);
+    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 3n, action)).resolves.toBe('task-3');
+    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
+      CONSENSUS_STATE_ID,
+      2n,
+      selfMasterNodeId,
+      3n,
+      action
+    );
   });
 
   test('rejects rewinding the allocated sequence below committed history', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(2n, 2n, action)).rejects.toBeInstanceOf(
+    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 2n, action)).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
     expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
@@ -228,14 +291,20 @@ describe('ConsensusService', () => {
   test('allows sequence-tail work at the current allocated sequence', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(2n, 4n, action)).resolves.toBeUndefined();
-    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(CONSENSUS_STATE_ID, 2n, 4n, action);
+    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 4n, action)).resolves.toBeUndefined();
+    expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
+      CONSENSUS_STATE_ID,
+      2n,
+      selfMasterNodeId,
+      4n,
+      action
+    );
   });
 
   test('rejects a rewound sequence beyond the last allocated sequence', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(2n, 5n, action)).rejects.toBeInstanceOf(
+    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 5n, action)).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
     expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
@@ -468,4 +537,5 @@ describe('ConsensusService', () => {
       epoch: 3n
     });
   });
+
 });

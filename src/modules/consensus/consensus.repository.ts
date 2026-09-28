@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { GenericAbortedError } from '@/errors/application.errors';
+import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type {
   AdvanceLastCommittedSequenceRepositoryInput,
@@ -40,11 +41,13 @@ type ConsensusStateRepositoryContract = {
   withAdvancedLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
+    leaderMasterId: MasterNodeId,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult>;
   withRewoundLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
+    leaderMasterId: MasterNodeId,
     sequence: ConsensusLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
@@ -111,6 +114,10 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: input.id,
+
+            current_epoch: input.epoch,
+            leader_master_id: input.leaderMasterId,
+
             last_committed_sequence: {
               lt: input.sequence
             },
@@ -183,6 +190,10 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: input.id,
+
+            current_epoch: input.epoch,
+            leader_master_id: input.leaderMasterId,
+
             last_allocated_sequence: {
               lt: input.sequence
             }
@@ -211,6 +222,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   async withAdvancedLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
+    leaderMasterId: MasterNodeId,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     let result;
@@ -220,7 +232,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         const updated = await tx.consensusState.updateMany({
           where: {
             id,
-            current_epoch: epoch
+            current_epoch: epoch,
+            leader_master_id: leaderMasterId
           },
           data: {
             last_allocated_sequence: {
@@ -233,7 +246,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         });
 
         if (updated.count !== 1) {
-          throw new GenericAbortedError('The write was aborted because the cluster epoch changed');
+          throw new GenericAbortedError('The write was aborted because cluster leadership changed');
         }
 
         const state = await tx.consensusState.findUniqueOrThrow({
@@ -254,6 +267,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   async withRewoundLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
+    leaderMasterId: MasterNodeId,
     sequence: ConsensusLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
@@ -265,6 +279,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           where: {
             id,
             current_epoch: epoch,
+            leader_master_id: leaderMasterId,
             last_allocated_sequence: {
               gte: sequence
             },

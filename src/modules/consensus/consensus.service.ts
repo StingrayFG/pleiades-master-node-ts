@@ -9,6 +9,7 @@ import type { TaskSequence } from '@/modules/tasks/task.domain';
 
 import type {
   AllocatedSequenceTransactionAction,
+  ConsensusLeadershipContext,
   ConsensusVoteResult,
   RequestConsensusVoteInput,
   RewoundSequenceTransactionAction
@@ -28,15 +29,21 @@ type ConsensusServiceContract = {
   getConsensusState(): Promise<ConsensusState>;
 
   // sequence
-  advanceLastCommittedSequence(sequence: TaskSequence): Promise<ConsensusState>;
+  advanceLastCommittedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState>;
   advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState>;
-  advanceLastAllocatedSequence(sequence: TaskSequence): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
-    epoch: ConsensusEpoch,
+    leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult>;
   withRewoundLastAllocatedSequence<TResult>(
-    epoch: ConsensusEpoch,
+    leadershipContext: ConsensusLeadershipContext,
     sequence: ConsensusLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
@@ -86,7 +93,10 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* sequence methods */
 
-  async advanceLastCommittedSequence(sequence: TaskSequence): Promise<ConsensusState> {
+  async advanceLastCommittedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
     if (sequence > state.lastAllocatedSequence) {
@@ -97,10 +107,18 @@ class ConsensusService implements ConsensusServiceContract {
 
     const updatedState = await this.repository.advanceLastCommittedSequence({
       id: CONSENSUS_STATE_ID,
+
+      epoch: leadershipContext.epoch,
+      leaderMasterId: leadershipContext.leaderMasterId,
+
       sequence
     });
 
-    if (updatedState.lastCommittedSequence < sequence) {
+    if (
+      updatedState.currentEpoch !== leadershipContext.epoch ||
+      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
+      updatedState.lastCommittedSequence < sequence
+    ) {
       throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change');
     }
 
@@ -128,26 +146,48 @@ class ConsensusService implements ConsensusServiceContract {
     return updatedState;
   }
 
-  async advanceLastAllocatedSequence(sequence: TaskSequence): Promise<ConsensusState> {
+  async advanceLastAllocatedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState> {
     await this.getConsensusState();
 
-    return this.repository.advanceLastAllocatedSequence({
+    const updatedState = await this.repository.advanceLastAllocatedSequence({
       id: CONSENSUS_STATE_ID,
+
+      epoch: leadershipContext.epoch,
+      leaderMasterId: leadershipContext.leaderMasterId,
+
       sequence
     });
+
+    if (
+      updatedState.currentEpoch !== leadershipContext.epoch ||
+      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
+      updatedState.lastAllocatedSequence < sequence
+    ) {
+      throw new GenericAbortedError('Allocated sequence advancement was aborted by a concurrent consensus change');
+    }
+
+    return updatedState;
   }
 
   async withAdvancedLastAllocatedSequence<TResult>(
-    epoch: ConsensusEpoch,
+    leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     await this.getConsensusState();
 
-    return this.repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, epoch, action);
+    return this.repository.withAdvancedLastAllocatedSequence(
+      CONSENSUS_STATE_ID,
+      leadershipContext.epoch,
+      leadershipContext.leaderMasterId,
+      action
+    );
   }
 
   async withRewoundLastAllocatedSequence<TResult>(
-    epoch: ConsensusEpoch,
+    leadershipContext: ConsensusLeadershipContext,
     sequence: ConsensusLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
@@ -161,7 +201,13 @@ class ConsensusService implements ConsensusServiceContract {
       throw new GenericFailedPreconditionError('The rewound sequence cannot exceed the last allocated sequence');
     }
 
-    return this.repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, epoch, sequence, action);
+    return this.repository.withRewoundLastAllocatedSequence(
+      CONSENSUS_STATE_ID,
+      leadershipContext.epoch,
+      leadershipContext.leaderMasterId,
+      sequence,
+      action
+    );
   }
 
   /* leadership methods */

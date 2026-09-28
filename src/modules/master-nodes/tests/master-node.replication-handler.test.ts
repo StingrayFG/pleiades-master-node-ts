@@ -2,7 +2,11 @@ import { Buffer } from 'node:buffer';
 
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
+import {
+  GenericAbortedError,
+  GenericConflictError,
+  GenericFailedPreconditionError
+} from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
@@ -46,6 +50,11 @@ const consensusState: ConsensusState = {
   createdAt: now,
   updatedAt: now,
   revision: 1n
+};
+
+const replicatedLeadershipContext = {
+  epoch: 3n,
+  leaderMasterId: leaderMasterNodeId
 };
 
 const leader: MasterNode = {
@@ -207,14 +216,30 @@ describe('MasterNodeReplicationHandler', () => {
       expectedCertificateFingerprint: leaderCertificateFingerprint,
       payloadId
     });
-    expect(taskService.replicateTask).toHaveBeenCalledWith({
-      ...entry,
-      payload: Buffer.from('payload')
-    });
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(0n);
+    expect(taskService.replicateTask).toHaveBeenCalledWith(
+      {
+        ...entry,
+        payload: Buffer.from('payload')
+      },
+      replicatedLeadershipContext
+    );
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
     expect(consensusService.acceptFollowership.mock.invocationCallOrder[0]).toBeLessThan(
       taskService.replicateTask.mock.invocationCallOrder[0]
     );
+  });
+
+  test('rejects a fetched batch when consensus advances before replication begins', async () => {
+    consensusService.acceptFollowership.mockResolvedValue({
+      ...consensusState,
+      currentEpoch: 4n
+    });
+
+    await expect(handler.run()).rejects.toBeInstanceOf(GenericAbortedError);
+
+    expect(taskService.replicateTask).not.toHaveBeenCalled();
+    expect(taskService.deleteTasksFromSequence).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
   test('installs a newer master membership snapshot before accepting followership', async () => {
@@ -284,7 +309,10 @@ describe('MasterNodeReplicationHandler', () => {
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(entry.sequence);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(
+      entry.sequence,
+      replicatedLeadershipContext
+    );
     expect(taskService.deleteTasksFromSequence).not.toHaveBeenCalled();
   });
 
@@ -313,9 +341,12 @@ describe('MasterNodeReplicationHandler', () => {
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(entry.sequence);
+    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(entry.sequence, replicatedLeadershipContext);
     expect(taskService.replicateTask).toHaveBeenCalledTimes(3);
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(nextEntry.sequence);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(
+      nextEntry.sequence,
+      replicatedLeadershipContext
+    );
   });
 
   test('rejects non-contiguous task entries without advancing committed history', async () => {
@@ -360,7 +391,7 @@ describe('MasterNodeReplicationHandler', () => {
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(0n);
+    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 });

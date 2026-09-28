@@ -1,6 +1,11 @@
-import { GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
+import {
+  GenericAbortedError,
+  GenericConflictError,
+  GenericFailedPreconditionError
+} from '@/errors/application.errors';
 import type { ClusterMembershipRevision } from '@/modules/cluster/cluster.domain';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { TaskSequence } from '@/modules/tasks/task.domain';
@@ -58,17 +63,38 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       fetchResult.clusterMembershipRevision
     );
 
-    await this.consensusService.acceptFollowership(consensusState.leaderMasterId, fetchResult.epoch);
+    const followerState = await this.consensusService.acceptFollowership(
+      consensusState.leaderMasterId,
+      fetchResult.epoch
+    );
+
+    if (
+      followerState.currentEpoch !== fetchResult.epoch ||
+      followerState.leaderMasterId !== consensusState.leaderMasterId
+    ) {
+      throw new GenericAbortedError('Task replication was aborted because cluster leadership changed');
+    }
+
+    const leadershipContext: ConsensusLeadershipContext = {
+      epoch: fetchResult.epoch,
+      leaderMasterId: consensusState.leaderMasterId
+    };
 
     const replicatedThroughSequence = await this.replicateEntries(
       leaderEndpoint,
       leader.certificateFingerprint,
       fetchResult.entries,
       consensusState.lastCommittedSequence,
-      fetchResult.lastCommittedSequence
+      fetchResult.lastCommittedSequence,
+      leadershipContext
     );
 
-    await this.reconcileTaskHistory(consensusState, replicatedThroughSequence, fetchResult.lastCommittedSequence);
+    await this.reconcileTaskHistory(
+      consensusState,
+      replicatedThroughSequence,
+      fetchResult.lastCommittedSequence,
+      leadershipContext
+    );
   }
 
   /* private methods */
@@ -119,7 +145,8 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
     expectedCertificateFingerprint: MasterNodeCertificateFingerprint,
     entries: InternodeTaskEntry[],
     initialSequence: TaskSequence,
-    leaderLastCommittedSequence: TaskSequence
+    leaderLastCommittedSequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
   ): Promise<TaskSequence> {
     let replicatedThroughSequence = initialSequence;
 
@@ -133,14 +160,14 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       }
 
       try {
-        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry);
+        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry, leadershipContext);
       } catch (err) {
         if (!(err instanceof GenericConflictError)) {
           throw err;
         }
 
-        await this.taskService.deleteTasksFromSequence(entry.sequence);
-        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry);
+        await this.taskService.deleteTasksFromSequence(entry.sequence, leadershipContext);
+        await this.replicateEntry(masterNodeEndpoint, expectedCertificateFingerprint, entry, leadershipContext);
       }
 
       replicatedThroughSequence = entry.sequence;
@@ -152,7 +179,8 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
   private async replicateEntry(
     masterNodeEndpoint: MasterNodeEndpoint,
     expectedCertificateFingerprint: MasterNodeCertificateFingerprint,
-    entry: InternodeTaskEntry
+    entry: InternodeTaskEntry,
+    leadershipContext: ConsensusLeadershipContext
   ): Promise<void> {
     const payload =
       entry.payloadId === null
@@ -163,29 +191,33 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
             payloadId: entry.payloadId
           });
 
-    await this.taskService.replicateTask({
-      ...entry,
-      payload
-    });
+    await this.taskService.replicateTask(
+      {
+        ...entry,
+        payload
+      },
+      leadershipContext
+    );
   }
 
   private async reconcileTaskHistory(
     consensusState: ConsensusState,
     replicatedThroughSequence: TaskSequence,
-    leaderLastCommittedSequence: TaskSequence
+    leaderLastCommittedSequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
   ): Promise<void> {
     if (
       replicatedThroughSequence === leaderLastCommittedSequence &&
       consensusState.lastAllocatedSequence > leaderLastCommittedSequence
     ) {
-      await this.taskService.deleteTasksFromSequence(leaderLastCommittedSequence + 1n);
+      await this.taskService.deleteTasksFromSequence(leaderLastCommittedSequence + 1n, leadershipContext);
     }
 
     const nextCommittedSequence =
       replicatedThroughSequence < leaderLastCommittedSequence ? replicatedThroughSequence : leaderLastCommittedSequence;
 
     if (nextCommittedSequence > consensusState.lastCommittedSequence) {
-      await this.consensusService.advanceLastCommittedSequence(nextCommittedSequence);
+      await this.consensusService.advanceLastCommittedSequence(nextCommittedSequence, leadershipContext);
     }
   }
 }
