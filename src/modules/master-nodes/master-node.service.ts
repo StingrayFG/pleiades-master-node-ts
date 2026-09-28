@@ -35,7 +35,7 @@ class MasterNodeService implements MasterNodeServiceContract {
   }
 
   async getMasterNodeById(id: MasterNodeId): Promise<MasterNode> {
-    const masterNode = await this.repository.findById(id);
+    const masterNode = await this.repository.findMemberById(id);
 
     if (!masterNode) {
       throw new GenericNotFoundError('Master node not found');

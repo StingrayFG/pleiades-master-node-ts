@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { GenericMapperError } from '@/errors/application.errors';
 
 import { CLUSTER_RECORD_ID } from '../cluster.domain';
+import type { ClusterMembershipSnapshot } from '../cluster.membership-snapshot';
 import {
   parseClusterMembershipSnapshot,
   serializeClusterMembershipSnapshot
@@ -14,7 +15,7 @@ import {
 
 const now = new Date('2026-01-01T00:00:00.000Z');
 
-const snapshot = {
+const snapshot: ClusterMembershipSnapshot = {
   cluster: {
     id: CLUSTER_RECORD_ID,
     clusterId: '00000000-0000-4000-8000-000000000001',
@@ -22,7 +23,28 @@ const snapshot = {
     createdAt: now,
     updatedAt: now
   },
-  masterNodes: []
+  masterNodes: [
+    {
+      id: 'master-node-a',
+
+      certificateFingerprint: 'ab'.repeat(32),
+      sessionId: '00000000-0000-4000-8000-000000000002',
+      state: 'active',
+      mode: 'serving',
+
+      hostname: 'master-node-a.internal',
+      port: 4410,
+      scheme: 'grpcs',
+
+      registeredAt: now,
+      lastContactAt: now,
+      lastHealthCheckAt: null,
+      lastHeartbeatAt: null,
+      updatedAt: now,
+
+      revision: 2n
+    }
+  ]
 };
 
 /* tests */

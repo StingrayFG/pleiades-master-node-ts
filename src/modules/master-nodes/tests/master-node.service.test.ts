@@ -77,12 +77,14 @@ const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContr
   const repository = {
     listAll: jest.fn<MasterNodeRepositoryContract['listAll']>(),
     findById: jest.fn<MasterNodeRepositoryContract['findById']>(),
+    findMemberById: jest.fn<MasterNodeRepositoryContract['findMemberById']>(),
     applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>(),
     transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>()
   };
 
   repository.listAll.mockResolvedValue([]);
   repository.findById.mockResolvedValue(null);
+  repository.findMemberById.mockResolvedValue(null);
   repository.applyRegistration.mockResolvedValue(masterNode);
   repository.transitionMode.mockResolvedValue(true);
 
@@ -139,10 +141,10 @@ describe('MasterNodeService', () => {
   });
 
   test('returns a master node found by id', async () => {
-    repository.findById.mockResolvedValue(masterNode);
+    repository.findMemberById.mockResolvedValue(masterNode);
 
     await expect(service.getMasterNodeById(masterNodeId)).resolves.toBe(masterNode);
-    expect(repository.findById).toHaveBeenCalledWith(masterNodeId);
+    expect(repository.findMemberById).toHaveBeenCalledWith(masterNodeId);
   });
 
   test('throws when a master node cannot be found', async () => {
@@ -202,7 +204,7 @@ describe('MasterNodeService', () => {
       revision: 2n
     };
 
-    repository.findById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
+    repository.findMemberById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
     expect(repository.transitionMode).toHaveBeenCalledWith({
@@ -215,7 +217,7 @@ describe('MasterNodeService', () => {
   });
 
   test('returns an already matching master node without another transition', async () => {
-    repository.findById.mockResolvedValue(masterNode);
+    repository.findMemberById.mockResolvedValue(masterNode);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'serving')).resolves.toBe(masterNode);
     expect(repository.transitionMode).not.toHaveBeenCalled();
@@ -231,7 +233,7 @@ describe('MasterNodeService', () => {
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
-    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.findMemberById).not.toHaveBeenCalled();
     expect(repository.transitionMode).not.toHaveBeenCalled();
   });
 
@@ -242,7 +244,7 @@ describe('MasterNodeService', () => {
       revision: 2n
     };
 
-    repository.findById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
+    repository.findMemberById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
@@ -250,7 +252,7 @@ describe('MasterNodeService', () => {
   });
 
   test('rejects a lost mode transition when the requested mode is not present', async () => {
-    repository.findById.mockResolvedValue(masterNode);
+    repository.findMemberById.mockResolvedValue(masterNode);
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);

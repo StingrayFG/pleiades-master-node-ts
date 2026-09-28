@@ -52,6 +52,7 @@ const prismaMasterNode: PrismaMasterNode = {
   last_contact_at: now,
   last_health_check_at: null,
   last_heartbeat_at: null,
+  removed_at: null,
   updated_at: now,
   revision: 1n
 };
@@ -78,6 +79,14 @@ const snapshot: ClusterMembershipSnapshot = {
   ]
 };
 
+const newerSnapshot: ClusterMembershipSnapshot = {
+  ...snapshot,
+  cluster: {
+    ...cluster,
+    membershipRevision: 1n
+  }
+};
+
 const createPrismaError = (code: string): Prisma.PrismaClientKnownRequestError => {
   return new Prisma.PrismaClientKnownRequestError('Prisma operation failed', {
     code,
@@ -96,6 +105,7 @@ type ClusterDelegateMock = {
 type MasterNodeDelegateMock = {
   findMany: jest.Mock<(...args: unknown[]) => Promise<PrismaMasterNode[]>>;
   upsert: jest.Mock<(...args: unknown[]) => Promise<PrismaMasterNode>>;
+  updateMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
 };
 
 type TransactionMock = {
@@ -119,7 +129,8 @@ describe('ClusterRepository', () => {
 
     masterNodeDelegate = {
       findMany: jest.fn<(...args: unknown[]) => Promise<PrismaMasterNode[]>>().mockResolvedValue([prismaMasterNode]),
-      upsert: jest.fn<(...args: unknown[]) => Promise<PrismaMasterNode>>().mockResolvedValue(prismaMasterNode)
+      upsert: jest.fn<(...args: unknown[]) => Promise<PrismaMasterNode>>().mockResolvedValue(prismaMasterNode),
+      updateMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 0 })
     };
 
     transaction = {
@@ -149,11 +160,19 @@ describe('ClusterRepository', () => {
     await expect(repository.find()).resolves.toBeNull();
   });
 
+  test('returns null when a membership snapshot is captured before cluster initialization', async () => {
+    delegate.findUnique.mockResolvedValue(null);
+
+    await expect(repository.findMembershipSnapshot()).resolves.toBeNull();
+    expect(masterNodeDelegate.findMany).not.toHaveBeenCalled();
+  });
+
   test('captures the singleton cluster and master membership in one transaction', async () => {
     await expect(repository.findMembershipSnapshot()).resolves.toEqual(snapshot);
     expect(masterNodeDelegate.findMany).toHaveBeenCalledWith({
       where: {
-        cluster_record_id: CLUSTER_RECORD_ID
+        cluster_record_id: CLUSTER_RECORD_ID,
+        removed_at: null
       },
       orderBy: {
         id: 'asc'
@@ -186,14 +205,61 @@ describe('ClusterRepository', () => {
     await expect(repository.find()).rejects.toBeInstanceOf(GenericMapperError);
   });
 
+  test('advances the cluster membership revision', async () => {
+    delegate.update.mockResolvedValue({
+      ...prismaCluster,
+      membership_revision: 1n
+    });
+
+    await expect(repository.advanceMembershipRevision()).resolves.toEqual({
+      ...cluster,
+      membershipRevision: 1n
+    });
+    expect(delegate.update).toHaveBeenCalledWith({
+      where: {
+        id: CLUSTER_RECORD_ID
+      },
+      data: {
+        membership_revision: {
+          increment: 1
+        }
+      }
+    });
+  });
+
+  test('rejects membership application before the local cluster is registered', async () => {
+    delegate.findUnique.mockResolvedValue(null);
+
+    await expect(repository.applyMembershipSnapshot(newerSnapshot)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(masterNodeDelegate.findMany).not.toHaveBeenCalled();
+  });
+
+  test('rejects membership from a different cluster', async () => {
+    await expect(
+      repository.applyMembershipSnapshot({
+        ...newerSnapshot,
+        cluster: {
+          ...newerSnapshot.cluster,
+          clusterId: '00000000-0000-4000-8000-000000000099'
+        }
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+    expect(masterNodeDelegate.findMany).not.toHaveBeenCalled();
+  });
+
   test('installs master membership and advances the snapshot revision transactionally', async () => {
-    await expect(repository.applyMembershipSnapshot(snapshot)).resolves.toBeUndefined();
+    await expect(repository.applyMembershipSnapshot(newerSnapshot)).resolves.toBeUndefined();
 
     expect(masterNodeDelegate.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           id: prismaMasterNode.id
-        }
+        },
+        update: expect.objectContaining({
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
+          registered_at: prismaMasterNode.registered_at
+        })
       })
     );
     expect(delegate.update).toHaveBeenCalledWith({
@@ -201,7 +267,60 @@ describe('ClusterRepository', () => {
         id: CLUSTER_RECORD_ID
       },
       data: {
-        membership_revision: snapshot.cluster.membershipRevision
+        membership_revision: newerSnapshot.cluster.membershipRevision
+      }
+    });
+  });
+
+  test('accepts an exact replay at the current membership revision without writing', async () => {
+    await expect(repository.applyMembershipSnapshot(snapshot)).resolves.toBeUndefined();
+
+    expect(masterNodeDelegate.upsert).not.toHaveBeenCalled();
+    expect(masterNodeDelegate.updateMany).not.toHaveBeenCalled();
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  test('rejects different membership at the current membership revision', async () => {
+    await expect(
+      repository.applyMembershipSnapshot({
+        ...snapshot,
+        masterNodes: [
+          {
+            ...snapshot.masterNodes[0],
+            mode: 'draining'
+          }
+        ]
+      })
+    ).rejects.toBeInstanceOf(GenericConflictError);
+
+    expect(masterNodeDelegate.upsert).not.toHaveBeenCalled();
+    expect(masterNodeDelegate.updateMany).not.toHaveBeenCalled();
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  test('marks master nodes omitted from a newer membership snapshot as removed', async () => {
+    const removedMasterNode: PrismaMasterNode = {
+      ...prismaMasterNode,
+      id: 'master-node-removed',
+      certificate_fingerprint: 'cd'.repeat(32)
+    };
+
+    masterNodeDelegate.findMany
+      .mockResolvedValueOnce([prismaMasterNode, removedMasterNode])
+      .mockResolvedValueOnce([prismaMasterNode]);
+
+    await expect(repository.applyMembershipSnapshot(newerSnapshot)).resolves.toBeUndefined();
+
+    expect(masterNodeDelegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        cluster_record_id: CLUSTER_RECORD_ID,
+        removed_at: null,
+        id: {
+          notIn: [prismaMasterNode.id]
+        }
+      },
+      data: {
+        removed_at: expect.any(Date)
       }
     });
   });
@@ -226,7 +345,7 @@ describe('ClusterRepository', () => {
       }
     ]);
 
-    await expect(repository.applyMembershipSnapshot(snapshot)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(repository.applyMembershipSnapshot(newerSnapshot)).rejects.toBeInstanceOf(GenericConflictError);
     expect(masterNodeDelegate.upsert).not.toHaveBeenCalled();
     expect(delegate.update).not.toHaveBeenCalled();
   });

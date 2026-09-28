@@ -121,6 +121,78 @@ describe('ClusterService', () => {
     expect(repository.find).toHaveBeenCalledTimes(1);
   });
 
+  test('reuses the registered cluster when its identity matches', async () => {
+    repository.find.mockResolvedValue(cluster);
+
+    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  test('rejects registration when this node already belongs to another cluster', async () => {
+    repository.find.mockResolvedValue(cluster);
+
+    await expect(service.registerCluster('00000000-0000-4000-8000-000000000099')).rejects.toBeInstanceOf(
+      GenericConflictError
+    );
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  test('registers an existing cluster identity locally', async () => {
+    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
+    expect(repository.create).toHaveBeenCalledWith({
+      id: CLUSTER_RECORD_ID,
+      clusterId: cluster.clusterId
+    });
+  });
+
+  test('returns a matching cluster created by a concurrent registration', async () => {
+    repository.find.mockResolvedValueOnce(null).mockResolvedValueOnce(cluster);
+    repository.create.mockRejectedValue(new GenericAlreadyExistsError('Cluster already exists'));
+
+    await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
+    expect(repository.find).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects a different cluster created by a concurrent registration', async () => {
+    repository.find.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      ...cluster,
+      clusterId: '00000000-0000-4000-8000-000000000099'
+    });
+    repository.create.mockRejectedValue(new GenericAlreadyExistsError('Cluster already exists'));
+
+    await expect(service.registerCluster(cluster.clusterId)).rejects.toBeInstanceOf(GenericConflictError);
+  });
+
+  test('preserves a duplicate registration error when the concurrent cluster cannot be read', async () => {
+    const createError = new GenericAlreadyExistsError('Cluster already exists');
+
+    repository.find.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    repository.create.mockRejectedValue(createError);
+
+    await expect(service.registerCluster(cluster.clusterId)).rejects.toBe(createError);
+  });
+
+  test('propagates non-duplicate cluster registration errors without retrying the read', async () => {
+    const createError = new GenericInternalServerError('Cluster storage unavailable');
+
+    repository.create.mockRejectedValue(createError);
+
+    await expect(service.registerCluster(cluster.clusterId)).rejects.toBe(createError);
+    expect(repository.find).toHaveBeenCalledTimes(1);
+  });
+
+  test('advances the membership revision of an initialized cluster', async () => {
+    repository.find.mockResolvedValue(cluster);
+
+    await expect(service.advanceMembershipRevision()).resolves.toBe(cluster);
+    expect(repository.advanceMembershipRevision).toHaveBeenCalledWith();
+  });
+
+  test('rejects membership revision advancement before initialization', async () => {
+    await expect(service.advanceMembershipRevision()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    expect(repository.advanceMembershipRevision).not.toHaveBeenCalled();
+  });
+
   test('applies a membership snapshot from the registered cluster', async () => {
     repository.find.mockResolvedValue(cluster);
 

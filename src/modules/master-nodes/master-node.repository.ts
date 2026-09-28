@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 
 import type {
   ApplyMasterNodeRegistrationRepositoryInput,
@@ -14,6 +15,7 @@ import { mapPrismaMasterNodeToDomainMasterNode } from './master-node.mappers';
 type MasterNodeRepositoryContract = {
   listAll(): Promise<MasterNode[]>;
   findById(id: MasterNodeId): Promise<MasterNode | null>;
+  findMemberById(id: MasterNodeId): Promise<MasterNode | null>;
   applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput): Promise<MasterNode>;
   transitionMode(input: TransitionMasterNodeModeRepositoryInput): Promise<boolean>;
 };
@@ -30,6 +32,10 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
 
     try {
       masterNodes = await this.prisma.masterNode.findMany({
+        where: {
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null
+        },
         orderBy: {
           id: 'asc'
         }
@@ -57,6 +63,24 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
   }
 
+  async findMemberById(id: MasterNodeId): Promise<MasterNode | null> {
+    let masterNode;
+
+    try {
+      masterNode = await this.prisma.masterNode.findFirst({
+        where: {
+          id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
+  }
+
   async applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput): Promise<MasterNode> {
     let masterNode;
 
@@ -67,6 +91,7 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
         },
         create: {
           id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
 
           certificate_fingerprint: input.certificateFingerprint,
           session_id: input.sessionId,
@@ -78,9 +103,12 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
           scheme: input.endpoint.scheme,
 
           last_contact_at: input.lastContactAt,
-          last_heartbeat_at: null
+          last_heartbeat_at: null,
+          removed_at: null
         },
         update: {
+          cluster_record_id: CLUSTER_RECORD_ID,
+
           session_id: input.sessionId,
           state: input.state,
           mode: input.mode,
@@ -91,6 +119,7 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
 
           last_contact_at: input.lastContactAt,
           last_heartbeat_at: null,
+          removed_at: null,
 
           revision: {
             increment: 1
@@ -111,6 +140,8 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
       transitionResult = await this.prisma.masterNode.updateMany({
         where: {
           id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
           mode: input.from,
           revision: input.expectedRevision
         },

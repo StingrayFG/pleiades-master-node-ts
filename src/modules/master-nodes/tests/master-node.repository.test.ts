@@ -14,6 +14,7 @@ const lastContactAt = new Date('2026-01-02T00:00:00.000Z');
 
 const prismaMasterNode: PrismaMasterNode = {
   id: masterNodeId,
+  cluster_record_id: 'self',
 
   certificate_fingerprint: 'ab'.repeat(32),
   session_id: '00000000-0000-4000-8000-000000000001',
@@ -28,6 +29,7 @@ const prismaMasterNode: PrismaMasterNode = {
   last_contact_at: lastContactAt,
   last_health_check_at: null,
   last_heartbeat_at: null,
+  removed_at: null,
   updated_at: lastContactAt,
 
   revision: 1n
@@ -83,12 +85,14 @@ const createPrismaError = (code: string): Prisma.PrismaClientKnownRequestError =
 const createMasterNodeDelegateMock = () => {
   const delegate = {
     findMany: jest.fn<() => Promise<PrismaMasterNode[]>>(),
+    findFirst: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
     findUnique: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
     upsert: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),
     updateMany: jest.fn<(input: unknown) => Promise<{ count: number }>>()
   };
 
   delegate.findMany.mockResolvedValue([]);
+  delegate.findFirst.mockResolvedValue(null);
   delegate.findUnique.mockResolvedValue(null);
   delegate.upsert.mockResolvedValue(prismaMasterNode);
   delegate.updateMany.mockResolvedValue({ count: 1 });
@@ -117,6 +121,10 @@ describe('MasterNodeRepository', () => {
 
     await expect(repository.listAll()).resolves.toEqual([domainMasterNode]);
     expect(delegate.findMany).toHaveBeenCalledWith({
+      where: {
+        cluster_record_id: 'self',
+        removed_at: null
+      },
       orderBy: {
         id: 'asc'
       }
@@ -149,6 +157,23 @@ describe('MasterNodeRepository', () => {
     await expect(repository.findById(masterNodeId)).resolves.toBeNull();
   });
 
+  test('finds a current cluster member by id', async () => {
+    delegate.findFirst.mockResolvedValue(prismaMasterNode);
+
+    await expect(repository.findMemberById(masterNodeId)).resolves.toEqual(domainMasterNode);
+    expect(delegate.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId,
+        cluster_record_id: 'self',
+        removed_at: null
+      }
+    });
+  });
+
+  test('returns null when a master node is no longer a cluster member', async () => {
+    await expect(repository.findMemberById(masterNodeId)).resolves.toBeNull();
+  });
+
   test('applies master node registration through an upsert', async () => {
     await expect(repository.applyRegistration(registrationInput)).resolves.toEqual(domainMasterNode);
     expect(delegate.upsert).toHaveBeenCalledWith({
@@ -157,6 +182,7 @@ describe('MasterNodeRepository', () => {
       },
       create: {
         id: masterNodeId,
+        cluster_record_id: 'self',
 
         certificate_fingerprint: registrationInput.certificateFingerprint,
         session_id: registrationInput.sessionId,
@@ -168,9 +194,12 @@ describe('MasterNodeRepository', () => {
         scheme: 'grpcs',
 
         last_contact_at: lastContactAt,
-        last_heartbeat_at: null
+        last_heartbeat_at: null,
+        removed_at: null
       },
       update: {
+        cluster_record_id: 'self',
+
         session_id: registrationInput.sessionId,
         state: 'active',
         mode: 'serving',
@@ -181,6 +210,7 @@ describe('MasterNodeRepository', () => {
 
         last_contact_at: lastContactAt,
         last_heartbeat_at: null,
+        removed_at: null,
 
         revision: {
           increment: 1
@@ -207,6 +237,8 @@ describe('MasterNodeRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: masterNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
         mode: 'serving',
         revision: 1n
       },

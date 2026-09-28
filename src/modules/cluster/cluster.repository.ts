@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { Prisma, type PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
@@ -74,7 +76,8 @@ class ClusterRepository implements ClusterRepositoryContract {
 
           const masterNodes = await transaction.masterNode.findMany({
             where: {
-              cluster_record_id: CLUSTER_RECORD_ID
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null
             },
             orderBy: {
               id: 'asc'
@@ -168,10 +171,35 @@ class ClusterRepository implements ClusterRepositoryContract {
             return;
           }
 
+          const currentMasterNodes = await transaction.masterNode.findMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null
+            },
+            orderBy: {
+              id: 'asc'
+            }
+          });
+
+          if (cluster.membership_revision === snapshot.cluster.membershipRevision) {
+            const currentMembership = currentMasterNodes.map(mapPrismaMasterNodeToDomainMasterNode);
+            const snapshotMembership = [...snapshot.masterNodes].sort((left, right) => left.id.localeCompare(right.id));
+
+            if (!isDeepStrictEqual(currentMembership, snapshotMembership)) {
+              throw new GenericConflictError(
+                'Cluster membership snapshot conflicts with the local membership at the same revision'
+              );
+            }
+
+            return;
+          }
+
+          const snapshotMasterNodeIds = snapshot.masterNodes.map((masterNode) => masterNode.id);
+
           const existingMasterNodes = await transaction.masterNode.findMany({
             where: {
               id: {
-                in: snapshot.masterNodes.map((masterNode) => masterNode.id)
+                in: snapshotMasterNodeIds
               }
             }
           });
@@ -208,11 +236,14 @@ class ClusterRepository implements ClusterRepositoryContract {
                 last_contact_at: masterNode.lastContactAt,
                 last_health_check_at: masterNode.lastHealthCheckAt,
                 last_heartbeat_at: masterNode.lastHeartbeatAt,
+                removed_at: null,
                 updated_at: masterNode.updatedAt,
 
                 revision: masterNode.revision
               },
               update: {
+                cluster_record_id: CLUSTER_RECORD_ID,
+
                 session_id: masterNode.sessionId,
                 state: masterNode.state,
                 mode: masterNode.mode,
@@ -221,15 +252,30 @@ class ClusterRepository implements ClusterRepositoryContract {
                 port: masterNode.port,
                 scheme: masterNode.scheme,
 
+                registered_at: masterNode.registeredAt,
                 last_contact_at: masterNode.lastContactAt,
                 last_health_check_at: masterNode.lastHealthCheckAt,
                 last_heartbeat_at: masterNode.lastHeartbeatAt,
+                removed_at: null,
                 updated_at: masterNode.updatedAt,
 
                 revision: masterNode.revision
               }
             });
           }
+
+          await transaction.masterNode.updateMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null,
+              id: {
+                notIn: snapshotMasterNodeIds
+              }
+            },
+            data: {
+              removed_at: new Date()
+            }
+          });
 
           await transaction.cluster.update({
             where: {
