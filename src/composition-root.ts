@@ -132,6 +132,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskService: taskModule.service,
     consensusService: consensusModule.service,
     electionService: electionModule.service,
+    electionLifecycleHandler: electionModule.lifecycleHandler,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService: clusterModule.service,
@@ -205,8 +206,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   const backgroundModule = createBackgroundModule({
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
-    masterReplicationHandler: masterNodeInternodeModule.replicationHandler,
-    electionLifecycleHandler: electionModule.lifecycleHandler,
+    masterNodeLifecycleHandler: masterNodeInternodeModule.lifecycleHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,

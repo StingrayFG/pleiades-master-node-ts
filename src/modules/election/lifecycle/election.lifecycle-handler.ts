@@ -42,7 +42,6 @@ class ElectionLifecycleHandler implements ElectionLifecycleHandlerContract {
 
     if (consensusState.leaderMasterId === this.selfMasterNodeId) {
       this.clearElectionDeadline();
-      await this.electionService.broadcastLeaderHeartbeat(now);
       return;
     }
 

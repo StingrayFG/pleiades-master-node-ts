@@ -2,8 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { ByteStorageLifecycleHandlerContract } from '@/modules/byte-storage/lifecycle/byte-storage.lifecycle-handler';
 import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
-import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecycle/election.lifecycle-handler';
-import type { MasterNodeReplicationHandlerContract } from '@/modules/master-nodes/master-node.replication-handler';
+import type { MasterNodeLifecycleHandlerContract } from '@/modules/master-nodes/lifecycle/master-node.lifecycle-handler';
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
 import type { TaskLifecycleHandlerContract } from '@/modules/tasks/lifecycle/task.lifecycle-handler';
@@ -18,8 +17,7 @@ import { IntervalBackgroundWorker } from './interval-background.worker';
 type BackgroundModuleDependencies = {
   taskApplyHandler: TaskApplyHandlerContract;
   taskLifecycleHandler: TaskLifecycleHandlerContract;
-  masterReplicationHandler: MasterNodeReplicationHandlerContract;
-  electionLifecycleHandler: ElectionLifecycleHandlerContract;
+  masterNodeLifecycleHandler: MasterNodeLifecycleHandlerContract;
   byteStorageLifecycleHandler: ByteStorageLifecycleHandlerContract;
   dataNodeLifecycleHandler: DataNodeLifecycleHandlerContract;
   objectVersionPartLifecycleHandler: ObjectVersionPartLifecycleHandlerContract;
@@ -53,8 +51,7 @@ const createLoggedBackgroundHandler = (
 const createBackgroundModule = ({
   taskApplyHandler,
   taskLifecycleHandler,
-  masterReplicationHandler,
-  electionLifecycleHandler,
+  masterNodeLifecycleHandler,
   byteStorageLifecycleHandler,
   dataNodeLifecycleHandler,
   objectVersionPartLifecycleHandler,
@@ -71,14 +68,9 @@ const createBackgroundModule = ({
     createLoggedBackgroundHandler(() => taskLifecycleHandler.run(), logger, 'Task lifecycle sweep failed')
   );
 
-  const masterReplicationWorker = new IntervalBackgroundWorker(
-    backgroundConfig.worker.masterReplicationIntervalMs,
-    createLoggedBackgroundHandler(() => masterReplicationHandler.run(), logger, 'Master replication sweep failed')
-  );
-
-  const electionLifecycleWorker = new IntervalBackgroundWorker(
-    backgroundConfig.worker.electionIntervalMs,
-    createLoggedBackgroundHandler(() => electionLifecycleHandler.run(), logger, 'Election lifecycle sweep failed')
+  const masterNodeLifecycleWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.masterNodeLifecycleIntervalMs,
+    createLoggedBackgroundHandler(() => masterNodeLifecycleHandler.run(), logger, 'Master node lifecycle sweep failed')
   );
 
   const byteStorageLifecycleWorker = new IntervalBackgroundWorker(
@@ -112,8 +104,7 @@ const createBackgroundModule = ({
   const workers: readonly BackgroundWorkerContract[] = [
     taskApplyWorker,
     taskLifecycleWorker,
-    masterReplicationWorker,
-    electionLifecycleWorker,
+    masterNodeLifecycleWorker,
     byteStorageLifecycleWorker,
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,

@@ -91,7 +91,7 @@ describe('ElectionLifecycleHandler', () => {
     expect(electionService.runElection).toHaveBeenCalledWith();
   });
 
-  test('broadcasts heartbeats while the local master is leader', async () => {
+  test('does not run follower election logic while the local master is leader', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
       leaderMasterId: selfMasterNodeId,
@@ -100,7 +100,7 @@ describe('ElectionLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(electionService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
+    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
     expect(electionService.runElection).not.toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe('ElectionLifecycleHandler', () => {
     expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
-  test('delegates an ineligible current leader so the election service can relinquish leadership', async () => {
+  test('does not run follower election logic for an ineligible current leader', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
       leaderMasterId: selfMasterNodeId,
@@ -123,7 +123,7 @@ describe('ElectionLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(electionService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
+    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
     expect(electionService.runElection).not.toHaveBeenCalled();
   });
 });
