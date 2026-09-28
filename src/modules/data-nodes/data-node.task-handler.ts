@@ -78,7 +78,7 @@ class DataNodeTaskHandler implements DataNodeTaskHandlerContract {
       return true;
     }
 
-    const dataNode = await this.repository.findById(task.data.id);
+    const dataNode = await this.repository.findMemberById(task.data.id);
 
     if (!dataNode) {
       throw new GenericNotFoundError('Data node not found');
@@ -106,7 +106,7 @@ class DataNodeTaskHandler implements DataNodeTaskHandlerContract {
       return true;
     }
 
-    const dataNode = await this.repository.findById(task.data.id);
+    const dataNode = await this.repository.findMemberById(task.data.id);
 
     return dataNode?.lastHealthCheckAt?.getTime() === task.data.lastHealthCheckAt.getTime();
   }
@@ -122,7 +122,7 @@ class DataNodeTaskHandler implements DataNodeTaskHandlerContract {
       return true;
     }
 
-    const dataNode = await this.repository.findById(task.data.id);
+    const dataNode = await this.repository.findMemberById(task.data.id);
 
     return dataNode?.state === task.data.state;
   }

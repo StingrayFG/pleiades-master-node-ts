@@ -89,6 +89,7 @@ const createDataNodeRepositoryMock = (): jest.Mocked<DataNodeRepositoryContract>
     listAll: jest.fn<DataNodeRepositoryContract['listAll']>(),
     listAvailable: jest.fn<DataNodeRepositoryContract['listAvailable']>(),
     findById: jest.fn<DataNodeRepositoryContract['findById']>(),
+    findMemberById: jest.fn<DataNodeRepositoryContract['findMemberById']>(),
     applyRegistration: jest.fn<DataNodeRepositoryContract['applyRegistration']>(),
     applyHeartbeat: jest.fn<DataNodeRepositoryContract['applyHeartbeat']>(),
     applyHealthCheck: jest.fn<DataNodeRepositoryContract['applyHealthCheck']>(),
@@ -98,6 +99,7 @@ const createDataNodeRepositoryMock = (): jest.Mocked<DataNodeRepositoryContract>
   repository.listAll.mockResolvedValue([]);
   repository.listAvailable.mockResolvedValue([]);
   repository.findById.mockResolvedValue(null);
+  repository.findMemberById.mockResolvedValue(null);
   repository.applyRegistration.mockResolvedValue(true);
   repository.applyHeartbeat.mockResolvedValue(true);
   repository.applyHealthCheck.mockResolvedValue(true);
@@ -155,10 +157,10 @@ describe('DataNodeService', () => {
   });
 
   test('returns a data node found by id', async () => {
-    repository.findById.mockResolvedValue(dataNode);
+    repository.findMemberById.mockResolvedValue(dataNode);
 
     await expect(service.getDataNodeById(dataNodeId)).resolves.toBe(dataNode);
-    expect(repository.findById).toHaveBeenCalledWith(dataNodeId);
+    expect(repository.findMemberById).toHaveBeenCalledWith(dataNodeId);
   });
 
   test('throws when a data node cannot be found', async () => {
@@ -248,7 +250,7 @@ describe('DataNodeService', () => {
     });
 
     test('rejects a heartbeat from a different certificate', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       const conflictingInput: HeartbeatDataNodeInput = {
         ...heartbeatInput,
@@ -260,7 +262,7 @@ describe('DataNodeService', () => {
     });
 
     test('rejects a heartbeat from a stale session', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       const staleInput: HeartbeatDataNodeInput = {
         ...heartbeatInput,
@@ -272,7 +274,7 @@ describe('DataNodeService', () => {
     });
 
     test('ignores a duplicate or out-of-order heartbeat', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       await expect(
         service.applyDataNodeHeartbeat({
@@ -284,7 +286,7 @@ describe('DataNodeService', () => {
     });
 
     test('submits a newer heartbeat with its resolved state and timestamps', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
       taskService.executeTaskByDefinition.mockResolvedValue(true);
 
       await service.applyDataNodeHeartbeat(heartbeatInput);
@@ -311,7 +313,7 @@ describe('DataNodeService', () => {
     });
 
     test('records a failed state from an unhealthy snapshot', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
       taskService.executeTaskByDefinition.mockResolvedValue(true);
 
       await service.applyDataNodeHeartbeat({
@@ -330,7 +332,7 @@ describe('DataNodeService', () => {
 
   describe('checkDataNodeHealth', () => {
     test('checks health using the persisted data node endpoint', async () => {
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
       grpcClient.checkDataNodeHealth.mockResolvedValue(healthSnapshot);
 
       await expect(service.checkDataNodeHealth(dataNodeId)).resolves.toBe(healthSnapshot);

@@ -83,7 +83,8 @@ const leaderMasterNode: MasterNode = {
 
 const clusterMembershipSnapshot: ClusterMembershipSnapshot = {
   cluster,
-  masterNodes: [leaderMasterNode, masterNode]
+  masterNodes: [leaderMasterNode, masterNode],
+  dataNodes: []
 };
 
 const leaderInfo: FetchMasterInfoInternodeResult = {

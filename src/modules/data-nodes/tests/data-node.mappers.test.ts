@@ -30,6 +30,7 @@ const grpcHealthSnapshot: GrpcHealthSnapshot = {
 
 const prismaDataNode: PrismaDataNode = {
   id: 'data-node-1',
+  cluster_record_id: 'self',
 
   certificate_fingerprint: certificateFingerprint,
   session_id: '00000000-0000-4000-8000-000000000001',
@@ -48,6 +49,7 @@ const prismaDataNode: PrismaDataNode = {
   last_contact_at: new Date('2026-01-02T00:00:00.000Z'),
   last_health_check_at: null,
   last_heartbeat_at: new Date('2026-01-02T00:00:00.000Z'),
+  removed_at: null,
   updated_at: new Date('2026-01-02T00:00:00.000Z'),
 
   revision: 3n

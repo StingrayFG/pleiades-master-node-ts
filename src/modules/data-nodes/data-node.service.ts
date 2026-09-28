@@ -42,7 +42,7 @@ class DataNodeService implements DataNodeServiceContract {
   }
 
   async getDataNodeById(id: DataNodeId): Promise<DataNode> {
-    const dataNode = await this.repository.findById(id);
+    const dataNode = await this.repository.findMemberById(id);
 
     if (!dataNode) {
       throw new GenericNotFoundError('Data node not found');
@@ -81,7 +81,7 @@ class DataNodeService implements DataNodeServiceContract {
   }
 
   async applyDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<void> {
-    const dataNode = await this.repository.findById(input.id);
+    const dataNode = await this.repository.findMemberById(input.id);
 
     if (!dataNode) {
       throw new GenericNotFoundError('Data node not found');
@@ -120,7 +120,7 @@ class DataNodeService implements DataNodeServiceContract {
   }
 
   async checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot> {
-    const dataNode = await this.repository.findById(id);
+    const dataNode = await this.repository.findMemberById(id);
 
     if (!dataNode) {
       throw new GenericNotFoundError();

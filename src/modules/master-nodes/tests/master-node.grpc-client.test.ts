@@ -90,7 +90,8 @@ const clusterMembershipSnapshotResponse: FetchClusterMembershipSnapshotResponse 
         createdAt: createdAt.toISOString(),
         updatedAt: createdAt.toISOString()
       },
-      masterNodes: []
+      masterNodes: [],
+      dataNodes: []
     })
   )
 };
@@ -322,7 +323,8 @@ describe('MasterNodeGrpcClient', () => {
         createdAt,
         updatedAt: createdAt
       },
-      masterNodes: []
+      masterNodes: [],
+      dataNodes: []
     });
 
     expect(createdClients[0].fetchClusterMembershipSnapshot).toHaveBeenCalledWith(

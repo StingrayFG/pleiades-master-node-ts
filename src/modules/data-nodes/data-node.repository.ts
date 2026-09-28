@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
 import { GenericConflictError } from '@/errors/application.errors';
+import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 
 import type {
   ApplyDataNodeRegistrationRepositoryInput,
@@ -19,6 +20,7 @@ type DataNodeRepositoryContract = {
   listAll(): Promise<DataNode[]>;
   listAvailable(): Promise<DataNode[]>;
   findById(id: DataNodeId): Promise<DataNode | null>;
+  findMemberById(id: DataNodeId): Promise<DataNode | null>;
   applyRegistration(input: ApplyDataNodeRegistrationRepositoryInput): Promise<boolean>;
   applyHeartbeat(input: ApplyHeartbeatRepositoryInput): Promise<boolean>;
   applyHealthCheck(input: RecordDataNodeHealthCheckRepositoryInput): Promise<boolean>;
@@ -36,7 +38,12 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     let dataNodes;
 
     try {
-      dataNodes = await this.prisma.dataNode.findMany();
+      dataNodes = await this.prisma.dataNode.findMany({
+        where: {
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null
+        }
+      });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
@@ -50,6 +57,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     try {
       dataNodes = await this.prisma.dataNode.findMany({
         where: {
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
           state: 'active',
           mode: 'serving'
         }
@@ -81,12 +90,31 @@ class DataNodeRepository implements DataNodeRepositoryContract {
     return mapPrismaDataNodeToDomainDataNode(dataNode);
   }
 
+  async findMemberById(id: DataNodeId): Promise<DataNode | null> {
+    let dataNode;
+
+    try {
+      dataNode = await this.prisma.dataNode.findFirst({
+        where: {
+          id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return dataNode ? mapPrismaDataNodeToDomainDataNode(dataNode) : null;
+  }
+
   async applyRegistration(input: ApplyDataNodeRegistrationRepositoryInput): Promise<boolean> {
     if (input.expectedRevision === null) {
       try {
         await this.prisma.dataNode.create({
           data: {
             id: input.id,
+            cluster_record_id: CLUSTER_RECORD_ID,
 
             certificate_fingerprint: input.certificateFingerprint,
             session_id: input.sessionId,
@@ -102,7 +130,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
             storage_free_bytes: input.storageFreeBytes,
 
             last_contact_at: input.lastContactAt,
-            last_heartbeat_at: null
+            last_heartbeat_at: null,
+            removed_at: null
           }
         });
       } catch (err) {
@@ -130,6 +159,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
           revision: input.expectedRevision
         },
         data: {
+          cluster_record_id: CLUSTER_RECORD_ID,
+
           session_id: input.sessionId,
           last_heartbeat_sequence: 0n,
           state: input.state,
@@ -143,6 +174,7 @@ class DataNodeRepository implements DataNodeRepositoryContract {
 
           last_contact_at: input.lastContactAt,
           last_heartbeat_at: null,
+          removed_at: null,
 
           revision: {
             increment: 1
@@ -163,6 +195,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
       heartbeatUpdateResult = await this.prisma.dataNode.updateMany({
         where: {
           id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
 
           certificate_fingerprint: input.certificateFingerprint,
           session_id: input.sessionId,
@@ -199,6 +233,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
       healthCheckUpdateResult = await this.prisma.dataNode.updateMany({
         where: {
           id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
 
           revision: input.expectedRevision
         },
@@ -224,6 +260,8 @@ class DataNodeRepository implements DataNodeRepositoryContract {
       stateUpdateResult = await this.prisma.dataNode.updateMany({
         where: {
           id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
 
           revision: input.expectedRevision
         },

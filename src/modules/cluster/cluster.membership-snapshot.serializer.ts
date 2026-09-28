@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { withMapperError } from '@/common/mappers/mappers';
 import { jsonBigIntCodec } from '@/common/serializers/bigint.serializer';
 import { jsonDateCodec } from '@/common/serializers/date.serializer';
+import { dataNodeSchema } from '@/modules/data-nodes/data-node.domain';
 import { masterNodeSchema } from '@/modules/master-nodes/master-node.domain';
 
 import { clusterSchema } from './cluster.domain';
@@ -20,6 +21,19 @@ const clusterMembershipSnapshotJsonCodec = z.object({
   }),
   masterNodes: z.array(
     masterNodeSchema.extend({
+      registeredAt: jsonDateCodec,
+      lastContactAt: jsonDateCodec,
+      lastHealthCheckAt: jsonDateCodec.nullable(),
+      lastHeartbeatAt: jsonDateCodec.nullable(),
+      updatedAt: jsonDateCodec,
+      revision: jsonBigIntCodec
+    })
+  ),
+  dataNodes: z.array(
+    dataNodeSchema.extend({
+      lastHeartbeatSequence: jsonBigIntCodec,
+      storageTotalBytes: jsonBigIntCodec,
+      storageFreeBytes: jsonBigIntCodec,
       registeredAt: jsonDateCodec,
       lastContactAt: jsonDateCodec,
       lastHealthCheckAt: jsonDateCodec.nullable(),

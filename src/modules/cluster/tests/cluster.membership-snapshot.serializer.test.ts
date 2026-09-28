@@ -44,6 +44,32 @@ const snapshot: ClusterMembershipSnapshot = {
 
       revision: 2n
     }
+  ],
+  dataNodes: [
+    {
+      id: 'data-node-a',
+
+      certificateFingerprint: 'ef'.repeat(32),
+      sessionId: '00000000-0000-4000-8000-000000000003',
+      lastHeartbeatSequence: 3n,
+      state: 'active',
+      mode: 'serving',
+
+      hostname: 'data-node-a.internal',
+      port: 4420,
+      scheme: 'grpcs',
+
+      storageTotalBytes: 1_000n,
+      storageFreeBytes: 400n,
+
+      registeredAt: now,
+      lastContactAt: now,
+      lastHealthCheckAt: null,
+      lastHeartbeatAt: now,
+      updatedAt: now,
+
+      revision: 4n
+    }
   ]
 };
 

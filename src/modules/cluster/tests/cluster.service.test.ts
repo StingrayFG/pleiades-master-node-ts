@@ -27,7 +27,8 @@ const cluster: Cluster = {
 
 const snapshot: ClusterMembershipSnapshot = {
   cluster,
-  masterNodes: []
+  masterNodes: [],
+  dataNodes: []
 };
 
 /* mocks */

@@ -70,7 +70,8 @@ const updatedClusterMembershipSnapshot: ClusterMembershipSnapshot = {
     ...cluster,
     membershipRevision: 3n
   },
-  masterNodes: [leader]
+  masterNodes: [leader],
+  dataNodes: []
 };
 
 const entry: InternodeTaskEntry = {

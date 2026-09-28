@@ -36,6 +36,31 @@ const masterNode = {
   revision: 1n
 };
 
+const dataNode = {
+  id: 'data-node-a',
+
+  certificateFingerprint: 'ef'.repeat(32),
+  sessionId: '00000000-0000-4000-8000-000000000002',
+  lastHeartbeatSequence: 1n,
+  state: 'active' as const,
+  mode: 'serving' as const,
+
+  hostname: 'data-node-a.internal',
+  port: 4420,
+  scheme: 'grpcs' as const,
+
+  storageTotalBytes: 1_000n,
+  storageFreeBytes: 400n,
+
+  registeredAt: now,
+  lastContactAt: now,
+  lastHealthCheckAt: null,
+  lastHeartbeatAt: now,
+  updatedAt: now,
+
+  revision: 2n
+};
+
 /* tests */
 
 describe('cluster membership snapshot', () => {
@@ -43,11 +68,13 @@ describe('cluster membership snapshot', () => {
     expect(
       clusterMembershipSnapshotSchema.parse({
         cluster,
-        masterNodes: [masterNode]
+        masterNodes: [masterNode],
+        dataNodes: [dataNode]
       })
     ).toEqual({
       cluster,
-      masterNodes: [masterNode]
+      masterNodes: [masterNode],
+      dataNodes: [dataNode]
     });
   });
 
@@ -61,7 +88,8 @@ describe('cluster membership snapshot', () => {
             ...masterNode,
             certificateFingerprint: 'cd'.repeat(32)
           }
-        ]
+        ],
+        dataNodes: [dataNode]
       }).success
     ).toBe(false);
   });
@@ -75,6 +103,39 @@ describe('cluster membership snapshot', () => {
           {
             ...masterNode,
             id: 'master-node-b'
+          }
+        ],
+        dataNodes: [dataNode]
+      }).success
+    ).toBe(false);
+  });
+
+  test('rejects duplicate data node ids', () => {
+    expect(
+      clusterMembershipSnapshotSchema.safeParse({
+        cluster,
+        masterNodes: [masterNode],
+        dataNodes: [
+          dataNode,
+          {
+            ...dataNode,
+            certificateFingerprint: '12'.repeat(32)
+          }
+        ]
+      }).success
+    ).toBe(false);
+  });
+
+  test('rejects duplicate data node certificates', () => {
+    expect(
+      clusterMembershipSnapshotSchema.safeParse({
+        cluster,
+        masterNodes: [masterNode],
+        dataNodes: [
+          dataNode,
+          {
+            ...dataNode,
+            id: 'data-node-b'
           }
         ]
       }).success

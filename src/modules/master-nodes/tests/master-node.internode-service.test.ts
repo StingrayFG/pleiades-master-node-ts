@@ -93,7 +93,8 @@ const authenticatedCaller = {
 
 const clusterMembershipSnapshot = {
   cluster,
-  masterNodes: [callerMasterNode]
+  masterNodes: [callerMasterNode],
+  dataNodes: []
 };
 
 /* mocks */

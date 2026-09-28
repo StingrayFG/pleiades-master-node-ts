@@ -21,6 +21,7 @@ const lastContactAt = new Date('2026-01-02T00:00:00.000Z');
 
 const prismaDataNode: PrismaDataNode = {
   id: dataNodeId,
+  cluster_record_id: 'self',
 
   certificate_fingerprint: certificateFingerprint,
   session_id: sessionId,
@@ -39,6 +40,7 @@ const prismaDataNode: PrismaDataNode = {
   last_contact_at: lastContactAt,
   last_health_check_at: null,
   last_heartbeat_at: lastContactAt,
+  removed_at: null,
   updated_at: lastContactAt,
 
   revision: 3n
@@ -118,12 +120,14 @@ const createPrismaError = (code: string, target?: string[]): Prisma.PrismaClient
 const createDataNodeDelegateMock = () => {
   const delegate = {
     findMany: jest.fn<(input?: unknown) => Promise<PrismaDataNode[]>>(),
+    findFirst: jest.fn<(input: unknown) => Promise<PrismaDataNode | null>>(),
     findUnique: jest.fn<(input: unknown) => Promise<PrismaDataNode | null>>(),
     create: jest.fn<(input: unknown) => Promise<PrismaDataNode>>(),
     updateMany: jest.fn<(input: unknown) => Promise<{ count: number }>>()
   };
 
   delegate.findMany.mockResolvedValue([]);
+  delegate.findFirst.mockResolvedValue(null);
   delegate.findUnique.mockResolvedValue(null);
   delegate.create.mockResolvedValue(prismaDataNode);
   delegate.updateMany.mockResolvedValue({ count: 1 });
@@ -151,7 +155,12 @@ describe('DataNodeRepository', () => {
     delegate.findMany.mockResolvedValue([prismaDataNode]);
 
     await expect(repository.listAll()).resolves.toEqual([domainDataNode]);
-    expect(delegate.findMany).toHaveBeenCalledWith();
+    expect(delegate.findMany).toHaveBeenCalledWith({
+      where: {
+        cluster_record_id: 'self',
+        removed_at: null
+      }
+    });
   });
 
   test('lists active serving data nodes as available', async () => {
@@ -160,6 +169,8 @@ describe('DataNodeRepository', () => {
     await expect(repository.listAvailable()).resolves.toEqual([domainDataNode]);
     expect(delegate.findMany).toHaveBeenCalledWith({
       where: {
+        cluster_record_id: 'self',
+        removed_at: null,
         state: 'active',
         mode: 'serving'
       }
@@ -192,11 +203,29 @@ describe('DataNodeRepository', () => {
     await expect(repository.findById(dataNodeId)).resolves.toBeNull();
   });
 
+  test('finds a current cluster data node by id', async () => {
+    delegate.findFirst.mockResolvedValue(prismaDataNode);
+
+    await expect(repository.findMemberById(dataNodeId)).resolves.toEqual(domainDataNode);
+    expect(delegate.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: dataNodeId,
+        cluster_record_id: 'self',
+        removed_at: null
+      }
+    });
+  });
+
+  test('returns null when a data node is no longer in the cluster inventory', async () => {
+    await expect(repository.findMemberById(dataNodeId)).resolves.toBeNull();
+  });
+
   test('creates a new data node registration', async () => {
     await expect(repository.applyRegistration(registrationInput)).resolves.toBe(true);
     expect(delegate.create).toHaveBeenCalledWith({
       data: {
         id: dataNodeId,
+        cluster_record_id: 'self',
 
         certificate_fingerprint: certificateFingerprint,
         session_id: sessionId,
@@ -212,7 +241,8 @@ describe('DataNodeRepository', () => {
         storage_free_bytes: 400n,
 
         last_contact_at: lastContactAt,
-        last_heartbeat_at: null
+        last_heartbeat_at: null,
+        removed_at: null
       }
     });
   });
@@ -242,6 +272,8 @@ describe('DataNodeRepository', () => {
         revision: 3n
       },
       data: {
+        cluster_record_id: 'self',
+
         session_id: sessionId,
         last_heartbeat_sequence: 0n,
         state: 'joining',
@@ -255,6 +287,7 @@ describe('DataNodeRepository', () => {
 
         last_contact_at: lastContactAt,
         last_heartbeat_at: null,
+        removed_at: null,
 
         revision: {
           increment: 1
@@ -279,6 +312,8 @@ describe('DataNodeRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: dataNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
         certificate_fingerprint: certificateFingerprint,
         session_id: sessionId,
         last_heartbeat_sequence: {
@@ -319,6 +354,8 @@ describe('DataNodeRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: dataNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
         revision: 3n
       },
       data: {
@@ -341,6 +378,8 @@ describe('DataNodeRepository', () => {
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
         id: dataNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
         revision: 3n
       },
       data: {

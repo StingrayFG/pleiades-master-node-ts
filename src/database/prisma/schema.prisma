@@ -432,13 +432,14 @@ model DataNode {
   last_contact_at      DateTime
   last_heartbeat_at    DateTime?
   last_health_check_at DateTime?
+  removed_at           DateTime?
   updated_at           DateTime  @updatedAt
 
   // concurrency
   revision BigInt @default(0)
 
   // database metadata
-  @@index([cluster_record_id])
+  @@index([cluster_record_id, removed_at])
   @@index([state])
   @@index([last_heartbeat_at])
   @@map("data_nodes")

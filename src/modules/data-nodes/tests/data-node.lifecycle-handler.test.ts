@@ -64,6 +64,7 @@ const createDataNodeRepositoryMock = (): jest.Mocked<DataNodeRepositoryContract>
     listAll: jest.fn<DataNodeRepositoryContract['listAll']>(),
     listAvailable: jest.fn<DataNodeRepositoryContract['listAvailable']>(),
     findById: jest.fn<DataNodeRepositoryContract['findById']>(),
+    findMemberById: jest.fn<DataNodeRepositoryContract['findMemberById']>(),
     applyRegistration: jest.fn<DataNodeRepositoryContract['applyRegistration']>(),
     applyHeartbeat: jest.fn<DataNodeRepositoryContract['applyHeartbeat']>(),
     applyHealthCheck: jest.fn<DataNodeRepositoryContract['applyHealthCheck']>(),

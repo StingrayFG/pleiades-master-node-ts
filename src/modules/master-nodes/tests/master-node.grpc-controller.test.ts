@@ -55,7 +55,8 @@ const clusterMembershipSnapshot: ClusterMembershipSnapshot = {
     createdAt,
     updatedAt: createdAt
   },
-  masterNodes: []
+  masterNodes: [],
+  dataNodes: []
 };
 
 /* helpers */

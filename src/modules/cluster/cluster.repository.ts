@@ -4,6 +4,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { GenericAlreadyExistsError, GenericConflictError } from '@/errors/application.errors';
+import { mapPrismaDataNodeToDomainDataNode } from '@/modules/data-nodes/data-node.mappers';
 import { mapPrismaMasterNodeToDomainMasterNode } from '@/modules/master-nodes/master-node.mappers';
 
 import type { CreateClusterRepositoryInput } from './cluster.application';
@@ -84,9 +85,20 @@ class ClusterRepository implements ClusterRepositoryContract {
             }
           });
 
+          const dataNodes = await transaction.dataNode.findMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null
+            },
+            orderBy: {
+              id: 'asc'
+            }
+          });
+
           return {
             cluster,
-            masterNodes
+            masterNodes,
+            dataNodes
           };
         },
         {
@@ -103,7 +115,8 @@ class ClusterRepository implements ClusterRepositoryContract {
 
     return {
       cluster: mapPrismaClusterToDomainCluster(snapshot.cluster),
-      masterNodes: snapshot.masterNodes.map(mapPrismaMasterNodeToDomainMasterNode)
+      masterNodes: snapshot.masterNodes.map(mapPrismaMasterNodeToDomainMasterNode),
+      dataNodes: snapshot.dataNodes.map(mapPrismaDataNodeToDomainDataNode)
     };
   }
 
@@ -181,13 +194,32 @@ class ClusterRepository implements ClusterRepositoryContract {
             }
           });
 
-          if (cluster.membership_revision === snapshot.cluster.membershipRevision) {
-            const currentMembership = currentMasterNodes.map(mapPrismaMasterNodeToDomainMasterNode);
-            const snapshotMembership = [...snapshot.masterNodes].sort((left, right) => left.id.localeCompare(right.id));
+          const currentDataNodes = await transaction.dataNode.findMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null
+            },
+            orderBy: {
+              id: 'asc'
+            }
+          });
 
-            if (!isDeepStrictEqual(currentMembership, snapshotMembership)) {
+          if (cluster.membership_revision === snapshot.cluster.membershipRevision) {
+            const currentMasterMembership = currentMasterNodes.map(mapPrismaMasterNodeToDomainMasterNode);
+            const snapshotMasterMembership = [...snapshot.masterNodes].sort((left, right) =>
+              left.id.localeCompare(right.id)
+            );
+            const currentDataNodeInventory = currentDataNodes.map(mapPrismaDataNodeToDomainDataNode);
+            const snapshotDataNodeInventory = [...snapshot.dataNodes].sort((left, right) =>
+              left.id.localeCompare(right.id)
+            );
+
+            if (
+              !isDeepStrictEqual(currentMasterMembership, snapshotMasterMembership) ||
+              !isDeepStrictEqual(currentDataNodeInventory, snapshotDataNodeInventory)
+            ) {
               throw new GenericConflictError(
-                'Cluster membership snapshot conflicts with the local membership at the same revision'
+                'Cluster membership snapshot conflicts with the local cluster inventory at the same revision'
               );
             }
 
@@ -195,11 +227,20 @@ class ClusterRepository implements ClusterRepositoryContract {
           }
 
           const snapshotMasterNodeIds = snapshot.masterNodes.map((masterNode) => masterNode.id);
+          const snapshotDataNodeIds = snapshot.dataNodes.map((dataNode) => dataNode.id);
 
           const existingMasterNodes = await transaction.masterNode.findMany({
             where: {
               id: {
                 in: snapshotMasterNodeIds
+              }
+            }
+          });
+
+          const existingDataNodes = await transaction.dataNode.findMany({
+            where: {
+              id: {
+                in: snapshotDataNodeIds
               }
             }
           });
@@ -211,6 +252,14 @@ class ClusterRepository implements ClusterRepositoryContract {
 
             if (snapshotMasterNode?.certificateFingerprint !== existingMasterNode.certificate_fingerprint) {
               throw new GenericConflictError('Cluster membership snapshot changes an existing master node certificate');
+            }
+          }
+
+          for (const existingDataNode of existingDataNodes) {
+            const snapshotDataNode = snapshot.dataNodes.find((dataNode) => dataNode.id === existingDataNode.id);
+
+            if (snapshotDataNode?.certificateFingerprint !== existingDataNode.certificate_fingerprint) {
+              throw new GenericConflictError('Cluster membership snapshot changes an existing data node certificate');
             }
           }
 
@@ -264,6 +313,66 @@ class ClusterRepository implements ClusterRepositoryContract {
             });
           }
 
+          for (const dataNode of snapshot.dataNodes) {
+            await transaction.dataNode.upsert({
+              where: {
+                id: dataNode.id
+              },
+              create: {
+                id: dataNode.id,
+                cluster_record_id: CLUSTER_RECORD_ID,
+
+                certificate_fingerprint: dataNode.certificateFingerprint,
+                session_id: dataNode.sessionId,
+                last_heartbeat_sequence: dataNode.lastHeartbeatSequence,
+                state: dataNode.state,
+                mode: dataNode.mode,
+
+                hostname: dataNode.hostname,
+                port: dataNode.port,
+                scheme: dataNode.scheme,
+
+                storage_total_bytes: dataNode.storageTotalBytes,
+                storage_free_bytes: dataNode.storageFreeBytes,
+
+                registered_at: dataNode.registeredAt,
+                last_contact_at: dataNode.lastContactAt,
+                last_health_check_at: dataNode.lastHealthCheckAt,
+                last_heartbeat_at: dataNode.lastHeartbeatAt,
+                removed_at: null,
+                updated_at: dataNode.updatedAt,
+
+                revision: dataNode.revision
+              },
+              update: {
+                cluster_record_id: CLUSTER_RECORD_ID,
+
+                session_id: dataNode.sessionId,
+                last_heartbeat_sequence: dataNode.lastHeartbeatSequence,
+                state: dataNode.state,
+                mode: dataNode.mode,
+
+                hostname: dataNode.hostname,
+                port: dataNode.port,
+                scheme: dataNode.scheme,
+
+                storage_total_bytes: dataNode.storageTotalBytes,
+                storage_free_bytes: dataNode.storageFreeBytes,
+
+                registered_at: dataNode.registeredAt,
+                last_contact_at: dataNode.lastContactAt,
+                last_health_check_at: dataNode.lastHealthCheckAt,
+                last_heartbeat_at: dataNode.lastHeartbeatAt,
+                removed_at: null,
+                updated_at: dataNode.updatedAt,
+
+                revision: dataNode.revision
+              }
+            });
+          }
+
+          const removedAt = new Date();
+
           await transaction.masterNode.updateMany({
             where: {
               cluster_record_id: CLUSTER_RECORD_ID,
@@ -273,7 +382,20 @@ class ClusterRepository implements ClusterRepositoryContract {
               }
             },
             data: {
-              removed_at: new Date()
+              removed_at: removedAt
+            }
+          });
+
+          await transaction.dataNode.updateMany({
+            where: {
+              cluster_record_id: CLUSTER_RECORD_ID,
+              removed_at: null,
+              id: {
+                notIn: snapshotDataNodeIds
+              }
+            },
+            data: {
+              removed_at: removedAt
             }
           });
 

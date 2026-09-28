@@ -130,6 +130,7 @@ const createDataNodeRepositoryMock = (): jest.Mocked<DataNodeRepositoryContract>
     listAll: jest.fn<DataNodeRepositoryContract['listAll']>(),
     listAvailable: jest.fn<DataNodeRepositoryContract['listAvailable']>(),
     findById: jest.fn<DataNodeRepositoryContract['findById']>(),
+    findMemberById: jest.fn<DataNodeRepositoryContract['findMemberById']>(),
     applyRegistration: jest.fn<DataNodeRepositoryContract['applyRegistration']>(),
     applyHeartbeat: jest.fn<DataNodeRepositoryContract['applyHeartbeat']>(),
     applyHealthCheck: jest.fn<DataNodeRepositoryContract['applyHealthCheck']>(),
@@ -139,6 +140,7 @@ const createDataNodeRepositoryMock = (): jest.Mocked<DataNodeRepositoryContract>
   repository.listAll.mockResolvedValue([]);
   repository.listAvailable.mockResolvedValue([]);
   repository.findById.mockResolvedValue(null);
+  repository.findMemberById.mockResolvedValue(null);
   repository.applyRegistration.mockResolvedValue(true);
   repository.applyHeartbeat.mockResolvedValue(true);
   repository.applyHealthCheck.mockResolvedValue(true);
@@ -213,12 +215,12 @@ describe('DataNodeTaskHandler', () => {
   describe('applyDataNodeHeartbeat', () => {
     test('returns immediately when the heartbeat is applied', async () => {
       await expect(handler.applyDataNodeHeartbeat(heartbeatTask)).resolves.toBe(true);
-      expect(repository.findById).not.toHaveBeenCalled();
+      expect(repository.findMemberById).not.toHaveBeenCalled();
     });
 
     test('accepts a replay when the current node still has the certificate and session', async () => {
       repository.applyHeartbeat.mockResolvedValue(false);
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       await expect(handler.applyDataNodeHeartbeat(heartbeatTask)).resolves.toBe(true);
     });
@@ -231,7 +233,7 @@ describe('DataNodeTaskHandler', () => {
 
     test('rejects a replay from a different certificate', async () => {
       repository.applyHeartbeat.mockResolvedValue(false);
-      repository.findById.mockResolvedValue({
+      repository.findMemberById.mockResolvedValue({
         ...dataNode,
         certificateFingerprint: 'cd'.repeat(32)
       });
@@ -241,7 +243,7 @@ describe('DataNodeTaskHandler', () => {
 
     test('rejects a replay from a stale session', async () => {
       repository.applyHeartbeat.mockResolvedValue(false);
-      repository.findById.mockResolvedValue({
+      repository.findMemberById.mockResolvedValue({
         ...dataNode,
         sessionId: '00000000-0000-4000-8000-000000000099'
       });
@@ -253,19 +255,19 @@ describe('DataNodeTaskHandler', () => {
   describe('recordDataNodeHealthCheck', () => {
     test('returns true when the health check is applied', async () => {
       await expect(handler.recordDataNodeHealthCheck(healthCheckTask)).resolves.toBe(true);
-      expect(repository.findById).not.toHaveBeenCalled();
+      expect(repository.findMemberById).not.toHaveBeenCalled();
     });
 
     test('returns true when a replay finds the desired health-check timestamp', async () => {
       repository.applyHealthCheck.mockResolvedValue(false);
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       await expect(handler.recordDataNodeHealthCheck(healthCheckTask)).resolves.toBe(true);
     });
 
     test('returns false when a replay does not find the desired health-check timestamp', async () => {
       repository.applyHealthCheck.mockResolvedValue(false);
-      repository.findById.mockResolvedValue({
+      repository.findMemberById.mockResolvedValue({
         ...dataNode,
         lastHealthCheckAt: new Date('2026-01-01T00:00:00.000Z')
       });
@@ -277,12 +279,12 @@ describe('DataNodeTaskHandler', () => {
   describe('updateDataNodeState', () => {
     test('returns true when the state update is applied', async () => {
       await expect(handler.updateDataNodeState(stateUpdateTask)).resolves.toBe(true);
-      expect(repository.findById).not.toHaveBeenCalled();
+      expect(repository.findMemberById).not.toHaveBeenCalled();
     });
 
     test('returns true when a replay finds the desired state', async () => {
       repository.updateStateIfRevisionUnchanged.mockResolvedValue(false);
-      repository.findById.mockResolvedValue({
+      repository.findMemberById.mockResolvedValue({
         ...dataNode,
         state: 'offline'
       });
@@ -292,7 +294,7 @@ describe('DataNodeTaskHandler', () => {
 
     test('returns false when a replay does not find the desired state', async () => {
       repository.updateStateIfRevisionUnchanged.mockResolvedValue(false);
-      repository.findById.mockResolvedValue(dataNode);
+      repository.findMemberById.mockResolvedValue(dataNode);
 
       await expect(handler.updateDataNodeState(stateUpdateTask)).resolves.toBe(false);
     });
