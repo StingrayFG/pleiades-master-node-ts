@@ -65,4 +65,31 @@ describe('consensus domain schemas', () => {
       })
     ).toThrow();
   });
+
+  test('rejects a leader that does not match the vote recorded for the epoch', () => {
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        leaderMasterId: 'master-node-a',
+        votedForMasterId: 'master-node-b',
+        lastLeaderContactAt: now
+      })
+    ).toThrow();
+  });
+
+  test('requires leader identity and contact time to be present together', () => {
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        leaderMasterId: 'master-node-a',
+        votedForMasterId: 'master-node-a'
+      })
+    ).toThrow();
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        lastLeaderContactAt: now
+      })
+    ).toThrow();
+  });
 });

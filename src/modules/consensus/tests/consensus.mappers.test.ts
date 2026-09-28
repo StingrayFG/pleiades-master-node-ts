@@ -55,4 +55,13 @@ describe('consensus mappers', () => {
       })
     ).toThrow(GenericMapperError);
   });
+
+  test('rejects contradictory persisted leadership state', () => {
+    expect(() =>
+      mapPrismaConsensusStateToDomainConsensusState({
+        ...prismaState,
+        voted_for_master_id: 'master-node-b'
+      })
+    ).toThrow(GenericMapperError);
+  });
 });

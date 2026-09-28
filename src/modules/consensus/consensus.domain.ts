@@ -38,6 +38,12 @@ export const consensusStateSchema = z
   })
   .refine((state) => state.lastAppliedSequence <= state.lastCommittedSequence, {
     message: 'Applied sequence cannot exceed committed sequence'
+  })
+  .refine((state) => state.leaderMasterId === null || state.votedForMasterId === state.leaderMasterId, {
+    message: 'The current leader must match the vote recorded for the current epoch'
+  })
+  .refine((state) => (state.leaderMasterId === null) === (state.lastLeaderContactAt === null), {
+    message: 'Leader contact time must be present exactly when a leader is known'
   });
 
 /* types */
