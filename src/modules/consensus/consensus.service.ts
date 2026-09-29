@@ -1,9 +1,4 @@
-import {
-  GenericAbortedError,
-  GenericAlreadyExistsError,
-  GenericConflictError,
-  GenericFailedPreconditionError
-} from '@/errors/application.errors';
+import { GenericAbortedError, GenericAlreadyExistsError } from '@/errors/application.errors';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskSequence } from '@/modules/tasks/task.domain';
 
@@ -16,6 +11,21 @@ import type {
 } from './consensus.application';
 import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
+import {
+  isCandidateLogUpToDate,
+  verifyAppliedSequenceWithinCommitted,
+  verifyCommittedSequenceWithinAllocated,
+  verifyElectionCompleted,
+  verifyElectionStarted,
+  verifyEpochObserved,
+  verifyFollowershipAcceptable,
+  verifyFollowershipAccepted,
+  verifyLeadershipSequenceAdvancementNotAborted,
+  verifyLeadershipRelinquished,
+  verifyMatchedSequenceWithinAllocated,
+  verifySequenceAdvancementNotAborted,
+  verifySequenceWithinRewindBounds
+} from './consensus.verifiers';
 
 /* contract */
 
@@ -98,11 +108,7 @@ class ConsensusService implements ConsensusServiceContract {
   ): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (sequence > state.lastAllocatedSequence) {
-      throw new GenericFailedPreconditionError(
-        'Cannot advance the committed sequence beyond the last allocated sequence'
-      );
-    }
+    verifyCommittedSequenceWithinAllocated(state, sequence);
 
     const updatedState = await this.repository.advanceLastCommittedSequence({
       epoch: leadershipContext.epoch,
@@ -111,12 +117,17 @@ class ConsensusService implements ConsensusServiceContract {
       sequence
     });
 
-    if (
-      updatedState.currentEpoch !== leadershipContext.epoch ||
-      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
-      updatedState.lastCommittedSequence < sequence
-    ) {
-      throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change');
+    try {
+      verifyLeadershipSequenceAdvancementNotAborted(
+        updatedState,
+        leadershipContext,
+        sequence,
+        updatedState.lastCommittedSequence
+      );
+    } catch (err) {
+      throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
     }
 
     return updatedState;
@@ -125,18 +136,18 @@ class ConsensusService implements ConsensusServiceContract {
   async advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (sequence > state.lastCommittedSequence) {
-      throw new GenericFailedPreconditionError(
-        'Cannot advance the applied sequence beyond the last committed sequence'
-      );
-    }
+    verifyAppliedSequenceWithinCommitted(state, sequence);
 
     const updatedState = await this.repository.advanceLastAppliedSequence({
       sequence
     });
 
-    if (updatedState.lastAppliedSequence < sequence) {
-      throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change');
+    try {
+      verifySequenceAdvancementNotAborted(sequence, updatedState.lastAppliedSequence);
+    } catch (err) {
+      throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
     }
 
     return updatedState;
@@ -155,12 +166,17 @@ class ConsensusService implements ConsensusServiceContract {
       sequence
     });
 
-    if (
-      updatedState.currentEpoch !== leadershipContext.epoch ||
-      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
-      updatedState.lastAllocatedSequence < sequence
-    ) {
-      throw new GenericAbortedError('Allocated sequence advancement was aborted by a concurrent consensus change');
+    try {
+      verifyLeadershipSequenceAdvancementNotAborted(
+        updatedState,
+        leadershipContext,
+        sequence,
+        updatedState.lastAllocatedSequence
+      );
+    } catch (err) {
+      throw new GenericAbortedError('Allocated sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
     }
 
     return updatedState;
@@ -172,9 +188,7 @@ class ConsensusService implements ConsensusServiceContract {
   ): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (sequence > state.lastAllocatedSequence) {
-      throw new GenericFailedPreconditionError('Cannot advance the matched sequence beyond the last allocated sequence');
-    }
+    verifyMatchedSequenceWithinAllocated(state, sequence);
 
     const updatedState = await this.repository.advanceLastMatchedSequence({
       epoch: leadershipContext.epoch,
@@ -183,12 +197,17 @@ class ConsensusService implements ConsensusServiceContract {
       sequence
     });
 
-    if (
-      updatedState.currentEpoch !== leadershipContext.epoch ||
-      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
-      updatedState.lastMatchedSequence < sequence
-    ) {
-      throw new GenericAbortedError('Matched sequence advancement was aborted by a concurrent consensus change');
+    try {
+      verifyLeadershipSequenceAdvancementNotAborted(
+        updatedState,
+        leadershipContext,
+        sequence,
+        updatedState.lastMatchedSequence
+      );
+    } catch (err) {
+      throw new GenericAbortedError('Matched sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
     }
 
     return updatedState;
@@ -216,13 +235,7 @@ class ConsensusService implements ConsensusServiceContract {
   ): Promise<TResult> {
     const state = await this.getConsensusState();
 
-    if (sequence < state.lastCommittedSequence) {
-      throw new GenericFailedPreconditionError('Cannot rewind the allocated sequence below the committed sequence');
-    }
-
-    if (sequence > state.lastAllocatedSequence) {
-      throw new GenericFailedPreconditionError('The rewound sequence cannot exceed the last allocated sequence');
-    }
+    verifySequenceWithinRewindBounds(state, sequence);
 
     return this.repository.withRewoundLastAllocatedSequence(
       {
@@ -261,13 +274,7 @@ class ConsensusService implements ConsensusServiceContract {
   async acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    if (state.currentEpoch === epoch && state.leaderMasterId !== null && state.leaderMasterId !== leaderMasterId) {
-      throw new GenericConflictError('This master node already belongs to a different leader');
-    }
-
-    if (state.currentEpoch > epoch) {
-      throw new GenericConflictError('The leader epoch is older than the local consensus epoch');
-    }
+    verifyFollowershipAcceptable(state, leaderMasterId, epoch);
 
     // a new leader or epoch invalidates the log verification state; only the committed
     // prefix is known to match, everything beyond it must be verified again
@@ -285,9 +292,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     const followerState = await this.getConsensusState();
 
-    if (followerState.leaderMasterId !== leaderMasterId || followerState.currentEpoch < epoch) {
-      throw new GenericConflictError('Another master node was accepted as the cluster leader first');
-    }
+    verifyFollowershipAccepted(followerState, leaderMasterId, epoch);
 
     return followerState;
   }
@@ -303,9 +308,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     const state = await this.getConsensusState();
 
-    if (state.currentEpoch === epoch && state.leaderMasterId === leaderMasterId) {
-      throw new GenericAbortedError('Leadership relinquishment was aborted by a concurrent consensus change');
-    }
+    verifyLeadershipRelinquished(state, leaderMasterId, epoch);
 
     return state;
   }
@@ -323,13 +326,7 @@ class ConsensusService implements ConsensusServiceContract {
       matchedSequence: state.lastCommittedSequence
     });
 
-    if (
-      electionState.currentEpoch !== electionEpoch ||
-      electionState.leaderMasterId !== null ||
-      electionState.votedForMasterId !== candidateMasterNodeId
-    ) {
-      throw new GenericAbortedError('Election start was aborted by a concurrent consensus change');
-    }
+    verifyElectionStarted(electionState, electionEpoch, candidateMasterNodeId);
 
     return electionState;
   }
@@ -346,9 +343,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     const state = await this.getConsensusState();
 
-    if (state.currentEpoch !== epoch || state.leaderMasterId !== candidateMasterNodeId) {
-      throw new GenericAbortedError('Election completion was aborted by a concurrent consensus change');
-    }
+    verifyElectionCompleted(state, epoch, candidateMasterNodeId);
 
     return state;
   }
@@ -365,23 +360,16 @@ class ConsensusService implements ConsensusServiceContract {
       matchedSequence: state.lastCommittedSequence
     });
 
-    if (observedState.currentEpoch < epoch) {
-      throw new GenericAbortedError('Epoch observation was aborted by a concurrent consensus change');
-    }
+    verifyEpochObserved(observedState, epoch);
 
     return observedState;
   }
 
   async requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult> {
-    const candidateLogIsUpToDate =
-      input.candidateLastLogEpoch > input.localLastLogEpoch ||
-      (input.candidateLastLogEpoch === input.localLastLogEpoch &&
-        input.candidateLastLogSequence >= input.localLastLogSequence);
-
     return this.repository.applyVoteRequest({
       epoch: input.epoch,
       candidateMasterNodeId: input.candidateMasterNodeId,
-      candidateLogIsUpToDate
+      candidateLogIsUpToDate: isCandidateLogUpToDate(input)
     });
   }
 }

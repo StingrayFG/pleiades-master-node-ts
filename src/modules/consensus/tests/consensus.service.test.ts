@@ -2,7 +2,6 @@ import type { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import {
-  GenericAbortedError,
   GenericAlreadyExistsError,
   GenericConflictError,
   GenericFailedPreconditionError,
@@ -68,7 +67,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     withRewoundLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withRewoundLastAllocatedSequence']>(),
     claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
     acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>(),
-    relinquishLeadership: jest.fn<ConsensusStateRepositoryContract['relinquishLeadership']>(),
+    releaseLeadership: jest.fn<ConsensusStateRepositoryContract['releaseLeadership']>(),
     startElection: jest.fn<ConsensusStateRepositoryContract['startElection']>(),
     observeEpoch: jest.fn<ConsensusStateRepositoryContract['observeEpoch']>(),
     applyVoteRequest: jest.fn<ConsensusStateRepositoryContract['applyVoteRequest']>()
@@ -88,7 +87,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   });
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
-  repository.relinquishLeadership.mockResolvedValue(true);
+  repository.releaseLeadership.mockResolvedValue(true);
   repository.startElection.mockResolvedValue({
     ...unclaimedState,
     currentEpoch: 1n,
@@ -181,8 +180,8 @@ describe('ConsensusService', () => {
       lastAllocatedSequence: 3n
     });
 
-    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
-      GenericAbortedError
+    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toThrow(
+      'Committed sequence advancement was aborted by a concurrent consensus change'
     );
   });
 
@@ -194,8 +193,8 @@ describe('ConsensusService', () => {
       lastCommittedSequence: 4n
     });
 
-    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
-      GenericAbortedError
+    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toThrow(
+      'Committed sequence advancement was aborted by a concurrent consensus change'
     );
   });
 
@@ -221,7 +220,9 @@ describe('ConsensusService', () => {
       lastAppliedSequence: 2n
     });
 
-    await expect(service.advanceLastAppliedSequence(3n)).rejects.toBeInstanceOf(GenericAbortedError);
+    await expect(service.advanceLastAppliedSequence(3n)).rejects.toThrow(
+      'Applied sequence advancement was aborted by a concurrent consensus change'
+    );
   });
 
   test('advances the allocated sequence under the expected leadership state', async () => {
@@ -244,8 +245,8 @@ describe('ConsensusService', () => {
       lastLeaderContactAt: null
     });
 
-    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
-      GenericAbortedError
+    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).rejects.toThrow(
+      'Allocated sequence advancement was aborted by a concurrent consensus change'
     );
   });
 
@@ -275,8 +276,8 @@ describe('ConsensusService', () => {
       lastMatchedSequence: 3n
     });
 
-    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
-      GenericAbortedError
+    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toThrow(
+      'Matched sequence advancement was aborted by a concurrent consensus change'
     );
   });
 
@@ -288,8 +289,8 @@ describe('ConsensusService', () => {
       lastMatchedSequence: 4n
     });
 
-    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
-      GenericAbortedError
+    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toThrow(
+      'Matched sequence advancement was aborted by a concurrent consensus change'
     );
   });
 
@@ -357,7 +358,7 @@ describe('ConsensusService', () => {
   });
 
   test('returns immediately when this master node is already leader', async () => {
-    await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(state);
+    await expect(service.claimInitialLeadership(selfMasterNodeId)).resolves.toBe(state);
     expect(repository.claimLeadership).not.toHaveBeenCalled();
     expect(repository.findState).toHaveBeenCalledTimes(1);
   });
@@ -367,7 +368,7 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(otherLeaderState);
 
-    await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(otherLeaderState);
+    await expect(service.claimInitialLeadership(selfMasterNodeId)).resolves.toBe(otherLeaderState);
     expect(repository.claimLeadership).not.toHaveBeenCalled();
   });
 
@@ -381,7 +382,7 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(leaderState);
 
-    await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(leaderState);
+    await expect(service.claimInitialLeadership(selfMasterNodeId)).resolves.toBe(leaderState);
     expect(repository.claimLeadership).toHaveBeenCalledWith({
       epoch: 1n,
       leaderMasterId: selfMasterNodeId,
@@ -402,7 +403,7 @@ describe('ConsensusService', () => {
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(winningState);
     repository.claimLeadership.mockResolvedValue(false);
 
-    await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(winningState);
+    await expect(service.claimInitialLeadership(selfMasterNodeId)).resolves.toBe(winningState);
   });
 
   test('refreshes leader contact when already following the requested leader', async () => {
@@ -512,18 +513,18 @@ describe('ConsensusService', () => {
     await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
   });
 
-  test('conditionally relinquishes local leadership at the expected epoch', async () => {
-    const relinquishedState = {
+  test('conditionally releases local leadership at the expected epoch', async () => {
+    const releasedState = {
       ...state,
       leaderMasterId: null,
       lastLeaderContactAt: null,
       revision: 6n
     };
 
-    repository.findState.mockResolvedValueOnce(state).mockResolvedValueOnce(relinquishedState);
+    repository.findState.mockResolvedValueOnce(state).mockResolvedValueOnce(releasedState);
 
-    await expect(service.relinquishLeadership(selfMasterNodeId, 2n)).resolves.toBe(relinquishedState);
-    expect(repository.relinquishLeadership).toHaveBeenCalledWith({
+    await expect(service.releaseLeadership(selfMasterNodeId, 2n)).resolves.toBe(releasedState);
+    expect(repository.releaseLeadership).toHaveBeenCalledWith({
       epoch: 2n,
       leaderMasterId: selfMasterNodeId,
       matchedSequence: 3n
