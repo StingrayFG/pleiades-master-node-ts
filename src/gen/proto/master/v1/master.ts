@@ -162,6 +162,7 @@ export interface RecordLeaderHeartbeatRequest {
 export interface RecordLeaderHeartbeatResponse {
   epoch: string;
   accepted: boolean;
+  last_matched_sequence: string;
 }
 
 function createBaseTaskEntry(): TaskEntry {
@@ -1799,7 +1800,7 @@ export const RecordLeaderHeartbeatRequest: MessageFns<RecordLeaderHeartbeatReque
 };
 
 function createBaseRecordLeaderHeartbeatResponse(): RecordLeaderHeartbeatResponse {
-  return { epoch: "0", accepted: false };
+  return { epoch: "0", accepted: false, last_matched_sequence: "0" };
 }
 
 export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResponse> = {
@@ -1809,6 +1810,9 @@ export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResp
     }
     if (message.accepted !== false) {
       writer.uint32(16).bool(message.accepted);
+    }
+    if (message.last_matched_sequence !== "0") {
+      writer.uint32(24).int64(message.last_matched_sequence);
     }
     return writer;
   },
@@ -1836,6 +1840,14 @@ export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResp
           message.accepted = reader.bool();
           continue;
         }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.last_matched_sequence = reader.int64().toString();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1849,6 +1861,11 @@ export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResp
     return {
       epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
       accepted: isSet(object.accepted) ? globalThis.Boolean(object.accepted) : false,
+      last_matched_sequence: isSet(object.lastMatchedSequence)
+        ? globalThis.String(object.lastMatchedSequence)
+        : isSet(object.last_matched_sequence)
+        ? globalThis.String(object.last_matched_sequence)
+        : "0",
     };
   },
 
@@ -1859,6 +1876,9 @@ export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResp
     }
     if (message.accepted !== false) {
       obj.accepted = message.accepted;
+    }
+    if (message.last_matched_sequence !== "0") {
+      obj.lastMatchedSequence = message.last_matched_sequence;
     }
     return obj;
   },
@@ -1872,6 +1892,7 @@ export const RecordLeaderHeartbeatResponse: MessageFns<RecordLeaderHeartbeatResp
     const message = createBaseRecordLeaderHeartbeatResponse();
     message.epoch = object.epoch ?? "0";
     message.accepted = object.accepted ?? false;
+    message.last_matched_sequence = object.last_matched_sequence ?? "0";
     return message;
   },
 };

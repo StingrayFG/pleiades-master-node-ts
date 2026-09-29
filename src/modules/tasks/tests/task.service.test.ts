@@ -74,6 +74,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: selfMasterNodeId,
   lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
+  lastMatchedSequence: 5n,
   lastCommittedSequence: 5n,
   lastAppliedSequence: 5n,
   createdAt: now,
@@ -171,9 +172,10 @@ const createByteStorageServiceMock = (): jest.Mocked<ByteStorageServiceContract>
   delete: jest.fn<ByteStorageServiceContract['delete']>()
 });
 
-const createTaskForwarderMock = (): jest.Mocked<TaskForwarderContract> => ({
-  forwardTask: jest.fn<TaskForwarderContract['forwardTask']>().mockResolvedValue('forwarded-result')
-});
+const createTaskForwarderMock = (): jest.Mocked<TaskForwarderContract> =>
+  ({
+    forwardTask: jest.fn<TaskForwarderContract['forwardTask']>().mockResolvedValue('forwarded-result')
+  }) as unknown as jest.Mocked<TaskForwarderContract>;
 
 const createApplyHandlerMock = (): jest.Mocked<TaskApplyHandlerContract> => ({
   run: jest.fn<TaskApplyHandlerContract['run']>().mockResolvedValue()
@@ -758,7 +760,7 @@ describe('TaskService', () => {
     expect(registry.register).toHaveBeenCalledWith(definition, handler);
   });
 
-  test('submits an inline task under the next allocated sequence and commits it', async () => {
+  test('submits an inline task under the next allocated sequence without committing it', async () => {
     await expect(service.submitTask(definition, { value: 'test' })).resolves.toBe(task);
 
     expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
@@ -781,7 +783,7 @@ describe('TaskService', () => {
       expect.any(Object)
     );
     expect(byteStorageService.store).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
   test('rejects task submission when this master node is not the leader', async () => {
@@ -841,7 +843,7 @@ describe('TaskService', () => {
       expect.any(Object)
     );
     expect(resultWaiter.wait).toHaveBeenCalledWith(createInput.id, config.executionWaitTimeoutMs);
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
     expect(applyHandler.run).toHaveBeenCalled();
   });
 
@@ -891,7 +893,7 @@ describe('TaskService', () => {
 
     expect(repository.create).toHaveBeenCalled();
     expect(repository.createExecutions).toHaveBeenCalled();
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
     expect(applyHandler.run).toHaveBeenCalled();
   });
 

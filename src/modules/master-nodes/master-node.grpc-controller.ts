@@ -272,7 +272,8 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
 
     callback(null, {
       epoch: result.epoch.toString(),
-      accepted: result.accepted
+      accepted: result.accepted,
+      last_matched_sequence: result.lastMatchedSequence.toString()
     });
   }
 }

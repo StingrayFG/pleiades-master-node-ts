@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { ByteStorageLifecycleHandlerContract } from '@/modules/byte-storage/lifecycle/byte-storage.lifecycle-handler';
 import type { DataNodeLifecycleHandlerContract } from '@/modules/data-nodes/lifecycle/data-node.lifecycle-handler';
+import type { ElectionCommitmentHandlerContract } from '@/modules/election/lifecycle/election.commitment-handler';
 import type { MasterNodeLifecycleHandlerContract } from '@/modules/master-nodes/lifecycle/master-node.lifecycle-handler';
 import type { ObjectVersionPartLifecycleHandlerContract } from '@/modules/object-version-parts/lifecycle/object-version-part.lifecycle-handler';
 import type { ObjectLifecycleHandlerContract } from '@/modules/objects/lifecycle/object.lifecycle-handler';
@@ -18,6 +19,7 @@ type BackgroundModuleDependencies = {
   taskApplyHandler: TaskApplyHandlerContract;
   taskLifecycleHandler: TaskLifecycleHandlerContract;
   masterNodeLifecycleHandler: MasterNodeLifecycleHandlerContract;
+  electionCommitmentHandler: ElectionCommitmentHandlerContract;
   byteStorageLifecycleHandler: ByteStorageLifecycleHandlerContract;
   dataNodeLifecycleHandler: DataNodeLifecycleHandlerContract;
   objectVersionPartLifecycleHandler: ObjectVersionPartLifecycleHandlerContract;
@@ -52,6 +54,7 @@ const createBackgroundModule = ({
   taskApplyHandler,
   taskLifecycleHandler,
   masterNodeLifecycleHandler,
+  electionCommitmentHandler,
   byteStorageLifecycleHandler,
   dataNodeLifecycleHandler,
   objectVersionPartLifecycleHandler,
@@ -71,6 +74,11 @@ const createBackgroundModule = ({
   const masterNodeLifecycleWorker = new IntervalBackgroundWorker(
     backgroundConfig.worker.masterNodeLifecycleIntervalMs,
     createLoggedBackgroundHandler(() => masterNodeLifecycleHandler.run(), logger, 'Master node lifecycle sweep failed')
+  );
+
+  const electionCommitmentWorker = new IntervalBackgroundWorker(
+    backgroundConfig.worker.electionCommitmentIntervalMs,
+    createLoggedBackgroundHandler(() => electionCommitmentHandler.run(), logger, 'Election commitment sweep failed')
   );
 
   const byteStorageLifecycleWorker = new IntervalBackgroundWorker(
@@ -105,6 +113,7 @@ const createBackgroundModule = ({
     taskApplyWorker,
     taskLifecycleWorker,
     masterNodeLifecycleWorker,
+    electionCommitmentWorker,
     byteStorageLifecycleWorker,
     dataNodeLifecycleWorker,
     objectVersionPartLifecycleWorker,

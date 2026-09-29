@@ -118,6 +118,7 @@ message RecordLeaderHeartbeatRequest {
 message RecordLeaderHeartbeatResponse {
   int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
   bool accepted = 2;
+  int64 last_matched_sequence = 3 [(buf.validate.field).int64.gte = -1];
 }
 
 service Master {

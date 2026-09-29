@@ -241,14 +241,9 @@ class TaskService implements TaskServiceContract {
   ): Promise<PersistedTask> {
     const id = randomUUID();
 
-    const task = await this.submitTaskWithId(definition, data, id);
-
-    await this.consensusService.advanceLastCommittedSequence(task.sequence, {
-      epoch: task.epoch,
-      leaderMasterId: this.selfMasterNodeId
-    });
-
-    return task;
+    // the task becomes visible to executions once a quorum of master nodes holds it;
+    // the election module advances the committed sequence
+    return this.submitTaskWithId(definition, data, id);
   }
 
   /* execution methods */
@@ -305,12 +300,7 @@ class TaskService implements TaskServiceContract {
     void resultPromise.catch(() => undefined);
 
     try {
-      const task = await this.submitTaskWithExecutions(definition, data, targetMasterIds, id);
-
-      await this.consensusService.advanceLastCommittedSequence(task.sequence, {
-        epoch: task.epoch,
-        leaderMasterId: this.selfMasterNodeId
-      });
+      await this.submitTaskWithExecutions(definition, data, targetMasterIds, id);
     } catch (err) {
       this.resultWaiter.fail(id, err);
     }

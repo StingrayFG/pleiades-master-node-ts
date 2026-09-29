@@ -101,6 +101,7 @@ const unclaimedState: ConsensusState = {
   votedForMasterId: null,
   lastLeaderContactAt: null,
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   createdAt: now,

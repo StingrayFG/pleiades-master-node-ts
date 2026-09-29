@@ -8,6 +8,7 @@ import type {
   AdvanceLastCommittedSequenceRepositoryInput,
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastAllocatedSequenceRepositoryInput,
+  AdvanceLastMatchedSequenceRepositoryInput,
   AllocatedSequenceTransactionAction,
   RewoundSequenceTransactionAction,
   ClaimLeadershipRepositoryInput,
@@ -38,6 +39,7 @@ type ConsensusStateRepositoryContract = {
   advanceLastCommittedSequence(input: AdvanceLastCommittedSequenceRepositoryInput): Promise<ConsensusState>;
   advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState>;
   advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastMatchedSequence(input: AdvanceLastMatchedSequenceRepositoryInput): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
@@ -219,6 +221,46 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
+  async advanceLastMatchedSequence(input: AdvanceLastMatchedSequenceRepositoryInput): Promise<ConsensusState> {
+    let state;
+
+    try {
+      state = await this.prisma.$transaction(async (tx) => {
+        await tx.consensusState.updateMany({
+          where: {
+            id: input.id,
+
+            current_epoch: input.epoch,
+            leader_master_id: input.leaderMasterId,
+
+            last_matched_sequence: {
+              lt: input.sequence
+            },
+            last_allocated_sequence: {
+              gte: input.sequence
+            }
+          },
+          data: {
+            last_matched_sequence: input.sequence,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        return tx.consensusState.findUniqueOrThrow({
+          where: {
+            id: input.id
+          }
+        });
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaConsensusStateToDomainConsensusState(state);
+  }
+
   async withAdvancedLastAllocatedSequence<TResult>(
     id: ConsensusStateId,
     epoch: ConsensusEpoch,
@@ -299,6 +341,23 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           throw new GenericAbortedError('The sequence rewind was aborted by a concurrent consensus change');
         }
 
+        // a truncated tail is no longer verified against the leader, so the matched
+        // sequence must not point past the rewound allocation
+        await tx.consensusState.updateMany({
+          where: {
+            id,
+            last_matched_sequence: {
+              gt: sequence
+            }
+          },
+          data: {
+            last_matched_sequence: sequence,
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
         return action(tx, sequence);
       });
     } catch (err) {
@@ -335,6 +394,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           leader_master_id: input.leaderMasterId,
           voted_for_master_id: input.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
+          last_matched_sequence: input.matchedSequence,
           revision: {
             increment: 1
           }
@@ -371,6 +431,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           leader_master_id: input.leaderMasterId,
           voted_for_master_id: input.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
+          last_matched_sequence: input.matchedSequence,
           revision: {
             increment: 1
           }
@@ -396,6 +457,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         data: {
           leader_master_id: null,
           last_leader_contact_at: null,
+          last_matched_sequence: input.matchedSequence,
           revision: {
             increment: 1
           }
@@ -425,6 +487,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             leader_master_id: null,
             voted_for_master_id: input.candidateMasterNodeId,
             last_leader_contact_at: null,
+            last_matched_sequence: input.matchedSequence,
             revision: {
               increment: 1
             }
@@ -461,6 +524,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             leader_master_id: null,
             voted_for_master_id: null,
             last_leader_contact_at: null,
+            last_matched_sequence: input.matchedSequence,
             revision: {
               increment: 1
             }

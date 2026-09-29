@@ -25,6 +25,7 @@ export const consensusStateSchema = z
     lastLeaderContactAt: z.date().nullable(),
 
     lastAllocatedSequence: consensusLastSequenceSchema,
+    lastMatchedSequence: consensusLastSequenceSchema,
     lastCommittedSequence: consensusLastSequenceSchema,
     lastAppliedSequence: consensusLastSequenceSchema,
 
@@ -35,6 +36,9 @@ export const consensusStateSchema = z
   })
   .refine((state) => state.lastCommittedSequence <= state.lastAllocatedSequence, {
     message: 'Committed sequence cannot exceed allocated sequence'
+  })
+  .refine((state) => state.lastMatchedSequence <= state.lastAllocatedSequence, {
+    message: 'Matched sequence cannot exceed allocated sequence'
   })
   .refine((state) => state.lastAppliedSequence <= state.lastCommittedSequence, {
     message: 'Applied sequence cannot exceed committed sequence'

@@ -19,6 +19,7 @@ const prismaState: PrismaConsensusState = {
   last_leader_contact_at: now,
 
   last_allocated_sequence: 4n,
+  last_matched_sequence: 3n,
   last_committed_sequence: 3n,
   last_applied_sequence: 2n,
   created_at: now,
@@ -34,6 +35,7 @@ const state: ConsensusState = {
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 4n,
+  lastMatchedSequence: 3n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,
   createdAt: now,
@@ -225,6 +227,58 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
+  test('advances the matched sequence monotonically and returns the stored state', async () => {
+    const advancedPrismaState = {
+      ...prismaState,
+      last_matched_sequence: 4n,
+      revision: 6n
+    };
+
+    delegate.findUniqueOrThrow.mockResolvedValue(advancedPrismaState);
+
+    await expect(
+      repository.advanceLastMatchedSequence({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        sequence: 4n
+      })
+    ).resolves.toEqual({
+      ...state,
+      lastMatchedSequence: 4n,
+      revision: 6n
+    });
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-a',
+        last_matched_sequence: { lt: 4n },
+        last_allocated_sequence: { gte: 4n }
+      },
+      data: {
+        last_matched_sequence: 4n,
+        revision: { increment: 1 }
+      }
+    });
+    expect(delegate.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { id: CONSENSUS_STATE_ID }
+    });
+  });
+
+  test('returns the existing matched sequence when a stale advancement loses its gate', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.advanceLastMatchedSequence({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        sequence: 2n
+      })
+    ).resolves.toEqual(state);
+  });
+
   test('allocates a sequence under the expected epoch and runs the action in the transaction', async () => {
     const allocatedPrismaState = {
       ...prismaState,
@@ -296,6 +350,16 @@ describe('ConsensusStateRepository', () => {
         revision: { increment: 1 }
       }
     });
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        last_matched_sequence: { gt: 3n }
+      },
+      data: {
+        last_matched_sequence: 3n,
+        revision: { increment: 1 }
+      }
+    });
     expect(action).toHaveBeenCalledWith(transactionClient as unknown as Prisma.TransactionClient, 3n);
   });
 
@@ -307,6 +371,7 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
     ).rejects.toBeInstanceOf(GenericAbortedError);
+    expect(delegate.updateMany).toHaveBeenCalledTimes(1);
     expect(action).not.toHaveBeenCalled();
   });
 
@@ -344,7 +409,8 @@ describe('ConsensusStateRepository', () => {
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
-        lastLeaderContactAt: now
+        lastLeaderContactAt: now,
+        matchedSequence: 3n
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
@@ -358,6 +424,7 @@ describe('ConsensusStateRepository', () => {
         leader_master_id: 'master-node-b',
         voted_for_master_id: 'master-node-b',
         last_leader_contact_at: now,
+        last_matched_sequence: 3n,
         revision: { increment: 1 }
       }
     });
@@ -371,7 +438,8 @@ describe('ConsensusStateRepository', () => {
         id: CONSENSUS_STATE_ID,
         epoch: 10n,
         leaderMasterId: 'master-node-b',
-        lastLeaderContactAt: now
+        lastLeaderContactAt: now,
+        matchedSequence: 3n
       })
     ).resolves.toBe(false);
     expect(delegate.updateMany).toHaveBeenCalledWith({
@@ -385,6 +453,7 @@ describe('ConsensusStateRepository', () => {
         leader_master_id: 'master-node-b',
         voted_for_master_id: 'master-node-b',
         last_leader_contact_at: now,
+        last_matched_sequence: 3n,
         revision: { increment: 1 }
       }
     });
@@ -396,7 +465,8 @@ describe('ConsensusStateRepository', () => {
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
-        lastLeaderContactAt: now
+        lastLeaderContactAt: now,
+        matchedSequence: 3n
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
@@ -415,6 +485,7 @@ describe('ConsensusStateRepository', () => {
         leader_master_id: 'master-node-b',
         voted_for_master_id: 'master-node-b',
         last_leader_contact_at: now,
+        last_matched_sequence: 3n,
         revision: { increment: 1 }
       }
     });
@@ -428,7 +499,8 @@ describe('ConsensusStateRepository', () => {
         id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
-        lastLeaderContactAt: now
+        lastLeaderContactAt: now,
+        matchedSequence: 3n
       })
     ).resolves.toBe(false);
   });
@@ -438,7 +510,8 @@ describe('ConsensusStateRepository', () => {
       repository.relinquishLeadership({
         id: CONSENSUS_STATE_ID,
         epoch: 2n,
-        leaderMasterId: 'master-node-a'
+        leaderMasterId: 'master-node-a',
+        matchedSequence: 3n
       })
     ).resolves.toBe(true);
     expect(delegate.updateMany).toHaveBeenCalledWith({
@@ -450,6 +523,7 @@ describe('ConsensusStateRepository', () => {
       data: {
         leader_master_id: null,
         last_leader_contact_at: null,
+        last_matched_sequence: 3n,
         revision: { increment: 1 }
       }
     });
@@ -472,7 +546,8 @@ describe('ConsensusStateRepository', () => {
         id: CONSENSUS_STATE_ID,
         expectedEpoch: 2n,
         electionEpoch: 3n,
-        candidateMasterNodeId: 'master-node-b'
+        candidateMasterNodeId: 'master-node-b',
+        matchedSequence: 3n
       })
     ).resolves.toEqual({
       ...state,
@@ -492,6 +567,7 @@ describe('ConsensusStateRepository', () => {
         leader_master_id: null,
         voted_for_master_id: 'master-node-b',
         last_leader_contact_at: null,
+        last_matched_sequence: 3n,
         revision: { increment: 1 }
       }
     });
@@ -509,13 +585,27 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(observedPrismaState);
 
-    await expect(repository.observeEpoch({ id: CONSENSUS_STATE_ID, epoch: 4n })).resolves.toEqual({
+    await expect(repository.observeEpoch({ id: CONSENSUS_STATE_ID, epoch: 4n, matchedSequence: 3n })).resolves.toEqual({
       ...state,
       currentEpoch: 4n,
       leaderMasterId: null,
       votedForMasterId: null,
       lastLeaderContactAt: null,
       revision: 6n
+    });
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: { lt: 4n }
+      },
+      data: {
+        current_epoch: 4n,
+        leader_master_id: null,
+        voted_for_master_id: null,
+        last_leader_contact_at: null,
+        last_matched_sequence: 3n,
+        revision: { increment: 1 }
+      }
     });
   });
 

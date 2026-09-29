@@ -38,6 +38,10 @@ type ConsensusServiceContract = {
     sequence: TaskSequence,
     leadershipContext: ConsensusLeadershipContext
   ): Promise<ConsensusState>;
+  advanceLastMatchedSequence(
+    sequence: ConsensusLastSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -172,6 +176,36 @@ class ConsensusService implements ConsensusServiceContract {
     return updatedState;
   }
 
+  async advanceLastMatchedSequence(
+    sequence: ConsensusLastSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+
+    if (sequence > state.lastAllocatedSequence) {
+      throw new GenericFailedPreconditionError('Cannot advance the matched sequence beyond the last allocated sequence');
+    }
+
+    const updatedState = await this.repository.advanceLastMatchedSequence({
+      id: CONSENSUS_STATE_ID,
+
+      epoch: leadershipContext.epoch,
+      leaderMasterId: leadershipContext.leaderMasterId,
+
+      sequence
+    });
+
+    if (
+      updatedState.currentEpoch !== leadershipContext.epoch ||
+      updatedState.leaderMasterId !== leadershipContext.leaderMasterId ||
+      updatedState.lastMatchedSequence < sequence
+    ) {
+      throw new GenericAbortedError('Matched sequence advancement was aborted by a concurrent consensus change');
+    }
+
+    return updatedState;
+  }
+
   async withAdvancedLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -228,7 +262,8 @@ class ConsensusService implements ConsensusServiceContract {
       id: CONSENSUS_STATE_ID,
       epoch: state.currentEpoch + 1n,
       leaderMasterId: selfMasterNodeId,
-      lastLeaderContactAt: new Date()
+      lastLeaderContactAt: new Date(),
+      matchedSequence: state.lastCommittedSequence
     });
 
     return this.getConsensusState();
@@ -245,11 +280,19 @@ class ConsensusService implements ConsensusServiceContract {
       throw new GenericConflictError('The leader epoch is older than the local consensus epoch');
     }
 
+    // a new leader or epoch invalidates the log verification state; only the committed
+    // prefix is known to match, everything beyond it must be verified again
+    const matchedSequence =
+      state.currentEpoch !== epoch || state.leaderMasterId !== leaderMasterId
+        ? state.lastCommittedSequence
+        : state.lastMatchedSequence;
+
     await this.repository.acceptFollowership({
       id: CONSENSUS_STATE_ID,
       epoch,
       leaderMasterId,
-      lastLeaderContactAt: new Date()
+      lastLeaderContactAt: new Date(),
+      matchedSequence
     });
 
     const followerState = await this.getConsensusState();
@@ -262,12 +305,13 @@ class ConsensusService implements ConsensusServiceContract {
   }
 
   async relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
-    await this.getConsensusState();
+    const previousState = await this.getConsensusState();
 
     await this.repository.relinquishLeadership({
       id: CONSENSUS_STATE_ID,
       epoch,
-      leaderMasterId
+      leaderMasterId,
+      matchedSequence: previousState.lastCommittedSequence
     });
 
     const state = await this.getConsensusState();
@@ -289,7 +333,8 @@ class ConsensusService implements ConsensusServiceContract {
       id: CONSENSUS_STATE_ID,
       expectedEpoch: state.currentEpoch,
       electionEpoch,
-      candidateMasterNodeId
+      candidateMasterNodeId,
+      matchedSequence: state.lastCommittedSequence
     });
 
     if (
@@ -304,11 +349,14 @@ class ConsensusService implements ConsensusServiceContract {
   }
 
   async completeElection(candidateMasterNodeId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+    const previousState = await this.getConsensusState();
+
     await this.repository.claimLeadership({
       id: CONSENSUS_STATE_ID,
       epoch,
       leaderMasterId: candidateMasterNodeId,
-      lastLeaderContactAt: new Date()
+      lastLeaderContactAt: new Date(),
+      matchedSequence: previousState.lastCommittedSequence
     });
 
     const state = await this.getConsensusState();
@@ -329,7 +377,8 @@ class ConsensusService implements ConsensusServiceContract {
 
     const observedState = await this.repository.observeEpoch({
       id: CONSENSUS_STATE_ID,
-      epoch
+      epoch,
+      matchedSequence: state.lastCommittedSequence
     });
 
     if (observedState.currentEpoch < epoch) {

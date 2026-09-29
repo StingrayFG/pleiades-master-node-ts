@@ -21,6 +21,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: 'master-node-b',
   lastLeaderContactAt: now,
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   createdAt: now,
@@ -66,7 +67,8 @@ describe('ElectionLifecycleHandler', () => {
       requestVote: jest.fn<ElectionServiceContract['requestVote']>(),
       recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>(),
       runElection: jest.fn<ElectionServiceContract['runElection']>().mockResolvedValue(false),
-      broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>()
+      broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>(),
+      evaluateCommitment: jest.fn<ElectionServiceContract['evaluateCommitment']>().mockResolvedValue()
     };
     masterNodeService = {
       listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue([selfMasterNode])

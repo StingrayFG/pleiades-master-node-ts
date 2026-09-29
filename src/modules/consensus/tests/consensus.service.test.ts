@@ -32,6 +32,7 @@ const state: ConsensusState = {
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 4n,
+  lastMatchedSequence: 3n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,
   createdAt: now,
@@ -46,6 +47,7 @@ const unclaimedState: ConsensusState = {
   votedForMasterId: null,
   lastLeaderContactAt: null,
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   revision: 0n
@@ -61,6 +63,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     advanceLastCommittedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastCommittedSequence']>(),
     advanceLastAppliedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastAppliedSequence']>(),
     advanceLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastAllocatedSequence']>(),
+    advanceLastMatchedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastMatchedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withAdvancedLastAllocatedSequence']>(),
     withRewoundLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withRewoundLastAllocatedSequence']>(),
     claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
@@ -76,6 +79,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   repository.advanceLastCommittedSequence.mockResolvedValue(state);
   repository.advanceLastAppliedSequence.mockResolvedValue(state);
   repository.advanceLastAllocatedSequence.mockResolvedValue(state);
+  repository.advanceLastMatchedSequence.mockResolvedValue(state);
   repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_id, _epoch, _leaderMasterId, action) => {
     return action(transaction, 5n);
   });
@@ -250,6 +254,51 @@ describe('ConsensusService', () => {
     );
   });
 
+  test('advances the matched sequence under the expected leadership state', async () => {
+    const advancedState = { ...state, lastMatchedSequence: 4n };
+
+    repository.advanceLastMatchedSequence.mockResolvedValue(advancedState);
+
+    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
+    expect(repository.advanceLastMatchedSequence).toHaveBeenCalledWith({
+      id: CONSENSUS_STATE_ID,
+      epoch: 2n,
+      leaderMasterId: selfMasterNodeId,
+      sequence: 4n
+    });
+  });
+
+  test('rejects a matched sequence beyond the allocated sequence', async () => {
+    await expect(service.advanceLastMatchedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericFailedPreconditionError
+    );
+    expect(repository.advanceLastMatchedSequence).not.toHaveBeenCalled();
+  });
+
+  test('reports a matched-sequence concurrency gate loss', async () => {
+    repository.advanceLastMatchedSequence.mockResolvedValue({
+      ...state,
+      lastMatchedSequence: 3n
+    });
+
+    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
+  });
+
+  test('rejects matched-sequence advancement after leadership is lost in the same epoch', async () => {
+    repository.advanceLastMatchedSequence.mockResolvedValue({
+      ...state,
+      leaderMasterId: null,
+      lastLeaderContactAt: null,
+      lastMatchedSequence: 4n
+    });
+
+    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
+  });
+
   test('delegates allocated-sequence work with the singleton id and expected leadership state', async () => {
     const action = jest
       .fn<AllocatedSequenceTransactionAction<string>>()
@@ -340,7 +389,8 @@ describe('ConsensusService', () => {
       id: CONSENSUS_STATE_ID,
       epoch: 1n,
       leaderMasterId: selfMasterNodeId,
-      lastLeaderContactAt: expect.any(Date)
+      lastLeaderContactAt: expect.any(Date),
+      matchedSequence: -1n
     });
     expect(repository.findState).toHaveBeenCalledTimes(2);
   });
@@ -360,7 +410,7 @@ describe('ConsensusService', () => {
   });
 
   test('refreshes leader contact when already following the requested leader', async () => {
-    const followerState = { ...state, leaderMasterId: otherMasterNodeId };
+    const followerState = { ...state, leaderMasterId: otherMasterNodeId, lastMatchedSequence: 4n };
 
     repository.findState.mockResolvedValue(followerState);
 
@@ -371,26 +421,35 @@ describe('ConsensusService', () => {
       id: CONSENSUS_STATE_ID,
       epoch: followerState.currentEpoch,
       leaderMasterId: otherMasterNodeId,
-      lastLeaderContactAt: expect.any(Date)
+      lastLeaderContactAt: expect.any(Date),
+      matchedSequence: 4n
     });
   });
 
   test('accepts a leader and its epoch while the local consensus state is unclaimed', async () => {
-    const followerState = {
+    const preAcceptanceState = {
       ...unclaimedState,
+      lastAllocatedSequence: 3n,
+      lastMatchedSequence: 3n,
+      lastCommittedSequence: 2n
+    };
+    const followerState = {
+      ...preAcceptanceState,
       currentEpoch: 2n,
       leaderMasterId: otherMasterNodeId,
+      lastMatchedSequence: 2n,
       revision: 1n
     };
 
-    repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(followerState);
+    repository.findState.mockResolvedValueOnce(preAcceptanceState).mockResolvedValueOnce(followerState);
 
     await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(followerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: otherMasterNodeId,
-      lastLeaderContactAt: expect.any(Date)
+      lastLeaderContactAt: expect.any(Date),
+      matchedSequence: 2n
     });
   });
 
@@ -398,11 +457,15 @@ describe('ConsensusService', () => {
     const existingFollowerState = {
       ...unclaimedState,
       currentEpoch: 1n,
-      leaderMasterId: otherMasterNodeId
+      leaderMasterId: otherMasterNodeId,
+      lastAllocatedSequence: 3n,
+      lastMatchedSequence: 3n,
+      lastCommittedSequence: 2n
     };
     const advancedFollowerState = {
       ...existingFollowerState,
       currentEpoch: 2n,
+      lastMatchedSequence: 2n,
       revision: 1n
     };
 
@@ -413,7 +476,8 @@ describe('ConsensusService', () => {
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: otherMasterNodeId,
-      lastLeaderContactAt: expect.any(Date)
+      lastLeaderContactAt: expect.any(Date),
+      matchedSequence: 2n
     });
   });
 
@@ -469,7 +533,8 @@ describe('ConsensusService', () => {
     expect(repository.relinquishLeadership).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
-      leaderMasterId: selfMasterNodeId
+      leaderMasterId: selfMasterNodeId,
+      matchedSequence: 3n
     });
   });
 
@@ -486,7 +551,8 @@ describe('ConsensusService', () => {
       id: CONSENSUS_STATE_ID,
       expectedEpoch: 0n,
       electionEpoch: 1n,
-      candidateMasterNodeId: selfMasterNodeId
+      candidateMasterNodeId: selfMasterNodeId,
+      matchedSequence: -1n
     });
   });
 
@@ -534,7 +600,8 @@ describe('ConsensusService', () => {
     });
     expect(repository.observeEpoch).toHaveBeenCalledWith({
       id: CONSENSUS_STATE_ID,
-      epoch: 3n
+      epoch: 3n,
+      matchedSequence: -1n
     });
   });
 

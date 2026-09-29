@@ -6,6 +6,7 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
+import type { TaskApplyHandlerContract } from '@/modules/tasks/task.apply-handler';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -28,6 +29,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: 'master-node-leader',
   lastLeaderContactAt: now,
   lastAllocatedSequence: 4n,
+  lastMatchedSequence: 4n,
   lastCommittedSequence: 4n,
   lastAppliedSequence: 4n,
   createdAt: now,
@@ -96,6 +98,7 @@ describe('ElectionService', () => {
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let masterNodeGrpcClient: jest.Mocked<MasterNodeGrpcClientContract>;
   let taskService: jest.Mocked<TaskServiceContract>;
+  let taskApplyHandler: jest.Mocked<TaskApplyHandlerContract>;
   let service: ElectionService;
 
   beforeEach(() => {
@@ -117,7 +120,10 @@ describe('ElectionService', () => {
       }),
       relinquishLeadership: jest
         .fn<ConsensusServiceContract['relinquishLeadership']>()
-        .mockResolvedValue(electionState)
+        .mockResolvedValue(electionState),
+      advanceLastCommittedSequence: jest
+        .fn<ConsensusServiceContract['advanceLastCommittedSequence']>()
+        .mockResolvedValue(leaderState)
     } as unknown as jest.Mocked<ConsensusServiceContract>;
 
     masterNodeService = {
@@ -131,18 +137,23 @@ describe('ElectionService', () => {
       }),
       recordLeaderHeartbeat: jest
         .fn<MasterNodeGrpcClientContract['recordLeaderHeartbeat']>()
-        .mockResolvedValue({ epoch: 3n, accepted: true })
+        .mockResolvedValue({ epoch: 3n, accepted: true, lastMatchedSequence: 4n })
     } as unknown as jest.Mocked<MasterNodeGrpcClientContract>;
 
     taskService = {
       findTaskBySequence: jest.fn<TaskServiceContract['findTaskBySequence']>().mockResolvedValue(lastTask)
     } as unknown as jest.Mocked<TaskServiceContract>;
 
+    taskApplyHandler = {
+      run: jest.fn<TaskApplyHandlerContract['run']>().mockResolvedValue()
+    } as unknown as jest.Mocked<TaskApplyHandlerContract>;
+
     service = new ElectionService(
       consensusService,
       masterNodeService,
       masterNodeGrpcClient,
       taskService,
+      taskApplyHandler,
       selfMasterNodeId,
       config
     );
@@ -180,6 +191,7 @@ describe('ElectionService', () => {
       })
     ).resolves.toEqual({
       epoch: 3n,
+      lastMatchedSequence: 4n,
       accepted: true
     });
 
@@ -195,6 +207,7 @@ describe('ElectionService', () => {
       })
     ).resolves.toEqual({
       epoch: consensusState.currentEpoch,
+      lastMatchedSequence: consensusState.lastMatchedSequence,
       accepted: false
     });
 
@@ -256,8 +269,8 @@ describe('ElectionService', () => {
   test('steps down when a heartbeat response carries a newer epoch', async () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.recordLeaderHeartbeat
-      .mockResolvedValueOnce({ epoch: 4n, accepted: false })
-      .mockResolvedValueOnce({ epoch: 3n, accepted: true });
+      .mockResolvedValueOnce({ epoch: 4n, accepted: false, lastMatchedSequence: 4n })
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 4n });
 
     await service.broadcastLeaderHeartbeat();
 
@@ -287,7 +300,8 @@ describe('ElectionService', () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
-      accepted: false
+      accepted: false,
+      lastMatchedSequence: 4n
     });
 
     await service.broadcastLeaderHeartbeat(now);
@@ -299,7 +313,8 @@ describe('ElectionService', () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
-      accepted: false
+      accepted: false,
+      lastMatchedSequence: 4n
     });
 
     await service.broadcastLeaderHeartbeat(now);
@@ -312,21 +327,24 @@ describe('ElectionService', () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
-      accepted: false
+      accepted: false,
+      lastMatchedSequence: 4n
     });
 
     await service.broadcastLeaderHeartbeat(now);
 
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
-      accepted: true
+      accepted: true,
+      lastMatchedSequence: 4n
     });
 
     await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.timeoutMaxMs));
 
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
-      accepted: false
+      accepted: false,
+      lastMatchedSequence: 4n
     });
 
     await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.timeoutMaxMs * 2));
@@ -338,5 +356,86 @@ describe('ElectionService', () => {
     taskService.findTaskBySequence.mockResolvedValue(null);
 
     await expect(service.runElection()).rejects.toBeInstanceOf(GenericInternalServerError);
+  });
+
+  test('commits a task sequence once a quorum of voters holds it', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 3n });
+    masterNodeGrpcClient.recordLeaderHeartbeat
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 6n })
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 4n });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(6n, {
+      epoch: 3n,
+      leaderMasterId: selfMasterNodeId
+    });
+    expect(taskApplyHandler.run).toHaveBeenCalled();
+  });
+
+  test('does not commit a task sequence held by less than a quorum of voters', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: 3n,
+      accepted: true,
+      lastMatchedSequence: 4n
+    });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(taskApplyHandler.run).not.toHaveBeenCalled();
+  });
+
+  test('does not commit a quorum-held task sequence from an older epoch', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 2n });
+    masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: 3n,
+      accepted: true,
+      lastMatchedSequence: 6n
+    });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+  });
+
+  test('commits immediately when the local node is the only voting member', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    masterNodeService.listMasterNodes.mockResolvedValue([createMasterNode(selfMasterNodeId)]);
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 3n });
+
+    await service.evaluateCommitment();
+
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(6n, {
+      epoch: 3n,
+      leaderMasterId: selfMasterNodeId
+    });
+    expect(taskApplyHandler.run).toHaveBeenCalled();
+  });
+
+  test('does not evaluate commitment when the local node is not the leader', async () => {
+    await service.evaluateCommitment();
+
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(masterNodeService.listMasterNodes).not.toHaveBeenCalled();
   });
 });

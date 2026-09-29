@@ -64,6 +64,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: masterNodeId,
   lastLeaderContactAt: lastContactAt,
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   createdAt: lastContactAt,

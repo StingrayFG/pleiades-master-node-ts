@@ -300,6 +300,7 @@ export const mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult =
   return withMapperError('Failed to map gRPC record leader heartbeat response', () => {
     return recordLeaderHeartbeatResultSchema.parse({
       epoch: BigInt(response.epoch),
+      lastMatchedSequence: BigInt(response.last_matched_sequence),
       accepted: response.accepted
     });
   });

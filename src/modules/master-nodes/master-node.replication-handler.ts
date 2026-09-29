@@ -95,6 +95,10 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       fetchResult.lastCommittedSequence,
       leadershipContext
     );
+
+    // the pass verified the local log against the leader's through this sequence, so it
+    // becomes the highest entry this node can vouch for in heartbeat acknowledgments
+    await this.consensusService.advanceLastMatchedSequence(replicatedThroughSequence, leadershipContext);
   }
 
   /* private methods */
@@ -153,10 +157,6 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
     for (const entry of entries) {
       if (entry.sequence !== replicatedThroughSequence + 1n) {
         throw new GenericFailedPreconditionError('The leader returned a non-contiguous task sequence');
-      }
-
-      if (entry.sequence > leaderLastCommittedSequence) {
-        throw new GenericFailedPreconditionError('The leader returned an uncommitted task entry');
       }
 
       try {

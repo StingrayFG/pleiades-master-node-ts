@@ -46,6 +46,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: selfMasterNodeId,
   lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
+  lastMatchedSequence: 4n,
   lastCommittedSequence: 4n,
   lastAppliedSequence: 3n,
   createdAt: now,
@@ -150,10 +151,12 @@ const createElectionServiceMock = (): jest.Mocked<ElectionServiceContract> => {
     }),
     recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>().mockResolvedValue({
       epoch: consensusState.currentEpoch,
+      lastMatchedSequence: consensusState.lastMatchedSequence,
       accepted: true
     }),
     runElection: jest.fn<ElectionServiceContract['runElection']>(),
-    broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>()
+    broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>(),
+    evaluateCommitment: jest.fn<ElectionServiceContract['evaluateCommitment']>().mockResolvedValue()
   };
 };
 
@@ -279,6 +282,7 @@ describe('MasterNodeInternodeService', () => {
       })
     ).resolves.toEqual({
       epoch: consensusState.currentEpoch,
+      lastMatchedSequence: consensusState.lastMatchedSequence,
       accepted: true
     });
 
@@ -341,7 +345,7 @@ describe('MasterNodeInternodeService', () => {
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
   });
 
-  test('fetches committed task entries in sequence order bounds', async () => {
+  test('fetches task entries in sequence order bounds up to the allocated sequence', async () => {
     await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
       lastCommittedSequence: consensusState.lastCommittedSequence,
@@ -363,7 +367,7 @@ describe('MasterNodeInternodeService', () => {
     expect(consensusService.getConsensusState).toHaveBeenCalledWith();
     expect(taskService.listTasksInSequenceRange).toHaveBeenCalledWith({
       afterSequence: -1n,
-      upToSequence: consensusState.lastCommittedSequence,
+      upToSequence: consensusState.lastAllocatedSequence,
       limit: 32
     });
   });

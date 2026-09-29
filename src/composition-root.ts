@@ -124,6 +124,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     masterNodeService: masterNodeModule.service,
     masterNodeGrpcClient: masterNodeModule.grpcClient,
     taskService: taskModule.service,
+    taskApplyHandler: taskModule.applyHandler,
     selfMasterNodeId,
     config: electionConfig
   });
@@ -207,6 +208,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
     masterNodeLifecycleHandler: masterNodeInternodeModule.lifecycleHandler,
+    electionCommitmentHandler: electionModule.commitmentHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,

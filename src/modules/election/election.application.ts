@@ -25,6 +25,7 @@ export const recordLeaderHeartbeatInputSchema = z.object({
 
 export const recordLeaderHeartbeatResultSchema = z.object({
   epoch: consensusEpochSchema,
+  lastMatchedSequence: consensusLastSequenceSchema,
   accepted: z.boolean()
 });
 

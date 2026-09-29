@@ -4,6 +4,7 @@ import {
   advanceLastAllocatedSequenceRepositoryInputSchema,
   advanceLastAppliedSequenceRepositoryInputSchema,
   advanceLastCommittedSequenceRepositoryInputSchema,
+  advanceLastMatchedSequenceRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
   consensusLeadershipContextSchema,
   relinquishLeadershipRepositoryInputSchema
@@ -26,6 +27,11 @@ describe('consensus application schemas', () => {
       ...leadershipContext,
       sequence: 3n
     };
+    const matchedSequenceInput = {
+      id: CONSENSUS_STATE_ID,
+      ...leadershipContext,
+      sequence: -1n
+    };
 
     expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
     expect(advanceLastCommittedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
@@ -35,6 +41,8 @@ describe('consensus application schemas', () => {
     expect(advanceLastAllocatedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
       leadershipFencedInput
     );
+    expect(advanceLastMatchedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(leadershipFencedInput);
+    expect(advanceLastMatchedSequenceRepositoryInputSchema.parse(matchedSequenceInput)).toEqual(matchedSequenceInput);
   });
 
   test('parses leadership claims', () => {
@@ -42,7 +50,8 @@ describe('consensus application schemas', () => {
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: 'master-node-a',
-      lastLeaderContactAt: now
+      lastLeaderContactAt: now,
+      matchedSequence: 3n
     };
 
     expect(claimLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
@@ -52,7 +61,8 @@ describe('consensus application schemas', () => {
     const input = {
       id: CONSENSUS_STATE_ID,
       epoch: 2n,
-      leaderMasterId: 'master-node-a'
+      leaderMasterId: 'master-node-a',
+      matchedSequence: 3n
     };
 
     expect(relinquishLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
@@ -67,11 +77,28 @@ describe('consensus application schemas', () => {
       })
     ).toThrow();
     expect(() =>
+      advanceLastMatchedSequenceRepositoryInputSchema.parse({
+        id: CONSENSUS_STATE_ID,
+        ...leadershipContext,
+        sequence: -2n
+      })
+    ).toThrow();
+    expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
         id: CONSENSUS_STATE_ID,
         epoch: -1n,
         leaderMasterId: 'master-node-a',
-        lastLeaderContactAt: now
+        lastLeaderContactAt: now,
+        matchedSequence: 3n
+      })
+    ).toThrow();
+    expect(() =>
+      claimLeadershipRepositoryInputSchema.parse({
+        id: CONSENSUS_STATE_ID,
+        epoch: 2n,
+        leaderMasterId: 'master-node-a',
+        lastLeaderContactAt: now,
+        matchedSequence: -2n
       })
     ).toThrow();
   });

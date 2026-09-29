@@ -91,7 +91,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
   service.fetchClusterMembershipSnapshot.mockResolvedValue(clusterMembershipSnapshot);
   service.fetchTaskPayload.mockResolvedValue(Buffer.from('task payload'));
   service.requestVote.mockResolvedValue({ epoch: 2n, voteGranted: false });
-  service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true });
+  service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true, lastMatchedSequence: 5n });
 
   return service;
 };
@@ -313,7 +313,8 @@ describe('MasterNodeGrpcController', () => {
     });
     expect(callback).toHaveBeenCalledWith(null, {
       epoch: '3',
-      accepted: true
+      accepted: true,
+      last_matched_sequence: '5'
     });
   });
 });

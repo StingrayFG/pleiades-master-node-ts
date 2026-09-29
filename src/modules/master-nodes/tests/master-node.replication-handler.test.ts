@@ -45,6 +45,7 @@ const consensusState: ConsensusState = {
   votedForMasterId: leaderMasterNodeId,
   lastLeaderContactAt: now,
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   createdAt: now,
@@ -162,6 +163,9 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
     advanceLastAllocatedSequence: jest
       .fn<ConsensusServiceContract['advanceLastAllocatedSequence']>()
       .mockResolvedValue(consensusState),
+    advanceLastMatchedSequence: jest
+      .fn<ConsensusServiceContract['advanceLastMatchedSequence']>()
+      .mockResolvedValue(consensusState),
     advanceLastCommittedSequence: jest
       .fn<ConsensusServiceContract['advanceLastCommittedSequence']>()
       .mockResolvedValue(consensusState)
@@ -224,6 +228,7 @@ describe('MasterNodeReplicationHandler', () => {
       replicatedLeadershipContext
     );
     expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
+    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
     expect(consensusService.acceptFollowership.mock.invocationCallOrder[0]).toBeLessThan(
       taskService.replicateTask.mock.invocationCallOrder[0]
     );
@@ -363,7 +368,7 @@ describe('MasterNodeReplicationHandler', () => {
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
-  test('rejects task entries beyond the leader committed sequence', async () => {
+  test('replicates uncommitted task entries without advancing the committed sequence', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: -1n,
@@ -371,10 +376,18 @@ describe('MasterNodeReplicationHandler', () => {
       entries: [entry]
     });
 
-    await expect(handler.run()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(taskService.replicateTask).not.toHaveBeenCalled();
+    expect(taskService.replicateTask).toHaveBeenCalledWith(
+      {
+        ...entry,
+        payload: Buffer.from('payload')
+      },
+      replicatedLeadershipContext
+    );
+    expect(taskService.deleteTasksFromSequence).not.toHaveBeenCalled();
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
   });
 
   test('removes a stale local tail after fully catching up with the leader', async () => {

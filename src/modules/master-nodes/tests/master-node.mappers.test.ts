@@ -247,10 +247,12 @@ describe('master node mappers', () => {
     expect(
       mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult({
         epoch: '3',
-        accepted: true
+        accepted: true,
+        last_matched_sequence: '5'
       })
     ).toEqual({
       epoch: 3n,
+      lastMatchedSequence: 5n,
       accepted: true
     });
   });

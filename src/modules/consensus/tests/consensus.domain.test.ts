@@ -20,6 +20,7 @@ const state = {
   lastLeaderContactAt: null,
 
   lastAllocatedSequence: -1n,
+  lastMatchedSequence: -1n,
   lastCommittedSequence: -1n,
   lastAppliedSequence: -1n,
   createdAt: now,
@@ -54,6 +55,13 @@ describe('consensus domain schemas', () => {
         ...state,
         lastAllocatedSequence: 1n,
         lastCommittedSequence: 2n
+      })
+    ).toThrow();
+    expect(() =>
+      consensusStateSchema.parse({
+        ...state,
+        lastAllocatedSequence: 1n,
+        lastMatchedSequence: 2n
       })
     ).toThrow();
     expect(() =>

@@ -5,6 +5,7 @@ import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import { mapMasterNodeToMasterNodeEndpoint } from '@/modules/master-nodes/master-node.mappers';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
+import type { TaskApplyHandlerContract } from '@/modules/tasks/task.apply-handler';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type {
@@ -30,6 +31,9 @@ type ElectionServiceContract = {
   // election
   runElection(): Promise<boolean>;
   broadcastLeaderHeartbeat(now?: Date): Promise<void>;
+
+  // commitment
+  evaluateCommitment(): Promise<void>;
 };
 
 /* service */
@@ -37,11 +41,17 @@ type ElectionServiceContract = {
 class ElectionService implements ElectionServiceContract {
   private quorumLossStartedAtMs: number | null = null;
 
+  // highest task sequence each voting master node has verified against the current
+  // leader's log, learned from accepted heartbeat responses; entries for non-voting
+  // or departed nodes are ignored
+  private readonly matchSequencesByMasterNodeId = new Map<MasterNodeId, bigint>();
+
   constructor(
     private readonly consensusService: ConsensusServiceContract,
     private readonly masterNodeService: MasterNodeServiceContract,
     private readonly masterNodeGrpcClient: MasterNodeGrpcClientContract,
     private readonly taskService: TaskServiceContract,
+    private readonly taskApplyHandler: TaskApplyHandlerContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly config: ElectionConfig
   ) {}
@@ -75,6 +85,7 @@ class ElectionService implements ElectionServiceContract {
     if (input.epoch < consensusState.currentEpoch) {
       return {
         epoch: consensusState.currentEpoch,
+        lastMatchedSequence: consensusState.lastMatchedSequence,
         accepted: false
       };
     }
@@ -84,6 +95,7 @@ class ElectionService implements ElectionServiceContract {
 
       return {
         epoch: state.currentEpoch,
+        lastMatchedSequence: state.lastMatchedSequence,
         accepted: false
       };
     }
@@ -93,6 +105,7 @@ class ElectionService implements ElectionServiceContract {
 
       return {
         epoch: state.currentEpoch,
+        lastMatchedSequence: state.lastMatchedSequence,
         accepted: true
       };
     } catch (err) {
@@ -104,6 +117,7 @@ class ElectionService implements ElectionServiceContract {
 
       return {
         epoch: state.currentEpoch,
+        lastMatchedSequence: state.lastMatchedSequence,
         accepted: false
       };
     }
@@ -244,6 +258,16 @@ class ElectionService implements ElectionServiceContract {
       return;
     }
 
+    results.forEach((result, index) => {
+      if (
+        result.status === 'fulfilled' &&
+        result.value.accepted &&
+        result.value.epoch === consensusState.currentEpoch
+      ) {
+        this.matchSequencesByMasterNodeId.set(peers[index].id, result.value.lastMatchedSequence);
+      }
+    });
+
     const acceptedNodeCount =
       1 +
       results.filter(
@@ -253,6 +277,7 @@ class ElectionService implements ElectionServiceContract {
 
     if (acceptedNodeCount >= resolveElectionQuorumSize(masterNodes.filter(isMasterNodeVotingMember).length)) {
       this.quorumLossStartedAtMs = null;
+      await this.evaluateCommitment();
       return;
     }
 
@@ -264,6 +289,68 @@ class ElectionService implements ElectionServiceContract {
     if (now.getTime() - this.quorumLossStartedAtMs >= this.config.timeoutMaxMs) {
       this.quorumLossStartedAtMs = null;
       await this.consensusService.relinquishLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
+    }
+  }
+
+  /* commitment methods */
+
+  // advances the committed sequence to the highest entry held by a quorum of voting
+  // master nodes; only entries from the current epoch may be committed this way,
+  // older entries commit together with the first committed current-epoch entry
+  async evaluateCommitment(): Promise<void> {
+    const consensusState = await this.consensusService.getConsensusState();
+
+    if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
+      return;
+    }
+
+    const masterNodes = await this.masterNodeService.listMasterNodes();
+    const voters = masterNodes.filter(isMasterNodeVotingMember);
+    const quorumSize = resolveElectionQuorumSize(voters.length);
+
+    const matchedSequences = voters.map((voter) =>
+      voter.id === this.selfMasterNodeId
+        ? consensusState.lastAllocatedSequence
+        : (this.matchSequencesByMasterNodeId.get(voter.id) ?? -1n)
+    );
+
+    matchedSequences.sort((left, right) => (left > right ? -1 : left < right ? 1 : 0));
+
+    const candidateSequence = matchedSequences[quorumSize - 1];
+
+    if (candidateSequence <= consensusState.lastCommittedSequence) {
+      return;
+    }
+
+    const candidateTask = await this.taskService.findTaskBySequence(candidateSequence);
+
+    if (!candidateTask) {
+      throw new GenericInternalServerError('Consensus state references a missing final task entry');
+    }
+
+    if (candidateTask.epoch !== consensusState.currentEpoch) {
+      return;
+    }
+
+    try {
+      await this.consensusService.advanceLastCommittedSequence(candidateSequence, {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      });
+    } catch (err) {
+      if (err instanceof GenericAbortedError) {
+        return;
+      }
+
+      throw err;
+    }
+
+    // trigger an immediate apply attempt so waiting executions resolve without
+    // waiting for the periodic sweep; the sweep remains responsible for recovery
+    try {
+      await this.taskApplyHandler.run();
+    } catch {
+      // ignore transient sweep failures here; committed tasks are picked up by the regular apply cycle.
     }
   }
 

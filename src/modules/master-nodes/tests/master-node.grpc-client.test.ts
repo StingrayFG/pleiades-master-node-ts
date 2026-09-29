@@ -77,7 +77,8 @@ const voteResponse: RequestVoteResponse = {
 
 const heartbeatResponse: RecordLeaderHeartbeatResponse = {
   epoch: '3',
-  accepted: true
+  accepted: true,
+  last_matched_sequence: '5'
 };
 
 const clusterMembershipSnapshotResponse: FetchClusterMembershipSnapshotResponse = {
@@ -382,7 +383,8 @@ describe('MasterNodeGrpcClient', () => {
       })
     ).resolves.toEqual({
       epoch: 3n,
-      accepted: true
+      accepted: true,
+      lastMatchedSequence: 5n
     });
 
     expect(createdClients[0].recordLeaderHeartbeat).toHaveBeenCalledWith(

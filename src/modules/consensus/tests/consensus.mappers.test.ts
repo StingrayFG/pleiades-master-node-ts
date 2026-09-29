@@ -18,6 +18,7 @@ const prismaState: PrismaConsensusState = {
   last_leader_contact_at: now,
 
   last_allocated_sequence: 4n,
+  last_matched_sequence: 3n,
   last_committed_sequence: 3n,
   last_applied_sequence: 2n,
   created_at: now,
@@ -33,6 +34,7 @@ const state: ConsensusState = {
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 4n,
+  lastMatchedSequence: 3n,
   lastCommittedSequence: 3n,
   lastAppliedSequence: 2n,
   createdAt: now,

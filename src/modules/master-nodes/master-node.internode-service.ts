@@ -113,7 +113,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
     const tasks = await this.taskService.listTasksInSequenceRange({
       afterSequence: input.afterSequence,
-      upToSequence: consensusState.lastCommittedSequence,
+      upToSequence: consensusState.lastAllocatedSequence,
       limit: input.limit
     });
 

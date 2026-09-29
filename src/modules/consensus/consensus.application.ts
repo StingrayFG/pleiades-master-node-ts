@@ -43,36 +43,50 @@ export const advanceLastAllocatedSequenceRepositoryInputSchema = z
     sequence: consensusSequenceSchema
   });
 
+export const advanceLastMatchedSequenceRepositoryInputSchema = z
+  .object({
+    id: consensusStateIdSchema
+  })
+  .extend(consensusLeadershipContextSchema.shape)
+  .extend({
+    sequence: consensusLastSequenceSchema
+  });
+
 export const claimLeadershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   epoch: consensusEpochSchema,
   leaderMasterId: masterNodeIdSchema,
-  lastLeaderContactAt: z.date()
+  lastLeaderContactAt: z.date(),
+  matchedSequence: consensusLastSequenceSchema
 });
 
 export const acceptFollowershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   epoch: consensusEpochSchema,
   leaderMasterId: masterNodeIdSchema,
-  lastLeaderContactAt: z.date()
+  lastLeaderContactAt: z.date(),
+  matchedSequence: consensusLastSequenceSchema
 });
 
 export const relinquishLeadershipRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema
+  leaderMasterId: masterNodeIdSchema,
+  matchedSequence: consensusLastSequenceSchema
 });
 
 export const startElectionRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
   expectedEpoch: consensusEpochSchema,
   electionEpoch: consensusEpochSchema,
-  candidateMasterNodeId: masterNodeIdSchema
+  candidateMasterNodeId: masterNodeIdSchema,
+  matchedSequence: consensusLastSequenceSchema
 });
 
 export const observeEpochRepositoryInputSchema = z.object({
   id: consensusStateIdSchema,
-  epoch: consensusEpochSchema
+  epoch: consensusEpochSchema,
+  matchedSequence: consensusLastSequenceSchema
 });
 
 export const applyVoteRequestRepositoryInputSchema = z.object({
@@ -101,6 +115,7 @@ export type AdvanceLastAppliedSequenceRepositoryInput = z.infer<typeof advanceLa
 export type AdvanceLastAllocatedSequenceRepositoryInput = z.infer<
   typeof advanceLastAllocatedSequenceRepositoryInputSchema
 >;
+export type AdvanceLastMatchedSequenceRepositoryInput = z.infer<typeof advanceLastMatchedSequenceRepositoryInputSchema>;
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
 export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
 export type RelinquishLeadershipRepositoryInput = z.infer<typeof relinquishLeadershipRepositoryInputSchema>;

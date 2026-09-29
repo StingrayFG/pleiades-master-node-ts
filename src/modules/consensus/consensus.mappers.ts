@@ -17,6 +17,7 @@ export const mapPrismaConsensusStateToDomainConsensusState = (state: PrismaConse
       lastLeaderContactAt: state.last_leader_contact_at,
 
       lastAllocatedSequence: state.last_allocated_sequence,
+      lastMatchedSequence: state.last_matched_sequence,
       lastCommittedSequence: state.last_committed_sequence,
       lastAppliedSequence: state.last_applied_sequence,
 
