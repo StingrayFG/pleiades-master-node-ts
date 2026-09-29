@@ -225,7 +225,7 @@ class ElectionService implements ElectionServiceContract {
 
     if (!canServeAsLeader) {
       this.quorumLossStartedAtMs = null;
-      await this.consensusService.relinquishLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
+      await this.consensusService.releaseLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
       return;
     }
 
@@ -288,7 +288,7 @@ class ElectionService implements ElectionServiceContract {
 
     if (now.getTime() - this.quorumLossStartedAtMs >= this.config.timeoutMaxMs) {
       this.quorumLossStartedAtMs = null;
-      await this.consensusService.relinquishLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
+      await this.consensusService.releaseLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
     }
   }
 

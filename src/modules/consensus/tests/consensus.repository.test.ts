@@ -542,9 +542,9 @@ describe('ConsensusStateRepository', () => {
     ).resolves.toBe(false);
   });
 
-  test('relinquishes leadership only for the expected leader and epoch', async () => {
+  test('releases leadership only for the expected leader and epoch', async () => {
     await expect(
-      repository.relinquishLeadership({
+      repository.releaseLeadership({
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         matchedSequence: 3n

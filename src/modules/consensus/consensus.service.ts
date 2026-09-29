@@ -21,7 +21,7 @@ import {
   verifyFollowershipAcceptable,
   verifyFollowershipAccepted,
   verifyLeadershipSequenceAdvancementNotAborted,
-  verifyLeadershipRelinquished,
+  verifyLeadershipReleased,
   verifyMatchedSequenceWithinAllocated,
   verifySequenceAdvancementNotAborted,
   verifySequenceWithinRewindBounds
@@ -58,9 +58,9 @@ type ConsensusServiceContract = {
   ): Promise<TResult>;
 
   // leadership
-  bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
+  claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
-  relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+  releaseLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
 
   // election
   startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
@@ -249,7 +249,7 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* leadership methods */
 
-  async bootstrapLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState> {
+  async claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
     if (state.leaderMasterId === selfMasterNodeId) {
@@ -297,10 +297,10 @@ class ConsensusService implements ConsensusServiceContract {
     return followerState;
   }
 
-  async relinquishLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+  async releaseLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
-    await this.repository.relinquishLeadership({
+    await this.repository.releaseLeadership({
       epoch,
       leaderMasterId,
       matchedSequence: previousState.lastCommittedSequence
@@ -308,7 +308,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     const state = await this.getConsensusState();
 
-    verifyLeadershipRelinquished(state, leaderMasterId, epoch);
+    verifyLeadershipReleased(state, leaderMasterId, epoch);
 
     return state;
   }

@@ -118,8 +118,8 @@ describe('ElectionService', () => {
         ...consensusState,
         currentEpoch: 3n
       }),
-      relinquishLeadership: jest
-        .fn<ConsensusServiceContract['relinquishLeadership']>()
+      releaseLeadership: jest
+        .fn<ConsensusServiceContract['releaseLeadership']>()
         .mockResolvedValue(electionState),
       advanceLastCommittedSequence: jest
         .fn<ConsensusServiceContract['advanceLastCommittedSequence']>()
@@ -293,7 +293,7 @@ describe('ElectionService', () => {
     await service.broadcastLeaderHeartbeat();
 
     expect(masterNodeGrpcClient.recordLeaderHeartbeat).not.toHaveBeenCalled();
-    expect(consensusService.relinquishLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
+    expect(consensusService.releaseLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
   });
 
   test('retains leadership through a transient heartbeat quorum failure', async () => {
@@ -306,10 +306,10 @@ describe('ElectionService', () => {
 
     await service.broadcastLeaderHeartbeat(now);
 
-    expect(consensusService.relinquishLeadership).not.toHaveBeenCalled();
+    expect(consensusService.releaseLeadership).not.toHaveBeenCalled();
   });
 
-  test('relinquishes leadership after heartbeat quorum loss lasts through the timeout', async () => {
+  test('releases leadership after heartbeat quorum loss lasts through the timeout', async () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: leaderState.currentEpoch,
@@ -320,7 +320,7 @@ describe('ElectionService', () => {
     await service.broadcastLeaderHeartbeat(now);
     await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.timeoutMaxMs));
 
-    expect(consensusService.relinquishLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
+    expect(consensusService.releaseLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
   });
 
   test('clears a pending quorum-loss timeout after heartbeat quorum is restored', async () => {
@@ -349,7 +349,7 @@ describe('ElectionService', () => {
 
     await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.timeoutMaxMs * 2));
 
-    expect(consensusService.relinquishLeadership).not.toHaveBeenCalled();
+    expect(consensusService.releaseLeadership).not.toHaveBeenCalled();
   });
 
   test('rejects election work when the final local log entry is missing', async () => {

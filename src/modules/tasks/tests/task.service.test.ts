@@ -150,7 +150,7 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
     advanceLastAllocatedSequence: jest.fn<ConsensusServiceContract['advanceLastAllocatedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusServiceContract['withAdvancedLastAllocatedSequence']>(),
     withRewoundLastAllocatedSequence: jest.fn<ConsensusServiceContract['withRewoundLastAllocatedSequence']>(),
-    bootstrapLeadership: jest.fn<ConsensusServiceContract['bootstrapLeadership']>()
+    claimInitialLeadership: jest.fn<ConsensusServiceContract['claimInitialLeadership']>()
   };
 
   service.getConsensusState.mockResolvedValue(consensusState);

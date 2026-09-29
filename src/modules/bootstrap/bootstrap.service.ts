@@ -51,7 +51,7 @@ class BootstrapService implements BootstrapServiceContract {
       mode: 'serving'
     });
 
-    const leaderState = await this.consensusService.bootstrapLeadership(this.selfMasterNode.id);
+    const leaderState = await this.consensusService.claimInitialLeadership(this.selfMasterNode.id);
 
     if (leaderState.leaderMasterId !== this.selfMasterNode.id) {
       throw new GenericConflictError('Another master node claimed the cluster leadership first');

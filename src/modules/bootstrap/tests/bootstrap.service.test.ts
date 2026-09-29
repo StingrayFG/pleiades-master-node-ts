@@ -152,7 +152,7 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
 const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {
   return {
     getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>().mockResolvedValue(unclaimedState),
-    bootstrapLeadership: jest.fn<ConsensusServiceContract['bootstrapLeadership']>(),
+    claimInitialLeadership: jest.fn<ConsensusServiceContract['claimInitialLeadership']>(),
     acceptFollowership: jest.fn<ConsensusServiceContract['acceptFollowership']>().mockResolvedValue(followerState)
   } as unknown as jest.Mocked<ConsensusServiceContract>;
 };
@@ -200,7 +200,7 @@ describe('BootstrapService', () => {
   });
 
   test('initializes the cluster before claiming leadership', async () => {
-    consensusService.bootstrapLeadership.mockResolvedValue(leaderState);
+    consensusService.claimInitialLeadership.mockResolvedValue(leaderState);
 
     await expect(service.bootstrapAsLeader()).resolves.toEqual({
       role: 'leader',
@@ -212,7 +212,7 @@ describe('BootstrapService', () => {
     expect(clusterService.initializeCluster.mock.invocationCallOrder[0]).toBeLessThan(
       masterNodeService.registerMasterNode.mock.invocationCallOrder[0]
     );
-    expect(consensusService.bootstrapLeadership).toHaveBeenCalledWith(selfMasterNodeId);
+    expect(consensusService.claimInitialLeadership).toHaveBeenCalledWith(selfMasterNodeId);
   });
 
   test('registers with the leader and installs its authenticated cluster membership snapshot', async () => {
@@ -258,7 +258,7 @@ describe('BootstrapService', () => {
     await expect(service.bootstrapAsLeader()).rejects.toBeInstanceOf(GenericConflictError);
     expect(clusterService.initializeCluster).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
-    expect(consensusService.bootstrapLeadership).not.toHaveBeenCalled();
+    expect(consensusService.claimInitialLeadership).not.toHaveBeenCalled();
   });
 
   test('rejects repeated leadership bootstrap before changing the local master row', async () => {
@@ -272,7 +272,7 @@ describe('BootstrapService', () => {
     });
     expect(clusterService.initializeCluster).not.toHaveBeenCalled();
     expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
-    expect(consensusService.bootstrapLeadership).not.toHaveBeenCalled();
+    expect(consensusService.claimInitialLeadership).not.toHaveBeenCalled();
   });
 
   test('rejects followership when the local master node is already leader', async () => {

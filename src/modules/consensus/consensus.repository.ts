@@ -14,7 +14,7 @@ import type {
   RewoundSequenceTransactionAction,
   ClaimLeadershipRepositoryInput,
   AcceptFollowershipRepositoryInput,
-  RelinquishLeadershipRepositoryInput,
+  ReleaseLeadershipRepositoryInput,
   StartElectionRepositoryInput,
   ObserveEpochRepositoryInput,
   ApplyVoteRequestRepositoryInput,
@@ -47,7 +47,7 @@ type ConsensusStateRepositoryContract = {
   // leadership
   claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
   acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean>;
-  relinquishLeadership(input: RelinquishLeadershipRepositoryInput): Promise<boolean>;
+  releaseLeadership(input: ReleaseLeadershipRepositoryInput): Promise<boolean>;
 
   // election
   startElection(input: StartElectionRepositoryInput): Promise<ConsensusState>;
@@ -429,11 +429,11 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return acceptanceResult.count === 1;
   }
 
-  async relinquishLeadership(input: RelinquishLeadershipRepositoryInput): Promise<boolean> {
-    let relinquishmentResult;
+  async releaseLeadership(input: ReleaseLeadershipRepositoryInput): Promise<boolean> {
+    let releaseResult;
 
     try {
-      relinquishmentResult = await this.prisma.consensusState.updateMany({
+      releaseResult = await this.prisma.consensusState.updateMany({
         where: {
           id: CONSENSUS_STATE_ID,
           current_epoch: input.epoch,
@@ -452,7 +452,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return relinquishmentResult.count === 1;
+    return releaseResult.count === 1;
   }
 
   /* election methods */

@@ -7,7 +7,7 @@ import {
   advanceLastMatchedSequenceRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
   consensusLeadershipContextSchema,
-  relinquishLeadershipRepositoryInputSchema
+  releaseLeadershipRepositoryInputSchema
 } from '../consensus.application';
 
 /* tests */
@@ -53,14 +53,14 @@ describe('consensus application schemas', () => {
     expect(claimLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
   });
 
-  test('parses conditional leadership relinquishment inputs', () => {
+  test('parses conditional leadership release inputs', () => {
     const input = {
       epoch: 2n,
       leaderMasterId: 'master-node-a',
       matchedSequence: 3n
     };
 
-    expect(relinquishLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
+    expect(releaseLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
   });
 
   test('rejects negative sequences and epochs', () => {
