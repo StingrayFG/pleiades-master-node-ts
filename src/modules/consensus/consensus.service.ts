@@ -14,12 +14,7 @@ import type {
   RequestConsensusVoteInput,
   RewoundSequenceTransactionAction
 } from './consensus.application';
-import {
-  CONSENSUS_STATE_ID,
-  type ConsensusEpoch,
-  type ConsensusLastSequence,
-  type ConsensusState
-} from './consensus.domain';
+import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
 
 /* contract */
@@ -110,8 +105,6 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     const updatedState = await this.repository.advanceLastCommittedSequence({
-      id: CONSENSUS_STATE_ID,
-
       epoch: leadershipContext.epoch,
       leaderMasterId: leadershipContext.leaderMasterId,
 
@@ -139,7 +132,6 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     const updatedState = await this.repository.advanceLastAppliedSequence({
-      id: CONSENSUS_STATE_ID,
       sequence
     });
 
@@ -157,8 +149,6 @@ class ConsensusService implements ConsensusServiceContract {
     await this.getConsensusState();
 
     const updatedState = await this.repository.advanceLastAllocatedSequence({
-      id: CONSENSUS_STATE_ID,
-
       epoch: leadershipContext.epoch,
       leaderMasterId: leadershipContext.leaderMasterId,
 
@@ -187,8 +177,6 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     const updatedState = await this.repository.advanceLastMatchedSequence({
-      id: CONSENSUS_STATE_ID,
-
       epoch: leadershipContext.epoch,
       leaderMasterId: leadershipContext.leaderMasterId,
 
@@ -213,9 +201,10 @@ class ConsensusService implements ConsensusServiceContract {
     await this.getConsensusState();
 
     return this.repository.withAdvancedLastAllocatedSequence(
-      CONSENSUS_STATE_ID,
-      leadershipContext.epoch,
-      leadershipContext.leaderMasterId,
+      {
+        epoch: leadershipContext.epoch,
+        leaderMasterId: leadershipContext.leaderMasterId
+      },
       action
     );
   }
@@ -236,10 +225,11 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     return this.repository.withRewoundLastAllocatedSequence(
-      CONSENSUS_STATE_ID,
-      leadershipContext.epoch,
-      leadershipContext.leaderMasterId,
-      sequence,
+      {
+        epoch: leadershipContext.epoch,
+        leaderMasterId: leadershipContext.leaderMasterId,
+        sequence
+      },
       action
     );
   }
@@ -259,7 +249,6 @@ class ConsensusService implements ConsensusServiceContract {
 
     // the claim only lands when no leader exists, so re-read to return the actual outcome either way
     await this.repository.claimLeadership({
-      id: CONSENSUS_STATE_ID,
       epoch: state.currentEpoch + 1n,
       leaderMasterId: selfMasterNodeId,
       lastLeaderContactAt: new Date(),
@@ -288,7 +277,6 @@ class ConsensusService implements ConsensusServiceContract {
         : state.lastMatchedSequence;
 
     await this.repository.acceptFollowership({
-      id: CONSENSUS_STATE_ID,
       epoch,
       leaderMasterId,
       lastLeaderContactAt: new Date(),
@@ -308,7 +296,6 @@ class ConsensusService implements ConsensusServiceContract {
     const previousState = await this.getConsensusState();
 
     await this.repository.relinquishLeadership({
-      id: CONSENSUS_STATE_ID,
       epoch,
       leaderMasterId,
       matchedSequence: previousState.lastCommittedSequence
@@ -330,7 +317,6 @@ class ConsensusService implements ConsensusServiceContract {
     const electionEpoch = state.currentEpoch + 1n;
 
     const electionState = await this.repository.startElection({
-      id: CONSENSUS_STATE_ID,
       expectedEpoch: state.currentEpoch,
       electionEpoch,
       candidateMasterNodeId,
@@ -352,7 +338,6 @@ class ConsensusService implements ConsensusServiceContract {
     const previousState = await this.getConsensusState();
 
     await this.repository.claimLeadership({
-      id: CONSENSUS_STATE_ID,
       epoch,
       leaderMasterId: candidateMasterNodeId,
       lastLeaderContactAt: new Date(),
@@ -376,7 +361,6 @@ class ConsensusService implements ConsensusServiceContract {
     }
 
     const observedState = await this.repository.observeEpoch({
-      id: CONSENSUS_STATE_ID,
       epoch,
       matchedSequence: state.lastCommittedSequence
     });
@@ -395,7 +379,6 @@ class ConsensusService implements ConsensusServiceContract {
         input.candidateLastLogSequence >= input.localLastLogSequence);
 
     return this.repository.applyVoteRequest({
-      id: CONSENSUS_STATE_ID,
       epoch: input.epoch,
       candidateMasterNodeId: input.candidateMasterNodeId,
       candidateLogIsUpToDate

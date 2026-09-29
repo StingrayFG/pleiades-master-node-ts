@@ -124,7 +124,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastCommittedSequence({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         sequence: 4n
@@ -157,7 +156,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastCommittedSequence({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         sequence: 2n
@@ -174,7 +172,7 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(advancedPrismaState);
 
-    await expect(repository.advanceLastAppliedSequence({ id: CONSENSUS_STATE_ID, sequence: 3n })).resolves.toEqual({
+    await expect(repository.advanceLastAppliedSequence({ sequence: 3n })).resolves.toEqual({
       ...state,
       lastAppliedSequence: 3n,
       revision: 6n
@@ -203,7 +201,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastAllocatedSequence({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         sequence: 5n
@@ -238,7 +235,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastMatchedSequence({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         sequence: 4n
@@ -271,7 +267,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastMatchedSequence({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         sequence: 2n
@@ -292,7 +287,13 @@ describe('ConsensusStateRepository', () => {
     delegate.findUniqueOrThrow.mockResolvedValue(allocatedPrismaState);
 
     await expect(
-      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+      repository.withAdvancedLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        },
+        action
+      )
     ).resolves.toBe('allocated-5');
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
@@ -314,7 +315,13 @@ describe('ConsensusStateRepository', () => {
     delegate.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+      repository.withAdvancedLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        },
+        action
+      )
     ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(delegate.findUniqueOrThrow).not.toHaveBeenCalled();
     expect(action).not.toHaveBeenCalled();
@@ -325,7 +332,13 @@ describe('ConsensusStateRepository', () => {
     const action = jest.fn<AllocatedSequenceTransactionAction<void>>().mockRejectedValue(actionError);
 
     await expect(
-      repository.withAdvancedLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', action)
+      repository.withAdvancedLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        },
+        action
+      )
     ).rejects.toBe(actionError);
   });
 
@@ -335,7 +348,14 @@ describe('ConsensusStateRepository', () => {
       .mockImplementation(async (_tx, sequence) => `rewound-${sequence}`);
 
     await expect(
-      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
+      repository.withRewoundLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a',
+          sequence: 3n
+        },
+        action
+      )
     ).resolves.toBe('rewound-3');
     expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
@@ -369,7 +389,14 @@ describe('ConsensusStateRepository', () => {
     delegate.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
+      repository.withRewoundLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a',
+          sequence: 3n
+        },
+        action
+      )
     ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(delegate.updateMany).toHaveBeenCalledTimes(1);
     expect(action).not.toHaveBeenCalled();
@@ -379,7 +406,14 @@ describe('ConsensusStateRepository', () => {
     const action = jest.fn<RewoundSequenceTransactionAction<string>>().mockResolvedValue('deleted-crash-window-row');
 
     await expect(
-      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 4n, action)
+      repository.withRewoundLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a',
+          sequence: 4n
+        },
+        action
+      )
     ).resolves.toBe('deleted-crash-window-row');
     expect(delegate.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -399,14 +433,20 @@ describe('ConsensusStateRepository', () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>().mockRejectedValue(actionError);
 
     await expect(
-      repository.withRewoundLastAllocatedSequence(CONSENSUS_STATE_ID, 2n, 'master-node-a', 3n, action)
+      repository.withRewoundLastAllocatedSequence(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a',
+          sequence: 3n
+        },
+        action
+      )
     ).rejects.toBe(actionError);
   });
 
   test('claims leadership while no leader exists and the epoch is older', async () => {
     await expect(
       repository.claimLeadership({
-        id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
         lastLeaderContactAt: now,
@@ -435,7 +475,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.claimLeadership({
-        id: CONSENSUS_STATE_ID,
         epoch: 10n,
         leaderMasterId: 'master-node-b',
         lastLeaderContactAt: now,
@@ -462,7 +501,6 @@ describe('ConsensusStateRepository', () => {
   test('accepts followership only while no leader exists', async () => {
     await expect(
       repository.acceptFollowership({
-        id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
         lastLeaderContactAt: now,
@@ -496,7 +534,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.acceptFollowership({
-        id: CONSENSUS_STATE_ID,
         epoch: 3n,
         leaderMasterId: 'master-node-b',
         lastLeaderContactAt: now,
@@ -508,7 +545,6 @@ describe('ConsensusStateRepository', () => {
   test('relinquishes leadership only for the expected leader and epoch', async () => {
     await expect(
       repository.relinquishLeadership({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         matchedSequence: 3n
@@ -543,7 +579,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.startElection({
-        id: CONSENSUS_STATE_ID,
         expectedEpoch: 2n,
         electionEpoch: 3n,
         candidateMasterNodeId: 'master-node-b',
@@ -585,7 +620,7 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(observedPrismaState);
 
-    await expect(repository.observeEpoch({ id: CONSENSUS_STATE_ID, epoch: 4n, matchedSequence: 3n })).resolves.toEqual({
+    await expect(repository.observeEpoch({ epoch: 4n, matchedSequence: 3n })).resolves.toEqual({
       ...state,
       currentEpoch: 4n,
       leaderMasterId: null,
@@ -631,7 +666,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.applyVoteRequest({
-        id: CONSENSUS_STATE_ID,
         epoch: 3n,
         candidateMasterNodeId: 'master-node-b',
         candidateLogIsUpToDate: true
@@ -661,7 +695,6 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.applyVoteRequest({
-        id: CONSENSUS_STATE_ID,
         epoch: 3n,
         candidateMasterNodeId: 'master-node-b',
         candidateLogIsUpToDate: true

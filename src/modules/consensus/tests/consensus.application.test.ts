@@ -9,7 +9,6 @@ import {
   consensusLeadershipContextSchema,
   relinquishLeadershipRepositoryInputSchema
 } from '../consensus.application';
-import { CONSENSUS_STATE_ID } from '../consensus.domain';
 
 /* tests */
 
@@ -21,14 +20,12 @@ describe('consensus application schemas', () => {
   };
 
   test('parses sequence advancement inputs', () => {
-    const appliedSequenceInput = { id: CONSENSUS_STATE_ID, sequence: 3n };
+    const appliedSequenceInput = { sequence: 3n };
     const leadershipFencedInput = {
-      id: CONSENSUS_STATE_ID,
       ...leadershipContext,
       sequence: 3n
     };
     const matchedSequenceInput = {
-      id: CONSENSUS_STATE_ID,
       ...leadershipContext,
       sequence: -1n
     };
@@ -47,7 +44,6 @@ describe('consensus application schemas', () => {
 
   test('parses leadership claims', () => {
     const input = {
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: 'master-node-a',
       lastLeaderContactAt: now,
@@ -59,7 +55,6 @@ describe('consensus application schemas', () => {
 
   test('parses conditional leadership relinquishment inputs', () => {
     const input = {
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: 'master-node-a',
       matchedSequence: 3n
@@ -71,21 +66,18 @@ describe('consensus application schemas', () => {
   test('rejects negative sequences and epochs', () => {
     expect(() =>
       advanceLastCommittedSequenceRepositoryInputSchema.parse({
-        id: CONSENSUS_STATE_ID,
         ...leadershipContext,
         sequence: -1n
       })
     ).toThrow();
     expect(() =>
       advanceLastMatchedSequenceRepositoryInputSchema.parse({
-        id: CONSENSUS_STATE_ID,
         ...leadershipContext,
         sequence: -2n
       })
     ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
-        id: CONSENSUS_STATE_ID,
         epoch: -1n,
         leaderMasterId: 'master-node-a',
         lastLeaderContactAt: now,
@@ -94,7 +86,6 @@ describe('consensus application schemas', () => {
     ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
-        id: CONSENSUS_STATE_ID,
         epoch: 2n,
         leaderMasterId: 'master-node-a',
         lastLeaderContactAt: now,

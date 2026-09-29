@@ -80,14 +80,12 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   repository.advanceLastAppliedSequence.mockResolvedValue(state);
   repository.advanceLastAllocatedSequence.mockResolvedValue(state);
   repository.advanceLastMatchedSequence.mockResolvedValue(state);
-  repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_id, _epoch, _leaderMasterId, action) => {
+  repository.withAdvancedLastAllocatedSequence.mockImplementation(async (_input, action) => {
     return action(transaction, 5n);
   });
-  repository.withRewoundLastAllocatedSequence.mockImplementation(
-    async (_id, _epoch, _leaderMasterId, sequence, action) => {
-      return action(transaction, sequence);
-    }
-  );
+  repository.withRewoundLastAllocatedSequence.mockImplementation(async (input, action) => {
+    return action(transaction, input.sequence);
+  });
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
   repository.relinquishLeadership.mockResolvedValue(true);
@@ -164,7 +162,6 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastCommittedSequence).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: selfMasterNodeId,
       sequence: 4n
@@ -209,7 +206,6 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastAppliedSequence(3n)).resolves.toBe(advancedState);
     expect(repository.advanceLastAppliedSequence).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       sequence: 3n
     });
   });
@@ -235,7 +231,6 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastAllocatedSequence).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: selfMasterNodeId,
       sequence: 5n
@@ -261,7 +256,6 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastMatchedSequence).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: selfMasterNodeId,
       sequence: 4n
@@ -306,9 +300,10 @@ describe('ConsensusService', () => {
 
     await expect(service.withAdvancedLastAllocatedSequence(leadershipContext, action)).resolves.toBe('task-5');
     expect(repository.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
-      CONSENSUS_STATE_ID,
-      2n,
-      selfMasterNodeId,
+      {
+        epoch: 2n,
+        leaderMasterId: selfMasterNodeId
+      },
       action
     );
   });
@@ -320,10 +315,11 @@ describe('ConsensusService', () => {
 
     await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 3n, action)).resolves.toBe('task-3');
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      CONSENSUS_STATE_ID,
-      2n,
-      selfMasterNodeId,
-      3n,
+      {
+        epoch: 2n,
+        leaderMasterId: selfMasterNodeId,
+        sequence: 3n
+      },
       action
     );
   });
@@ -342,10 +338,11 @@ describe('ConsensusService', () => {
 
     await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 4n, action)).resolves.toBeUndefined();
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      CONSENSUS_STATE_ID,
-      2n,
-      selfMasterNodeId,
-      4n,
+      {
+        epoch: 2n,
+        leaderMasterId: selfMasterNodeId,
+        sequence: 4n
+      },
       action
     );
   });
@@ -386,7 +383,6 @@ describe('ConsensusService', () => {
 
     await expect(service.bootstrapLeadership(selfMasterNodeId)).resolves.toBe(leaderState);
     expect(repository.claimLeadership).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 1n,
       leaderMasterId: selfMasterNodeId,
       lastLeaderContactAt: expect.any(Date),
@@ -418,7 +414,6 @@ describe('ConsensusService', () => {
       followerState
     );
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: followerState.currentEpoch,
       leaderMasterId: otherMasterNodeId,
       lastLeaderContactAt: expect.any(Date),
@@ -445,7 +440,6 @@ describe('ConsensusService', () => {
 
     await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(followerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: otherMasterNodeId,
       lastLeaderContactAt: expect.any(Date),
@@ -473,7 +467,6 @@ describe('ConsensusService', () => {
 
     await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(advancedFollowerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: otherMasterNodeId,
       lastLeaderContactAt: expect.any(Date),
@@ -531,7 +524,6 @@ describe('ConsensusService', () => {
 
     await expect(service.relinquishLeadership(selfMasterNodeId, 2n)).resolves.toBe(relinquishedState);
     expect(repository.relinquishLeadership).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 2n,
       leaderMasterId: selfMasterNodeId,
       matchedSequence: 3n
@@ -548,7 +540,6 @@ describe('ConsensusService', () => {
       revision: 1n
     });
     expect(repository.startElection).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       expectedEpoch: 0n,
       electionEpoch: 1n,
       candidateMasterNodeId: selfMasterNodeId,
@@ -567,7 +558,6 @@ describe('ConsensusService', () => {
     });
 
     expect(repository.applyVoteRequest).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 3n,
       candidateMasterNodeId: otherMasterNodeId,
       candidateLogIsUpToDate: true
@@ -583,7 +573,6 @@ describe('ConsensusService', () => {
     });
 
     expect(repository.applyVoteRequest).toHaveBeenLastCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 3n,
       candidateMasterNodeId: otherMasterNodeId,
       candidateLogIsUpToDate: false
@@ -599,7 +588,6 @@ describe('ConsensusService', () => {
       revision: 1n
     });
     expect(repository.observeEpoch).toHaveBeenCalledWith({
-      id: CONSENSUS_STATE_ID,
       epoch: 3n,
       matchedSequence: -1n
     });

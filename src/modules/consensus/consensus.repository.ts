@@ -2,14 +2,15 @@ import type { PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { GenericAbortedError } from '@/errors/application.errors';
-import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type {
   AdvanceLastCommittedSequenceRepositoryInput,
   AdvanceLastAppliedSequenceRepositoryInput,
   AdvanceLastAllocatedSequenceRepositoryInput,
   AdvanceLastMatchedSequenceRepositoryInput,
+  WithAdvancedLastAllocatedSequenceRepositoryInput,
   AllocatedSequenceTransactionAction,
+  WithRewoundLastAllocatedSequenceRepositoryInput,
   RewoundSequenceTransactionAction,
   ClaimLeadershipRepositoryInput,
   AcceptFollowershipRepositoryInput,
@@ -19,13 +20,7 @@ import type {
   ApplyVoteRequestRepositoryInput,
   ConsensusVoteResult
 } from './consensus.application';
-import {
-  CONSENSUS_STATE_ID,
-  type ConsensusEpoch,
-  type ConsensusLastSequence,
-  type ConsensusState,
-  type ConsensusStateId
-} from './consensus.domain';
+import { CONSENSUS_STATE_ID, type ConsensusState } from './consensus.domain';
 import { mapPrismaConsensusStateToDomainConsensusState } from './consensus.mappers';
 
 /* contract */
@@ -41,16 +36,11 @@ type ConsensusStateRepositoryContract = {
   advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState>;
   advanceLastMatchedSequence(input: AdvanceLastMatchedSequenceRepositoryInput): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
-    id: ConsensusStateId,
-    epoch: ConsensusEpoch,
-    leaderMasterId: MasterNodeId,
+    input: WithAdvancedLastAllocatedSequenceRepositoryInput,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult>;
   withRewoundLastAllocatedSequence<TResult>(
-    id: ConsensusStateId,
-    epoch: ConsensusEpoch,
-    leaderMasterId: MasterNodeId,
-    sequence: ConsensusLastSequence,
+    input: WithRewoundLastAllocatedSequenceRepositoryInput,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
@@ -115,7 +105,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
 
             current_epoch: input.epoch,
             leader_master_id: input.leaderMasterId,
@@ -137,7 +127,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -155,7 +145,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
             last_applied_sequence: {
               lt: input.sequence
             },
@@ -173,7 +163,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -191,7 +181,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
 
             current_epoch: input.epoch,
             leader_master_id: input.leaderMasterId,
@@ -210,7 +200,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -228,7 +218,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
 
             current_epoch: input.epoch,
             leader_master_id: input.leaderMasterId,
@@ -250,7 +240,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -262,9 +252,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   }
 
   async withAdvancedLastAllocatedSequence<TResult>(
-    id: ConsensusStateId,
-    epoch: ConsensusEpoch,
-    leaderMasterId: MasterNodeId,
+    input: WithAdvancedLastAllocatedSequenceRepositoryInput,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     let result;
@@ -273,9 +261,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       result = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.consensusState.updateMany({
           where: {
-            id,
-            current_epoch: epoch,
-            leader_master_id: leaderMasterId
+            id: CONSENSUS_STATE_ID,
+            current_epoch: input.epoch,
+            leader_master_id: input.leaderMasterId
           },
           data: {
             last_allocated_sequence: {
@@ -293,7 +281,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         const state = await tx.consensusState.findUniqueOrThrow({
           where: {
-            id
+            id: CONSENSUS_STATE_ID
           }
         });
 
@@ -307,10 +295,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   }
 
   async withRewoundLastAllocatedSequence<TResult>(
-    id: ConsensusStateId,
-    epoch: ConsensusEpoch,
-    leaderMasterId: MasterNodeId,
-    sequence: ConsensusLastSequence,
+    input: WithRewoundLastAllocatedSequenceRepositoryInput,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     let result;
@@ -319,18 +304,18 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       result = await this.prisma.$transaction(async (tx) => {
         const updated = await tx.consensusState.updateMany({
           where: {
-            id,
-            current_epoch: epoch,
-            leader_master_id: leaderMasterId,
+            id: CONSENSUS_STATE_ID,
+            current_epoch: input.epoch,
+            leader_master_id: input.leaderMasterId,
             last_allocated_sequence: {
-              gte: sequence
+              gte: input.sequence
             },
             last_committed_sequence: {
-              lte: sequence
+              lte: input.sequence
             }
           },
           data: {
-            last_allocated_sequence: sequence,
+            last_allocated_sequence: input.sequence,
             revision: {
               increment: 1
             }
@@ -345,20 +330,20 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         // sequence must not point past the rewound allocation
         await tx.consensusState.updateMany({
           where: {
-            id,
+            id: CONSENSUS_STATE_ID,
             last_matched_sequence: {
-              gt: sequence
+              gt: input.sequence
             }
           },
           data: {
-            last_matched_sequence: sequence,
+            last_matched_sequence: input.sequence,
             revision: {
               increment: 1
             }
           }
         });
 
-        return action(tx, sequence);
+        return action(tx, input.sequence);
       });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
@@ -375,7 +360,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     try {
       claimResult = await this.prisma.consensusState.updateMany({
         where: {
-          id: input.id,
+          id: CONSENSUS_STATE_ID,
           leader_master_id: null,
           OR: [
             {
@@ -413,7 +398,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     try {
       acceptanceResult = await this.prisma.consensusState.updateMany({
         where: {
-          id: input.id,
+          id: CONSENSUS_STATE_ID,
           OR: [
             {
               current_epoch: {
@@ -450,7 +435,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     try {
       relinquishmentResult = await this.prisma.consensusState.updateMany({
         where: {
-          id: input.id,
+          id: CONSENSUS_STATE_ID,
           current_epoch: input.epoch,
           leader_master_id: input.leaderMasterId
         },
@@ -479,7 +464,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
             current_epoch: input.expectedEpoch
           },
           data: {
@@ -496,7 +481,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -514,7 +499,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       state = await this.prisma.$transaction(async (tx) => {
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
             current_epoch: {
               lt: input.epoch
             }
@@ -533,7 +518,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
       });
@@ -551,7 +536,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       result = await this.prisma.$transaction(async (tx) => {
         let state = await tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
 
@@ -562,7 +547,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         if (input.epoch > state.current_epoch) {
           await tx.consensusState.updateMany({
             where: {
-              id: input.id,
+              id: CONSENSUS_STATE_ID,
               current_epoch: {
                 lt: input.epoch
               }
@@ -580,7 +565,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
           state = await tx.consensusState.findUniqueOrThrow({
             where: {
-              id: input.id
+              id: CONSENSUS_STATE_ID
             }
           });
         }
@@ -603,7 +588,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         await tx.consensusState.updateMany({
           where: {
-            id: input.id,
+            id: CONSENSUS_STATE_ID,
             current_epoch: input.epoch,
             leader_master_id: null,
             voted_for_master_id: null,
@@ -619,7 +604,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         state = await tx.consensusState.findUniqueOrThrow({
           where: {
-            id: input.id
+            id: CONSENSUS_STATE_ID
           }
         });
 
