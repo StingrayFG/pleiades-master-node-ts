@@ -9,9 +9,11 @@ import {
 import { dataNodeIdSchema } from '@/modules/data-nodes/data-node.domain';
 import { objectIdSchema, objectVersionNumberSchema } from '@/modules/objects/object.domain';
 
-/* field schemas */
+/* constants */
 
 export const PART_REPLICA_STATES = ['pending', 'committed', 'deleting', 'corrupt', 'missing'] as const;
+
+/* field schemas */
 
 export const partNumberSchema = z.number().int().positive();
 export const placementGroupSchema = z.number().int().nonnegative();
@@ -49,11 +51,13 @@ export const partReplicaSchema = z.object({
   updatedAt: z.date()
 });
 
-/* exports */
+/* field types */
 
 export type PartNumber = z.infer<typeof partNumberSchema>;
 export type PlacementGroup = z.infer<typeof placementGroupSchema>;
 export type PartReplicaState = z.infer<typeof partReplicaStateSchema>;
+
+/* object types */
 
 export type PartKey = z.infer<typeof partKeySchema>;
 export type Part = z.infer<typeof partSchema>;

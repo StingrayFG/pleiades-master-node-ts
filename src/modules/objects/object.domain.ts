@@ -2,9 +2,11 @@ import { z } from 'zod';
 
 import { bucketIdSchema } from '@/modules/buckets/bucket.domain';
 
-/* field schemas */
+/* constants */
 
 export const OBJECT_VERSION_STATES = ['pending', 'committed', 'deleting'] as const;
+
+/* field schemas */
 
 export const objectIdSchema = z.uuid();
 export const objectKeySchema = z.string().min(1);
@@ -44,7 +46,7 @@ export const objectVersionSchema = z.object({
   updatedAt: z.date()
 });
 
-/* types */
+/* field types */
 
 export type ObjectId = z.infer<typeof objectIdSchema>;
 export type ObjectKey = z.infer<typeof objectKeySchema>;
@@ -55,6 +57,8 @@ export type ObjectVersionNumber = z.infer<typeof objectVersionNumberSchema>;
 export type ObjectVersionState = z.infer<typeof objectVersionStateSchema>;
 export type ObjectVersionTotalSizeBytes = z.infer<typeof objectVersionTotalSizeBytesSchema>;
 export type ObjectVersionContentType = z.infer<typeof objectVersionContentTypeSchema>;
+
+/* object types */
 
 export type Object = z.infer<typeof objectSchema>;
 export type ObjectVersion = z.infer<typeof objectVersionSchema>;

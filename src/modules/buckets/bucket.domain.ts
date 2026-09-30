@@ -2,9 +2,11 @@ import { z } from 'zod';
 
 import { userIdSchema } from '@/modules/users/user.domain';
 
-/* field schemas */
+/* constants */
 
 export const BUCKET_STATES = ['active', 'deleting', 'disabled'] as const;
+
+/* field schemas */
 
 export const bucketIdSchema = z.uuid();
 export const bucketNameSchema = z
@@ -30,10 +32,12 @@ export const bucketSchema = z.object({
   revision: z.bigint().nonnegative()
 });
 
-/* types */
+/* field types */
 
 export type BucketId = z.infer<typeof bucketIdSchema>;
 export type BucketName = z.infer<typeof bucketNameSchema>;
 export type BucketState = z.infer<typeof bucketStateSchema>;
+
+/* object types */
 
 export type Bucket = z.infer<typeof bucketSchema>;

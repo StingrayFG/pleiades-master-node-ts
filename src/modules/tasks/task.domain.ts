@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { consensusEpochSchema, consensusSequenceSchema } from '@/modules/consensus/consensus.domain';
 import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 
-/* field schemas */
+/* constants */
 
 export const TASK_STATES = ['pending', 'completed', 'partially_completed', 'failed'] as const;
 export const TASK_EXECUTION_STATES = ['pending', 'executing', 'completed', 'failed'] as const;
 export const TASK_EXECUTION_SCOPES = ['local', 'cluster'] as const;
+
+/* field schemas */
 
 export const taskIdSchema = z.uuid();
 export const taskEpochSchema = consensusEpochSchema;
@@ -67,7 +69,7 @@ export const taskExecutionSchema = z.object({
   revision: taskRevisionSchema
 });
 
-/* types */
+/* field types */
 
 export type TaskId = z.infer<typeof taskIdSchema>;
 export type TaskEpoch = z.infer<typeof taskEpochSchema>;
@@ -82,8 +84,17 @@ export type TaskPayloadId = z.infer<typeof taskPayloadIdSchema>;
 export type TaskExecutionId = z.infer<typeof taskExecutionIdSchema>;
 export type TaskExecutionState = z.infer<typeof taskExecutionStateSchema>;
 
-export type TaskBase = z.infer<typeof taskBaseSchema>;
+/* object types */
 
+export type TaskBase = z.infer<typeof taskBaseSchema>;
+export type PersistedTask = z.infer<typeof persistedTaskSchema>;
+export type TaskExecution = z.infer<typeof taskExecutionSchema>;
+
+export type Task<
+  TType extends string = TaskType,
+  TData = unknown,
+  TScope extends TaskExecutionScope = TaskExecutionScope
+> = Omit<PersistedTask, 'type' | 'executionScope' | 'data'> & TaskDefinition<TType, TData, TScope>;
 export type TaskDefinition<
   TType extends string = TaskType,
   TData = unknown,
@@ -93,13 +104,3 @@ export type TaskDefinition<
   data: TData;
   executionScope: TScope;
 };
-
-export type PersistedTask = z.infer<typeof persistedTaskSchema>;
-
-export type Task<
-  TType extends string = TaskType,
-  TData = unknown,
-  TScope extends TaskExecutionScope = TaskExecutionScope
-> = Omit<PersistedTask, 'type' | 'executionScope' | 'data'> & TaskDefinition<TType, TData, TScope>;
-
-export type TaskExecution = z.infer<typeof taskExecutionSchema>;

@@ -50,11 +50,13 @@ export const consensusStateSchema = z
     message: 'Leader contact time must be present exactly when a leader is known'
   });
 
-/* types */
+/* field types */
 
 export type ConsensusStateId = z.infer<typeof consensusStateIdSchema>;
 export type ConsensusEpoch = z.infer<typeof consensusEpochSchema>;
 export type ConsensusSequence = z.infer<typeof consensusSequenceSchema>;
 export type ConsensusLastSequence = z.infer<typeof consensusLastSequenceSchema>;
+
+/* object types */
 
 export type ConsensusState = z.infer<typeof consensusStateSchema>;

@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
-/* field schemas */
+/* constants */
 
 export const BYTE_STORAGE_CHECKSUM_ALGORITHM = 'sha256';
 export const BYTE_STORAGE_OBJECT_STATES = ['pending', 'active', 'deleting'] as const;
+
+/* field schemas */
 
 export const byteStorageIdSchema = z.string().regex(/^[a-zA-Z0-9_-]+$/);
 export const byteStorageSizeBytesSchema = z.bigint().nonnegative();
@@ -28,13 +30,15 @@ export const byteStorageObjectSchema = byteStorageReferenceSchema.extend({
   updatedAt: z.date()
 });
 
-/* types */
+/* field types */
 
 export type ByteStorageId = z.infer<typeof byteStorageIdSchema>;
 export type ByteStorageSizeBytes = z.infer<typeof byteStorageSizeBytesSchema>;
 export type ByteStorageChecksum = z.infer<typeof byteStorageChecksumSchema>;
 export type ByteStorageChecksumAlgorithm = z.infer<typeof byteStorageChecksumAlgorithmSchema>;
 export type ByteStorageObjectState = z.infer<typeof byteStorageObjectStateSchema>;
+
+/* object types */
 
 export type ByteStorageReference = z.infer<typeof byteStorageReferenceSchema>;
 export type ByteStorageObject = z.infer<typeof byteStorageObjectSchema>;

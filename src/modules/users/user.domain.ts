@@ -52,7 +52,7 @@ export const userRefreshTokenSchema = z.object({
   revokedAt: z.date().nullable()
 });
 
-/* types */
+/* field types */
 
 export type UserId = z.infer<typeof userIdSchema>;
 export type UserUsername = z.infer<typeof userUsernameSchema>;
@@ -63,6 +63,8 @@ export type UserApiKeyState = z.infer<typeof userApiKeyStateSchema>;
 
 export type UserRefreshTokenId = z.infer<typeof userRefreshTokenIdSchema>;
 export type UserRefreshTokenState = z.infer<typeof userRefreshTokenStateSchema>;
+
+/* object types */
 
 export type User = z.infer<typeof userSchema>;
 export type UserApiKey = z.infer<typeof userApiKeySchema>;

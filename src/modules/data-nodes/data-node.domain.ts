@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
-/* field schemas */
+/* constants */
 
 export const DATA_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
 export const DATA_NODE_MODES = ['serving', 'draining'] as const;
 export const DATA_NODE_SCHEMES = ['grpcs'] as const;
 export const DATA_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
+
+/* field schemas */
 
 export const dataNodeIdSchema = z.string().min(1);
 
@@ -67,7 +69,7 @@ export const dataNodeHealthSnapshotSchema = z
     path: ['storageFreeBytes']
   });
 
-/* types */
+/* field types */
 
 export type DataNodeId = z.infer<typeof dataNodeIdSchema>;
 
@@ -81,6 +83,8 @@ export type DataNodePort = z.infer<typeof dataNodePortSchema>;
 export type DataNodeScheme = z.infer<typeof dataNodeSchemeSchema>;
 
 export type DataNodeHealthSnapshotStatus = z.infer<typeof dataNodeHealthSnapshotStatusSchema>;
+
+/* object types */
 
 export type DataNodeEndpoint = z.infer<typeof dataNodeEndpointSchema>;
 export type DataNode = z.infer<typeof dataNodeSchema>;

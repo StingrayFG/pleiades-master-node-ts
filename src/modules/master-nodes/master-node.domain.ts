@@ -2,12 +2,14 @@ import { z } from 'zod';
 
 import { nodeSessionIdSchema } from '@/modules/identity/identity.domain';
 
-/* field schemas */
+/* constants */
 
 export const MASTER_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
 export const MASTER_NODE_MODES = ['serving', 'draining'] as const;
 export const MASTER_NODE_SCHEMES = ['grpcs'] as const;
 export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
+
+/* field schemas */
 
 export const masterNodeIdSchema = z.string().min(1);
 
@@ -57,7 +59,7 @@ export const masterNodeHealthSnapshotSchema = z.object({
   message: z.string()
 });
 
-/* types */
+/* field types */
 
 export type MasterNodeId = z.infer<typeof masterNodeIdSchema>;
 
@@ -71,6 +73,8 @@ export type MasterNodePort = z.infer<typeof masterNodePortSchema>;
 export type MasterNodeScheme = z.infer<typeof masterNodeSchemeSchema>;
 
 export type MasterNodeHealthSnapshotStatus = z.infer<typeof masterNodeHealthSnapshotStatusSchema>;
+
+/* object types */
 
 export type MasterNodeEndpoint = z.infer<typeof masterNodeEndpointSchema>;
 export type MasterNode = z.infer<typeof masterNodeSchema>;
