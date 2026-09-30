@@ -9,6 +9,7 @@ import {
 import { CLUSTER_RECORD_ID, clusterIdSchema, type Cluster, type ClusterId } from './cluster.domain';
 import type { ClusterRepositoryContract } from './cluster.repository';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
+import { verifyMembershipSnapshotCluster } from './cluster.verifiers';
 
 /* contract */
 
@@ -128,9 +129,7 @@ class ClusterService implements ClusterServiceContract {
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
     const cluster = await this.getCluster();
 
-    if (cluster.clusterId !== snapshot.cluster.clusterId) {
-      throw new GenericConflictError('Cluster membership snapshot belongs to a different cluster');
-    }
+    verifyMembershipSnapshotCluster(cluster, snapshot);
 
     await this.repository.applyMembershipSnapshot(snapshot);
   }
