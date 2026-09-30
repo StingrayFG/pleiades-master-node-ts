@@ -9,7 +9,7 @@ import {
   verifyCommittedSequenceWithinAllocated,
   verifyElectionCompleted,
   verifyElectionStarted,
-  verifyEpochObserved,
+  verifyNewerEpochAdopted,
   verifyFollowershipAcceptable,
   verifyFollowershipAccepted,
   verifyLeadershipSequenceAdvancementNotAborted,
@@ -229,12 +229,12 @@ describe('verifyElectionCompleted', () => {
   });
 });
 
-describe('verifyEpochObserved', () => {
-  test('accepts an observed epoch', () => {
-    expect(() => verifyEpochObserved(consensusState, 2n)).not.toThrow();
+describe('verifyNewerEpochAdopted', () => {
+  test('accepts an adopted epoch', () => {
+    expect(() => verifyNewerEpochAdopted(consensusState, 2n)).not.toThrow();
   });
 
   test('rejects an epoch that was not observed', () => {
-    expect(() => verifyEpochObserved(consensusState, 3n)).toThrow(GenericAbortedError);
+    expect(() => verifyNewerEpochAdopted(consensusState, 3n)).toThrow(GenericAbortedError);
   });
 });

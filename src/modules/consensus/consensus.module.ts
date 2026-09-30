@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
+import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
+
 import { ConsensusStateRepository } from './consensus.repository';
 import { ConsensusService } from './consensus.service';
 
@@ -7,6 +9,7 @@ import { ConsensusService } from './consensus.service';
 
 type ConsensusModuleDependencies = {
   prisma: PrismaClient;
+  selfMasterNodeId: MasterNodeId;
 };
 
 type ConsensusModule = {
@@ -16,10 +19,10 @@ type ConsensusModule = {
 
 /* module */
 
-const createConsensusModule = ({ prisma }: ConsensusModuleDependencies): ConsensusModule => {
+const createConsensusModule = ({ prisma, selfMasterNodeId }: ConsensusModuleDependencies): ConsensusModule => {
   const repository = new ConsensusStateRepository(prisma);
 
-  const service = new ConsensusService(repository);
+  const service = new ConsensusService(repository, selfMasterNodeId);
 
   return {
     repository,

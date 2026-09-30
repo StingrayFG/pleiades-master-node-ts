@@ -17,7 +17,7 @@ import {
   verifyCommittedSequenceWithinAllocated,
   verifyElectionCompleted,
   verifyElectionStarted,
-  verifyEpochObserved,
+  verifyNewerEpochAdopted,
   verifyFollowershipAcceptable,
   verifyFollowershipAccepted,
   verifyLeadershipSequenceAdvancementNotAborted,
@@ -63,16 +63,19 @@ type ConsensusServiceContract = {
   releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState>;
 
   // election
-  startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
+  startElection(): Promise<ConsensusState>;
   completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
-  observeEpoch(epoch: ConsensusEpoch): Promise<ConsensusState>;
+  adoptNewerEpoch(epoch: ConsensusEpoch): Promise<ConsensusState>;
   requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult>;
 };
 
 /* service */
 
 class ConsensusService implements ConsensusServiceContract {
-  constructor(private readonly repository: ConsensusStateRepositoryContract) {}
+  constructor(
+    private readonly repository: ConsensusStateRepositoryContract,
+    private readonly selfMasterNodeId: MasterNodeId
+  ) {}
 
   /* state methods */
 
@@ -307,18 +310,18 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* election methods */
 
-  async startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState> {
+  async startElection(): Promise<ConsensusState> {
     const state = await this.getConsensusState();
     const electionEpoch = state.currentEpoch + 1n;
 
     const electionState = await this.repository.startElection({
       expectedEpoch: state.currentEpoch,
       electionEpoch,
-      candidateMasterNodeId,
+      candidateMasterNodeId: this.selfMasterNodeId,
       matchedSequence: state.lastCommittedSequence
     });
 
-    verifyElectionStarted(electionState, electionEpoch, candidateMasterNodeId);
+    verifyElectionStarted(electionState, electionEpoch, this.selfMasterNodeId);
 
     return electionState;
   }
@@ -342,21 +345,21 @@ class ConsensusService implements ConsensusServiceContract {
     return state;
   }
 
-  async observeEpoch(epoch: ConsensusEpoch): Promise<ConsensusState> {
+  async adoptNewerEpoch(epoch: ConsensusEpoch): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
     if (epoch <= state.currentEpoch) {
       return state;
     }
 
-    const observedState = await this.repository.observeEpoch({
+    const adoptedState = await this.repository.adoptNewerEpoch({
       epoch,
       matchedSequence: state.lastCommittedSequence
     });
 
-    verifyEpochObserved(observedState, epoch);
+    verifyNewerEpochAdopted(adoptedState, epoch);
 
-    return observedState;
+    return adoptedState;
   }
 
   async requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult> {

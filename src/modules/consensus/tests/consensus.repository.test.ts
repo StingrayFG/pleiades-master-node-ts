@@ -642,7 +642,7 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
-  test('observes a newer epoch and clears local leader and vote state', async () => {
+  test('adopts a newer epoch and clears local leader and vote state', async () => {
     const observedPrismaState = {
       ...prismaState,
       current_epoch: 4n,
@@ -654,7 +654,7 @@ describe('ConsensusStateRepository', () => {
 
     delegate.findUniqueOrThrow.mockResolvedValue(observedPrismaState);
 
-    await expect(repository.observeEpoch({ epoch: 4n, matchedSequence: 3n })).resolves.toEqual({
+    await expect(repository.adoptNewerEpoch({ epoch: 4n, matchedSequence: 3n })).resolves.toEqual({
       ...state,
       currentEpoch: 4n,
       leaderMasterId: null,

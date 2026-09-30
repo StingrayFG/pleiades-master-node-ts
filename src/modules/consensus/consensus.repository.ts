@@ -15,7 +15,7 @@ import type {
   AcceptFollowershipRepositoryInput,
   ReleaseLeadershipRepositoryInput,
   StartElectionRepositoryInput,
-  ObserveEpochRepositoryInput,
+  AdoptNewerEpochRepositoryInput,
   ApplyVoteRequestRepositoryInput,
   ConsensusVoteResult
 } from './consensus.application';
@@ -50,7 +50,7 @@ type ConsensusStateRepositoryContract = {
 
   // election
   startElection(input: StartElectionRepositoryInput): Promise<ConsensusState>;
-  observeEpoch(input: ObserveEpochRepositoryInput): Promise<ConsensusState>;
+  adoptNewerEpoch(input: AdoptNewerEpochRepositoryInput): Promise<ConsensusState>;
   applyVoteRequest(input: ApplyVoteRequestRepositoryInput): Promise<ConsensusVoteResult>;
 };
 
@@ -491,7 +491,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async observeEpoch(input: ObserveEpochRepositoryInput): Promise<ConsensusState> {
+  async adoptNewerEpoch(input: AdoptNewerEpochRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {

@@ -91,7 +91,7 @@ class ElectionService implements ElectionServiceContract {
     }
 
     if (input.lastCommittedSequence < consensusState.lastCommittedSequence) {
-      const state = await this.consensusService.observeEpoch(input.epoch);
+      const state = await this.consensusService.adoptNewerEpoch(input.epoch);
 
       return {
         epoch: state.currentEpoch,
@@ -140,7 +140,7 @@ class ElectionService implements ElectionServiceContract {
     let electionState;
 
     try {
-      electionState = await this.consensusService.startElection(this.selfMasterNodeId);
+      electionState = await this.consensusService.startElection();
     } catch (err) {
       if (err instanceof GenericAbortedError) {
         return false;
@@ -173,7 +173,7 @@ class ElectionService implements ElectionServiceContract {
     );
 
     if (highestObservedEpoch > electionState.currentEpoch) {
-      await this.consensusService.observeEpoch(highestObservedEpoch);
+      await this.consensusService.adoptNewerEpoch(highestObservedEpoch);
       return false;
     }
 
@@ -260,7 +260,7 @@ class ElectionService implements ElectionServiceContract {
 
     if (highestObservedEpoch > consensusState.currentEpoch) {
       this.quorumLossStartedAtMs = null;
-      await this.consensusService.observeEpoch(highestObservedEpoch);
+      await this.consensusService.adoptNewerEpoch(highestObservedEpoch);
       return;
     }
 

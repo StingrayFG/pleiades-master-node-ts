@@ -65,7 +65,7 @@ export const startElectionRepositoryInputSchema = z.object({
   matchedSequence: consensusLastSequenceSchema
 });
 
-export const observeEpochRepositoryInputSchema = z.object({
+export const adoptNewerEpochRepositoryInputSchema = z.object({
   epoch: consensusEpochSchema,
   matchedSequence: consensusLastSequenceSchema
 });
@@ -111,7 +111,7 @@ export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershi
 export type ReleaseLeadershipRepositoryInput = z.infer<typeof releaseLeadershipRepositoryInputSchema>;
 
 export type StartElectionRepositoryInput = z.infer<typeof startElectionRepositoryInputSchema>;
-export type ObserveEpochRepositoryInput = z.infer<typeof observeEpochRepositoryInputSchema>;
+export type AdoptNewerEpochRepositoryInput = z.infer<typeof adoptNewerEpochRepositoryInputSchema>;
 export type ApplyVoteRequestRepositoryInput = z.infer<typeof applyVoteRequestRepositoryInputSchema>;
 export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
 export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;

@@ -87,7 +87,8 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
   });
 
   const consensusModule = createConsensusModule({
-    prisma
+    prisma,
+    selfMasterNodeId
   });
 
   const diskByteStorageConfig: DiskByteStorageConfig = {

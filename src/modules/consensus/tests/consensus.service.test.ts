@@ -69,7 +69,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>(),
     releaseLeadership: jest.fn<ConsensusStateRepositoryContract['releaseLeadership']>(),
     startElection: jest.fn<ConsensusStateRepositoryContract['startElection']>(),
-    observeEpoch: jest.fn<ConsensusStateRepositoryContract['observeEpoch']>(),
+    adoptNewerEpoch: jest.fn<ConsensusStateRepositoryContract['adoptNewerEpoch']>(),
     applyVoteRequest: jest.fn<ConsensusStateRepositoryContract['applyVoteRequest']>()
   };
 
@@ -94,7 +94,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     votedForMasterId: selfMasterNodeId,
     revision: 1n
   });
-  repository.observeEpoch.mockResolvedValue({ ...unclaimedState, currentEpoch: 3n, revision: 1n });
+  repository.adoptNewerEpoch.mockResolvedValue({ ...unclaimedState, currentEpoch: 3n, revision: 1n });
   repository.applyVoteRequest.mockResolvedValue({ state, voteGranted: true });
 
   return repository as unknown as jest.Mocked<ConsensusStateRepositoryContract>;
@@ -108,7 +108,7 @@ describe('ConsensusService', () => {
 
   beforeEach(() => {
     repository = createRepositoryMock();
-    service = new ConsensusService(repository);
+    service = new ConsensusService(repository, selfMasterNodeId);
   });
 
   test('returns an existing consensus state without creating another one', async () => {
@@ -556,7 +556,7 @@ describe('ConsensusService', () => {
   test('starts a new epoch and records the local candidate vote', async () => {
     repository.findState.mockResolvedValue(unclaimedState);
 
-    await expect(service.startElection(selfMasterNodeId)).resolves.toEqual({
+    await expect(service.startElection()).resolves.toEqual({
       ...unclaimedState,
       currentEpoch: 1n,
       votedForMasterId: selfMasterNodeId,
@@ -602,15 +602,15 @@ describe('ConsensusService', () => {
     });
   });
 
-  test('observes a newer epoch and clears leadership through the repository', async () => {
+  test('adopts a newer epoch and clears leadership through the repository', async () => {
     repository.findState.mockResolvedValue(unclaimedState);
 
-    await expect(service.observeEpoch(3n)).resolves.toEqual({
+    await expect(service.adoptNewerEpoch(3n)).resolves.toEqual({
       ...unclaimedState,
       currentEpoch: 3n,
       revision: 1n
     });
-    expect(repository.observeEpoch).toHaveBeenCalledWith({
+    expect(repository.adoptNewerEpoch).toHaveBeenCalledWith({
       epoch: 3n,
       matchedSequence: -1n
     });

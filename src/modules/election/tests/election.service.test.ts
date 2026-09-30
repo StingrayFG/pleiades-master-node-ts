@@ -110,7 +110,7 @@ describe('ElectionService', () => {
       }),
       startElection: jest.fn<ConsensusServiceContract['startElection']>().mockResolvedValue(electionState),
       completeElection: jest.fn<ConsensusServiceContract['completeElection']>().mockResolvedValue(leaderState),
-      observeEpoch: jest.fn<ConsensusServiceContract['observeEpoch']>().mockImplementation(async (epoch) => ({
+      adoptNewerEpoch: jest.fn<ConsensusServiceContract['adoptNewerEpoch']>().mockImplementation(async (epoch) => ({
         ...electionState,
         currentEpoch: epoch
       })),
@@ -265,7 +265,7 @@ describe('ElectionService', () => {
 
     await expect(service.runElection()).resolves.toBe(false);
 
-    expect(consensusService.observeEpoch).toHaveBeenCalledWith(4n);
+    expect(consensusService.adoptNewerEpoch).toHaveBeenCalledWith(4n);
     expect(consensusService.completeElection).not.toHaveBeenCalled();
   });
 
@@ -277,7 +277,7 @@ describe('ElectionService', () => {
 
     await service.broadcastLeaderHeartbeat();
 
-    expect(consensusService.observeEpoch).toHaveBeenCalledWith(4n);
+    expect(consensusService.adoptNewerEpoch).toHaveBeenCalledWith(4n);
   });
 
   test('does not broadcast heartbeats when the local leader is not serving', async () => {

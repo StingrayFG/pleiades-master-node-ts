@@ -134,8 +134,8 @@ export const verifyElectionCompleted = (
   }
 };
 
-export const verifyEpochObserved = (state: ConsensusState, epoch: ConsensusEpoch): void => {
+export const verifyNewerEpochAdopted = (state: ConsensusState, epoch: ConsensusEpoch): void => {
   if (state.currentEpoch < epoch) {
-    throw new GenericAbortedError('Epoch observation was aborted by a concurrent consensus change');
+    throw new GenericAbortedError('Newer epoch adoption was aborted by a concurrent consensus change');
   }
 };
