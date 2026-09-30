@@ -22,7 +22,7 @@ import type {
 } from './object-version-part.application';
 import type { PartConfig } from './object-version-part.config';
 import type { Part } from './object-version-part.domain';
-import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.domain-policies';
+import { calculatePartPlacementGroup, selectResponsibleDataNodes } from './object-version-part.policies';
 import { splitObjectDataIntoPartBytes } from './object-version-part.processors';
 import { resolveFailedCreatePartReplicaState } from './object-version-part.replica-state-resolvers';
 import type { ObjectVersionPartRepositoryContract } from './object-version-part.repository';

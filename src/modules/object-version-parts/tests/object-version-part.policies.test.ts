@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import type { DataNode } from '@/modules/data-nodes/data-node.domain';
 
-import { calculatePartPlacementGroup, selectResponsibleDataNodes } from '../object-version-part.domain-policies';
+import { calculatePartPlacementGroup, selectResponsibleDataNodes } from '../object-version-part.policies';
 
 /* fixtures */
 

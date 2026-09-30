@@ -18,7 +18,7 @@ import type {
 } from '../object-version-part.application';
 import type { PartConfig } from '../object-version-part.config';
 import type { Part, PartReplica, PartReplicaState } from '../object-version-part.domain';
-import { selectResponsibleDataNodes } from '../object-version-part.domain-policies';
+import { selectResponsibleDataNodes } from '../object-version-part.policies';
 import {
   resolveFailedCreatePartReplicaState,
   resolveFailedGetPartReplicaState
