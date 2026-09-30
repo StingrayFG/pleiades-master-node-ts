@@ -1,25 +1,10 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
-import type { BlobId, DataNodeBlobState } from '@/modules/blobs/blob.domain';
+import type { BlobId } from '@/modules/blobs/blob.domain';
 import type { DataNode, DataNodeId } from '@/modules/data-nodes/data-node.domain';
 
-import { type PlacementGroup, type PartReplicaState } from './object-version-part.domain';
-
-/* replica and blob states */
-
-const partReplicaStateByDataNodeBlobState = {
-  pending: 'pending',
-  temp: 'pending',
-  committed: 'committed',
-  deleting: 'deleting',
-  corrupt: 'corrupt',
-  missing: 'missing'
-} as const satisfies Record<DataNodeBlobState, PartReplicaState>;
-
-export const mapDataNodeBlobStateToPartReplicaState = (state: DataNodeBlobState): PartReplicaState => {
-  return partReplicaStateByDataNodeBlobState[state];
-};
+import type { PlacementGroup } from './object-version-part.domain';
 
 /* placement groups and data nodes */
 

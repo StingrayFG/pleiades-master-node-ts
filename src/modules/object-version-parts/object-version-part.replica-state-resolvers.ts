@@ -5,11 +5,20 @@ import {
   InternodeFailedPreconditionError,
   InternodeNotFoundError
 } from '@/errors/internode.errors';
+import type { DataNodeBlobState } from '@/modules/blobs/blob.domain';
 
 import type { PartReplicaState } from './object-version-part.domain';
-import { mapDataNodeBlobStateToPartReplicaState } from './object-version-part.domain-policies';
 
 /* types and constants */
+
+const partReplicaStateByDataNodeBlobState = {
+  pending: 'pending',
+  temp: 'pending',
+  committed: 'committed',
+  deleting: 'deleting',
+  corrupt: 'corrupt',
+  missing: 'missing'
+} as const satisfies Record<DataNodeBlobState, PartReplicaState>;
 
 const failedGetPartReplicaStates = new Set([
   'pending',
@@ -27,6 +36,10 @@ type FailedCreatePartReplicaState = typeof failedCreatePartReplicaStates extends
 
 /* resolvers */
 
+export const resolvePartReplicaStateFromDataNodeBlobState = (state: DataNodeBlobState): PartReplicaState => {
+  return partReplicaStateByDataNodeBlobState[state];
+};
+
 export const resolveFailedGetPartReplicaState = (
   error: InternodeApplicationError
 ): FailedGetPartReplicaState | null => {
@@ -39,7 +52,7 @@ export const resolveFailedGetPartReplicaState = (
   }
 
   if (error instanceof InternodeFailedPreconditionError && error.details?.blobState) {
-    const state = mapDataNodeBlobStateToPartReplicaState(error.details.blobState);
+    const state = resolvePartReplicaStateFromDataNodeBlobState(error.details.blobState);
 
     if (state === 'deleting') {
       return 'missing';
@@ -59,7 +72,7 @@ export const resolveFailedCreatePartReplicaState = (error: InternodeApplicationE
   }
 
   if (error instanceof InternodeFailedPreconditionError && error.details?.blobState) {
-    const state = mapDataNodeBlobStateToPartReplicaState(error.details.blobState);
+    const state = resolvePartReplicaStateFromDataNodeBlobState(error.details.blobState);
 
     if (state === 'deleting') {
       return 'missing';

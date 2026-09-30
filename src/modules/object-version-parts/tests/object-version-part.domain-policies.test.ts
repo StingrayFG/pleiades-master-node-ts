@@ -2,11 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import type { DataNode } from '@/modules/data-nodes/data-node.domain';
 
-import {
-  calculatePartPlacementGroup,
-  mapDataNodeBlobStateToPartReplicaState,
-  selectResponsibleDataNodes
-} from '../object-version-part.domain-policies';
+import { calculatePartPlacementGroup, selectResponsibleDataNodes } from '../object-version-part.domain-policies';
 
 /* fixtures */
 
@@ -35,17 +31,6 @@ const createDataNode = (id: string): DataNode => ({
 /* tests */
 
 describe('object version part domain policies', () => {
-  test.each([
-    ['pending', 'pending'],
-    ['temp', 'pending'],
-    ['committed', 'committed'],
-    ['deleting', 'deleting'],
-    ['corrupt', 'corrupt'],
-    ['missing', 'missing']
-  ] as const)('maps data-node blob state %s to replica state %s', (blobState, replicaState) => {
-    expect(mapDataNodeBlobStateToPartReplicaState(blobState)).toBe(replicaState);
-  });
-
   test('calculates a stable placement group within the configured range', () => {
     const blobId = '00000000-0000-4000-8000-000000000001';
     const placementGroup = calculatePartPlacementGroup(blobId, 64);

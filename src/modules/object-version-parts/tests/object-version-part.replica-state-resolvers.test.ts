@@ -10,12 +10,24 @@ import {
 
 import {
   resolveFailedCreatePartReplicaState,
-  resolveFailedGetPartReplicaState
+  resolveFailedGetPartReplicaState,
+  resolvePartReplicaStateFromDataNodeBlobState
 } from '../object-version-part.replica-state-resolvers';
 
 /* tests */
 
 describe('part replica state resolvers', () => {
+  test.each([
+    ['pending', 'pending'],
+    ['temp', 'pending'],
+    ['committed', 'committed'],
+    ['deleting', 'deleting'],
+    ['corrupt', 'corrupt'],
+    ['missing', 'missing']
+  ] as const)('resolves data-node blob state %s to replica state %s', (blobState, replicaState) => {
+    expect(resolvePartReplicaStateFromDataNodeBlobState(blobState)).toBe(replicaState);
+  });
+
   test('maps failed reads to durable replica states', () => {
     expect(resolveFailedGetPartReplicaState(new InternodeNotFoundError())).toBe('missing');
     expect(resolveFailedGetPartReplicaState(new InternodeDataLossError())).toBe('corrupt');
