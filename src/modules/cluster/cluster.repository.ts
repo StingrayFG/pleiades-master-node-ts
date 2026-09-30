@@ -11,6 +11,7 @@ import type { CreateClusterRepositoryInput } from './cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from './cluster.domain';
 import { mapPrismaClusterToDomainCluster } from './cluster.mappers';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
+import { resolveMembershipSnapshotAction } from './cluster.policies';
 import {
   verifyClusterRegistered,
   verifyMembershipSnapshotCluster,
@@ -159,11 +160,16 @@ class ClusterRepository implements ClusterRepositoryContract {
         async (transaction) => {
           const cluster = await this.requireSnapshotCluster(transaction, snapshot);
 
-          if (cluster.membershipRevision > snapshot.cluster.membershipRevision) {
+          const action = resolveMembershipSnapshotAction(
+            cluster.membershipRevision,
+            snapshot.cluster.membershipRevision
+          );
+
+          if (action === 'ignore') {
             return;
           }
 
-          if (cluster.membershipRevision === snapshot.cluster.membershipRevision) {
+          if (action === 'reconcile') {
             await this.verifySnapshotConsistency(transaction, snapshot);
             return;
           }
