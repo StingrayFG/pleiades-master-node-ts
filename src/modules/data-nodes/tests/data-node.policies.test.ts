@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
 import type { DataNodeHealthSnapshot } from '../data-node.domain';
-import { resolveDataNodeState } from '../data-node.domain-policies';
+import { resolveDataNodeState } from '../data-node.policies';
 
 /* fixtures */
 

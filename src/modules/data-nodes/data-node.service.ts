@@ -5,7 +5,7 @@ import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { HeartbeatDataNodeInput, RegisterDataNodeInput } from './data-node.application';
 import type { DataNode, DataNodeHealthSnapshot, DataNodeId, DataNodeSessionId } from './data-node.domain';
-import { resolveDataNodeState } from './data-node.domain-policies';
+import { resolveDataNodeState } from './data-node.policies';
 import type { DataNodeGrpcClientContract } from './data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
 import type { DataNodeRepositoryContract } from './data-node.repository';

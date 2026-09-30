@@ -2,7 +2,7 @@ import { InternodeApplicationError } from '@/errors/internode.errors';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { DataNode, DataNodeState } from '../data-node.domain';
-import { resolveDataNodeState } from '../data-node.domain-policies';
+import { resolveDataNodeState } from '../data-node.policies';
 import type { DataNodeGrpcClientContract } from '../data-node.grpc-client';
 import { mapDataNodeToDataNodeEndpoint } from '../data-node.mappers';
 import type { DataNodeRepositoryContract } from '../data-node.repository';
