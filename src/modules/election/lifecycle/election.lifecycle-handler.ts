@@ -4,7 +4,7 @@ import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
 import type { ElectionConfig } from '../election.config';
-import { isMasterNodeEligibleCandidate, resolveElectionTimeoutMs } from '../election.policies';
+import { isMasterNodeEligibleForElection, resolveElectionTimeoutMs } from '../election.policies';
 import type { ElectionServiceContract } from '../election.service';
 
 /* contract */
@@ -45,7 +45,7 @@ class ElectionLifecycleHandler implements ElectionLifecycleHandlerContract {
       return;
     }
 
-    if (!isMasterNodeEligibleCandidate(selfMasterNode)) {
+    if (!isMasterNodeEligibleForElection(selfMasterNode)) {
       this.clearElectionDeadline();
       return;
     }

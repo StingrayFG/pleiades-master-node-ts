@@ -8,7 +8,7 @@ export const isMasterNodeVotingMember = (masterNode: MasterNode): boolean => {
   return masterNode.state !== 'joining';
 };
 
-export const isMasterNodeEligibleCandidate = (masterNode: MasterNode): boolean => {
+export const isMasterNodeEligibleForElection = (masterNode: MasterNode): boolean => {
   return masterNode.state === 'active' && masterNode.mode === 'serving';
 };
 

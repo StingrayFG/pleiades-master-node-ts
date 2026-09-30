@@ -248,14 +248,14 @@ describe('MasterNodeInternodeService', () => {
     });
 
     expect(electionService.requestVote).toHaveBeenCalledWith({
-      candidateMasterNodeId: callerMasterNodeId,
+      electionStarterMasterNodeId: callerMasterNodeId,
       epoch: 3n,
       lastLogEpoch: 2n,
       lastLogSequence: 4n
     });
   });
 
-  test('rejects vote requests from a draining candidate', async () => {
+  test('rejects vote requests from a draining election starter', async () => {
     masterNodeService.getMasterNodeById.mockResolvedValue({
       ...callerMasterNode,
       mode: 'draining'

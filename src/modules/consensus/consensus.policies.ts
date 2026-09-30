@@ -1,11 +1,11 @@
 import type { RequestConsensusVoteInput } from './consensus.application';
 
-/**/
+/* policies */
 
-export const isCandidateLogUpToDate = (input: RequestConsensusVoteInput): boolean => {
+export const isElectionStarterLogUpToDate = (input: RequestConsensusVoteInput): boolean => {
   return (
-    input.candidateLastLogEpoch > input.localLastLogEpoch ||
-    (input.candidateLastLogEpoch === input.localLastLogEpoch &&
-      input.candidateLastLogSequence >= input.localLastLogSequence)
+    input.electionStarterLastLogEpoch > input.localLastLogEpoch ||
+    (input.electionStarterLastLogEpoch === input.localLastLogEpoch &&
+      input.electionStarterLastLogSequence >= input.localLastLogSequence)
   );
 };

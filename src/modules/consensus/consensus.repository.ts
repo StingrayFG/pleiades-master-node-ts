@@ -468,7 +468,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           data: {
             current_epoch: input.electionEpoch,
             leader_master_id: null,
-            voted_for_master_id: input.candidateMasterNodeId,
+            voted_for_master_id: input.electionStarterMasterNodeId,
             last_leader_contact_at: null,
             last_matched_sequence: input.matchedSequence,
             revision: {
@@ -568,15 +568,15 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           });
         }
 
-        if (state.current_epoch !== input.epoch || !input.candidateLogIsUpToDate) {
+        if (state.current_epoch !== input.epoch || !input.electionStarterLogIsUpToDate) {
           return { state, voteGranted: false };
         }
 
-        if (state.leader_master_id !== null && state.leader_master_id !== input.candidateMasterNodeId) {
+        if (state.leader_master_id !== null && state.leader_master_id !== input.electionStarterMasterNodeId) {
           return { state, voteGranted: false };
         }
 
-        if (state.voted_for_master_id === input.candidateMasterNodeId) {
+        if (state.voted_for_master_id === input.electionStarterMasterNodeId) {
           return { state, voteGranted: true };
         }
 
@@ -593,7 +593,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             revision: state.revision
           },
           data: {
-            voted_for_master_id: input.candidateMasterNodeId,
+            voted_for_master_id: input.electionStarterMasterNodeId,
             revision: {
               increment: 1
             }
@@ -608,7 +608,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
         return {
           state,
-          voteGranted: state.current_epoch === input.epoch && state.voted_for_master_id === input.candidateMasterNodeId
+          voteGranted:
+            state.current_epoch === input.epoch && state.voted_for_master_id === input.electionStarterMasterNodeId
         };
       });
     } catch (err) {

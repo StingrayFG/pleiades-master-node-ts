@@ -16,7 +16,7 @@ import type {
 } from './election.application';
 import type { ElectionConfig } from './election.config';
 import {
-  isMasterNodeEligibleCandidate,
+  isMasterNodeEligibleForElection,
   isMasterNodeVotingMember,
   resolveElectionQuorumSize
 } from './election.policies';
@@ -66,9 +66,9 @@ class ElectionService implements ElectionServiceContract {
 
     const result = await this.consensusService.requestVote({
       epoch: input.epoch,
-      candidateMasterNodeId: input.candidateMasterNodeId,
-      candidateLastLogEpoch: input.lastLogEpoch,
-      candidateLastLogSequence: input.lastLogSequence,
+      electionStarterMasterNodeId: input.electionStarterMasterNodeId,
+      electionStarterLastLogEpoch: input.lastLogEpoch,
+      electionStarterLastLogSequence: input.lastLogSequence,
       localLastLogEpoch: localLog.epoch,
       localLastLogSequence: localLog.sequence
     });
@@ -133,7 +133,7 @@ class ElectionService implements ElectionServiceContract {
     const voters = masterNodes.filter(isMasterNodeVotingMember);
     const selfMasterNode = voters.find((masterNode) => masterNode.id === this.selfMasterNodeId);
 
-    if (!selfMasterNode || !isMasterNodeEligibleCandidate(selfMasterNode)) {
+    if (!selfMasterNode || !isMasterNodeEligibleForElection(selfMasterNode)) {
       return false;
     }
 
@@ -191,7 +191,7 @@ class ElectionService implements ElectionServiceContract {
     if (
       !currentSelfMasterNode ||
       !isMasterNodeVotingMember(currentSelfMasterNode) ||
-      !isMasterNodeEligibleCandidate(currentSelfMasterNode)
+      !isMasterNodeEligibleForElection(currentSelfMasterNode)
     ) {
       return false;
     }

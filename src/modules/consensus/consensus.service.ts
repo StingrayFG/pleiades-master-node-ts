@@ -10,7 +10,7 @@ import type {
   RewoundSequenceTransactionAction
 } from './consensus.application';
 import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
-import { isCandidateLogUpToDate } from './consensus.policies';
+import { isElectionStarterLogUpToDate } from './consensus.policies';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
 import {
   verifyAppliedSequenceWithinCommitted,
@@ -64,7 +64,7 @@ type ConsensusServiceContract = {
 
   // election
   startElection(): Promise<ConsensusState>;
-  completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
+  completeElection(epoch: ConsensusEpoch, electionStarterMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   adoptNewerEpoch(epoch: ConsensusEpoch): Promise<ConsensusState>;
   requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult>;
 };
@@ -329,7 +329,7 @@ class ConsensusService implements ConsensusServiceContract {
     const electionState = await this.repository.startElection({
       expectedEpoch: state.currentEpoch,
       electionEpoch,
-      candidateMasterNodeId: this.selfMasterNodeId,
+      electionStarterMasterNodeId: this.selfMasterNodeId,
       matchedSequence: state.lastCommittedSequence
     });
 
@@ -341,13 +341,13 @@ class ConsensusService implements ConsensusServiceContract {
   // used by a follower that started an election (election starter) after it receives votes from the quorum.
   // this transition promotes the election starter to leader only if the epoch and self-vote still match,
   // then records last leader contact timestamp and resets matched sequence progress to the committed sequence.
-  async completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState> {
+  async completeElection(epoch: ConsensusEpoch, electionStarterMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
     await this.repository.claimLeadership({
       leadershipContext: {
         epoch,
-        leaderMasterId: candidateMasterNodeId
+        leaderMasterId: electionStarterMasterNodeId
       },
       lastLeaderContactAt: new Date(),
       matchedSequence: previousState.lastCommittedSequence
@@ -355,7 +355,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     const state = await this.getConsensusState();
 
-    verifyElectionCompleted(state, epoch, candidateMasterNodeId);
+    verifyElectionCompleted(state, epoch, electionStarterMasterNodeId);
 
     return state;
   }
@@ -390,8 +390,8 @@ class ConsensusService implements ConsensusServiceContract {
   async requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult> {
     return this.repository.applyVoteRequest({
       epoch: input.epoch,
-      candidateMasterNodeId: input.candidateMasterNodeId,
-      candidateLogIsUpToDate: isCandidateLogUpToDate(input)
+      electionStarterMasterNodeId: input.electionStarterMasterNodeId,
+      electionStarterLogIsUpToDate: isElectionStarterLogUpToDate(input)
     });
   }
 }

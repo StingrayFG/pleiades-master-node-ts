@@ -113,12 +113,12 @@ export const verifyLeadershipReleased = (
 export const verifyElectionStarted = (
   state: ConsensusState,
   electionEpoch: ConsensusEpoch,
-  candidateMasterNodeId: MasterNodeId
+  electionStarterMasterNodeId: MasterNodeId
 ): void => {
   if (
     state.currentEpoch !== electionEpoch ||
     state.leaderMasterId !== null ||
-    state.votedForMasterId !== candidateMasterNodeId
+    state.votedForMasterId !== electionStarterMasterNodeId
   ) {
     throw new GenericAbortedError('Election start was aborted by a concurrent consensus change');
   }
@@ -127,9 +127,9 @@ export const verifyElectionStarted = (
 export const verifyElectionCompleted = (
   state: ConsensusState,
   epoch: ConsensusEpoch,
-  candidateMasterNodeId: MasterNodeId
+  electionStarterMasterNodeId: MasterNodeId
 ): void => {
-  if (state.currentEpoch !== epoch || state.leaderMasterId !== candidateMasterNodeId) {
+  if (state.currentEpoch !== epoch || state.leaderMasterId !== electionStarterMasterNodeId) {
     throw new GenericAbortedError('Election completion was aborted by a concurrent consensus change');
   }
 };

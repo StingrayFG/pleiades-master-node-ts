@@ -6,7 +6,7 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 /* schemas */
 
 export const requestVoteInputSchema = z.object({
-  candidateMasterNodeId: masterNodeIdSchema,
+  electionStarterMasterNodeId: masterNodeIdSchema,
   epoch: consensusEpochSchema,
   lastLogEpoch: consensusEpochSchema,
   lastLogSequence: consensusLastSequenceSchema

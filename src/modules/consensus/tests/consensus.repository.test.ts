@@ -599,7 +599,7 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
-  test('starts an election by advancing the epoch and voting for the candidate', async () => {
+  test('starts an election by advancing the epoch and voting for the election starter', async () => {
     const electionPrismaState = {
       ...prismaState,
       current_epoch: 3n,
@@ -615,7 +615,7 @@ describe('ConsensusStateRepository', () => {
       repository.startElection({
         expectedEpoch: 2n,
         electionEpoch: 3n,
-        candidateMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-b',
         matchedSequence: 3n
       })
     ).resolves.toEqual({
@@ -678,7 +678,7 @@ describe('ConsensusStateRepository', () => {
     });
   });
 
-  test('advances to a candidate epoch and persists one vote atomically', async () => {
+  test('advances to the election starter epoch and persists one vote atomically', async () => {
     const observedPrismaState = {
       ...prismaState,
       current_epoch: 3n,
@@ -701,8 +701,8 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.applyVoteRequest({
         epoch: 3n,
-        candidateMasterNodeId: 'master-node-b',
-        candidateLogIsUpToDate: true
+        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterLogIsUpToDate: true
       })
     ).resolves.toEqual({
       state: {
@@ -730,8 +730,8 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.applyVoteRequest({
         epoch: 3n,
-        candidateMasterNodeId: 'master-node-b',
-        candidateLogIsUpToDate: true
+        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterLogIsUpToDate: true
       })
     ).resolves.toEqual({
       state: {

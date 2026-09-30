@@ -170,14 +170,14 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   }
 
   async requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult> {
-    const candidate = await this.requireAuthenticatedMasterNodeCaller(input);
+    const electionStarter = await this.requireAuthenticatedMasterNodeCaller(input);
 
-    if (candidate.mode !== 'serving') {
+    if (electionStarter.mode !== 'serving') {
       throw new GenericFailedPreconditionError('Calling master node is not eligible to become the cluster leader');
     }
 
     return this.electionService.requestVote({
-      candidateMasterNodeId: input.callerMasterNodeId,
+      electionStarterMasterNodeId: input.callerMasterNodeId,
       epoch: input.epoch,
       lastLogEpoch: input.lastLogEpoch,
       lastLogSequence: input.lastLogSequence

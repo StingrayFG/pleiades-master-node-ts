@@ -90,7 +90,7 @@ describe('master node gRPC routes', () => {
       request: {
         epoch: '3',
         last_log_sequence: '4',
-        caller_master_id: 'master-node-candidate',
+        caller_master_id: 'master-node-election-starter',
         caller_session_id: '00000000-0000-4000-8000-000000000004',
         last_log_epoch: '2'
       }

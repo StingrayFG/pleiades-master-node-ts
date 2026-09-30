@@ -65,7 +65,7 @@ export const releaseLeadershipRepositoryInputSchema = z.object({
 export const startElectionRepositoryInputSchema = z.object({
   expectedEpoch: consensusEpochSchema,
   electionEpoch: consensusEpochSchema,
-  candidateMasterNodeId: masterNodeIdSchema,
+  electionStarterMasterNodeId: masterNodeIdSchema,
   matchedSequence: consensusLastSequenceSchema
 });
 
@@ -76,15 +76,15 @@ export const adoptNewerEpochRepositoryInputSchema = z.object({
 
 export const applyVoteRequestRepositoryInputSchema = z.object({
   epoch: consensusEpochSchema,
-  candidateMasterNodeId: masterNodeIdSchema,
-  candidateLogIsUpToDate: z.boolean()
+  electionStarterMasterNodeId: masterNodeIdSchema,
+  electionStarterLogIsUpToDate: z.boolean()
 });
 
 export const requestConsensusVoteInputSchema = z.object({
   epoch: consensusEpochSchema,
-  candidateMasterNodeId: masterNodeIdSchema,
-  candidateLastLogEpoch: consensusEpochSchema,
-  candidateLastLogSequence: consensusLastSequenceSchema,
+  electionStarterMasterNodeId: masterNodeIdSchema,
+  electionStarterLastLogEpoch: consensusEpochSchema,
+  electionStarterLastLogSequence: consensusLastSequenceSchema,
   localLastLogEpoch: consensusEpochSchema,
   localLastLogSequence: consensusLastSequenceSchema
 });

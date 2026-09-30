@@ -203,7 +203,7 @@ describe('verifyElectionStarted', () => {
     lastLeaderContactAt: null
   };
 
-  test('accepts a started election voting for the candidate', () => {
+  test('accepts a started election voting for the election starter', () => {
     expect(() => verifyElectionStarted(electionState, 3n, 'master-node-b')).not.toThrow();
   });
 
@@ -219,7 +219,7 @@ describe('verifyElectionStarted', () => {
 });
 
 describe('verifyElectionCompleted', () => {
-  test('accepts a completed election under the candidate', () => {
+  test('accepts a completed election under the election starter', () => {
     expect(() => verifyElectionCompleted(consensusState, 2n, 'master-node-a')).not.toThrow();
   });
 

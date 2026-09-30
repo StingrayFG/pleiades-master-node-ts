@@ -1,21 +1,21 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { isCandidateLogUpToDate } from '../consensus.policies';
+import { isElectionStarterLogUpToDate } from '../consensus.policies';
 
 /* tests */
 
-describe('isCandidateLogUpToDate', () => {
+describe('isElectionStarterLogUpToDate', () => {
   test.each([
-    [{ candidateLastLogEpoch: 3n, candidateLastLogSequence: 1n }, true],
-    [{ candidateLastLogEpoch: 2n, candidateLastLogSequence: 5n }, true],
-    [{ candidateLastLogEpoch: 2n, candidateLastLogSequence: 4n }, true],
-    [{ candidateLastLogEpoch: 2n, candidateLastLogSequence: 3n }, false],
-    [{ candidateLastLogEpoch: 1n, candidateLastLogSequence: 9n }, false]
-  ])('compares candidate and local log positions', (positions, expected) => {
+    [{ electionStarterLastLogEpoch: 3n, electionStarterLastLogSequence: 1n }, true],
+    [{ electionStarterLastLogEpoch: 2n, electionStarterLastLogSequence: 5n }, true],
+    [{ electionStarterLastLogEpoch: 2n, electionStarterLastLogSequence: 4n }, true],
+    [{ electionStarterLastLogEpoch: 2n, electionStarterLastLogSequence: 3n }, false],
+    [{ electionStarterLastLogEpoch: 1n, electionStarterLastLogSequence: 9n }, false]
+  ])('compares election starter and local log positions', (positions, expected) => {
     expect(
-      isCandidateLogUpToDate({
+      isElectionStarterLogUpToDate({
         epoch: 3n,
-        candidateMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-b',
         localLastLogEpoch: 2n,
         localLastLogSequence: 4n,
         ...positions

@@ -162,7 +162,7 @@ describe('ElectionService', () => {
   test('grants a vote through durable consensus state after comparing log freshness', async () => {
     await expect(
       service.requestVote({
-        candidateMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-b',
         epoch: 3n,
         lastLogEpoch: 2n,
         lastLogSequence: 5n
@@ -174,9 +174,9 @@ describe('ElectionService', () => {
 
     expect(consensusService.requestVote).toHaveBeenCalledWith({
       epoch: 3n,
-      candidateMasterNodeId: 'master-node-b',
-      candidateLastLogEpoch: 2n,
-      candidateLastLogSequence: 5n,
+      electionStarterMasterNodeId: 'master-node-b',
+      electionStarterLastLogEpoch: 2n,
+      electionStarterLastLogSequence: 5n,
       localLastLogEpoch: lastTask.epoch,
       localLastLogSequence: lastTask.sequence
     });
@@ -238,7 +238,7 @@ describe('ElectionService', () => {
     expect(consensusService.completeElection).not.toHaveBeenCalled();
   });
 
-  test('does not complete an election after the local candidate becomes ineligible', async () => {
+  test('does not complete an election after the election starter becomes ineligible', async () => {
     masterNodeService.listMasterNodes
       .mockResolvedValueOnce(masterNodes)
       .mockResolvedValueOnce(

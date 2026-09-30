@@ -553,7 +553,7 @@ describe('ConsensusService', () => {
     });
   });
 
-  test('starts a new epoch and records the local candidate vote', async () => {
+  test('starts a new epoch and records the election starter vote', async () => {
     repository.findState.mockResolvedValue(unclaimedState);
 
     await expect(service.startElection()).resolves.toEqual({
@@ -565,40 +565,40 @@ describe('ConsensusService', () => {
     expect(repository.startElection).toHaveBeenCalledWith({
       expectedEpoch: 0n,
       electionEpoch: 1n,
-      candidateMasterNodeId: selfMasterNodeId,
+      electionStarterMasterNodeId: selfMasterNodeId,
       matchedSequence: -1n
     });
   });
 
-  test('grants votes only when the candidate log is at least as current', async () => {
+  test('grants votes only when the election starter log is at least as current', async () => {
     await service.requestVote({
       epoch: 3n,
-      candidateMasterNodeId: otherMasterNodeId,
-      candidateLastLogEpoch: 2n,
-      candidateLastLogSequence: 4n,
+      electionStarterMasterNodeId: otherMasterNodeId,
+      electionStarterLastLogEpoch: 2n,
+      electionStarterLastLogSequence: 4n,
       localLastLogEpoch: 2n,
       localLastLogSequence: 3n
     });
 
     expect(repository.applyVoteRequest).toHaveBeenCalledWith({
       epoch: 3n,
-      candidateMasterNodeId: otherMasterNodeId,
-      candidateLogIsUpToDate: true
+      electionStarterMasterNodeId: otherMasterNodeId,
+      electionStarterLogIsUpToDate: true
     });
 
     await service.requestVote({
       epoch: 3n,
-      candidateMasterNodeId: otherMasterNodeId,
-      candidateLastLogEpoch: 1n,
-      candidateLastLogSequence: 10n,
+      electionStarterMasterNodeId: otherMasterNodeId,
+      electionStarterLastLogEpoch: 1n,
+      electionStarterLastLogSequence: 10n,
       localLastLogEpoch: 2n,
       localLastLogSequence: 3n
     });
 
     expect(repository.applyVoteRequest).toHaveBeenLastCalledWith({
       epoch: 3n,
-      candidateMasterNodeId: otherMasterNodeId,
-      candidateLogIsUpToDate: false
+      electionStarterMasterNodeId: otherMasterNodeId,
+      electionStarterLogIsUpToDate: false
     });
   });
 
