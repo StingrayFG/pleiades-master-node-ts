@@ -80,10 +80,10 @@ class ConsensusService implements ConsensusServiceContract {
   /* state methods */
 
   async getConsensusState(): Promise<ConsensusState> {
-    const existingState = await this.repository.findState();
+    const existingConsensusState = await this.repository.findState();
 
-    if (existingState) {
-      return existingState;
+    if (existingConsensusState) {
+      return existingConsensusState;
     }
 
     try {
@@ -93,13 +93,13 @@ class ConsensusService implements ConsensusServiceContract {
         throw err;
       }
 
-      const createdState = await this.repository.findState();
+      const createdConsensusState = await this.repository.findState();
 
-      if (!createdState) {
+      if (!createdConsensusState) {
         throw err;
       }
 
-      return createdState;
+      return createdConsensusState;
     }
   }
 
@@ -111,17 +111,17 @@ class ConsensusService implements ConsensusServiceContract {
   ): Promise<ConsensusState> {
     await this.getConsensusState();
 
-    const updatedState = await this.repository.advanceLastAllocatedSequence({
+    const updatedConsensusState = await this.repository.advanceLastAllocatedSequence({
       sequence,
       leadershipContext
     });
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
-        updatedState,
+        updatedConsensusState,
         leadershipContext,
         sequence,
-        updatedState.lastAllocatedSequence
+        updatedConsensusState.lastAllocatedSequence
       );
     } catch (err) {
       throw new GenericAbortedError('Allocated sequence advancement was aborted by a concurrent consensus change', {
@@ -129,28 +129,28 @@ class ConsensusService implements ConsensusServiceContract {
       });
     }
 
-    return updatedState;
+    return updatedConsensusState;
   }
 
   async advanceLastMatchedSequence(
     sequence: ConsensusLastSequence,
     leadershipContext: ConsensusLeadershipContext
   ): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const consensusState = await this.getConsensusState();
 
-    verifyMatchedSequenceWithinAllocated(state, sequence);
+    verifyMatchedSequenceWithinAllocated(consensusState, sequence);
 
-    const updatedState = await this.repository.advanceLastMatchedSequence({
+    const updatedConsensusState = await this.repository.advanceLastMatchedSequence({
       sequence,
       leadershipContext
     });
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
-        updatedState,
+        updatedConsensusState,
         leadershipContext,
         sequence,
-        updatedState.lastMatchedSequence
+        updatedConsensusState.lastMatchedSequence
       );
     } catch (err) {
       throw new GenericAbortedError('Matched sequence advancement was aborted by a concurrent consensus change', {
@@ -158,28 +158,28 @@ class ConsensusService implements ConsensusServiceContract {
       });
     }
 
-    return updatedState;
+    return updatedConsensusState;
   }
 
   async advanceLastCommittedSequence(
     sequence: TaskSequence,
     leadershipContext: ConsensusLeadershipContext
   ): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const consensusState = await this.getConsensusState();
 
-    verifyCommittedSequenceWithinAllocated(state, sequence);
+    verifyCommittedSequenceWithinAllocated(consensusState, sequence);
 
-    const updatedState = await this.repository.advanceLastCommittedSequence({
+    const updatedConsensusState = await this.repository.advanceLastCommittedSequence({
       sequence,
       leadershipContext
     });
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
-        updatedState,
+        updatedConsensusState,
         leadershipContext,
         sequence,
-        updatedState.lastCommittedSequence
+        updatedConsensusState.lastCommittedSequence
       );
     } catch (err) {
       throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change', {
@@ -187,27 +187,27 @@ class ConsensusService implements ConsensusServiceContract {
       });
     }
 
-    return updatedState;
+    return updatedConsensusState;
   }
 
   async advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const consensusState = await this.getConsensusState();
 
-    verifyAppliedSequenceWithinCommitted(state, sequence);
+    verifyAppliedSequenceWithinCommitted(consensusState, sequence);
 
-    const updatedState = await this.repository.advanceLastAppliedSequence({
+    const updatedConsensusState = await this.repository.advanceLastAppliedSequence({
       sequence
     });
 
     try {
-      verifySequenceAdvancementNotAborted(sequence, updatedState.lastAppliedSequence);
+      verifySequenceAdvancementNotAborted(sequence, updatedConsensusState.lastAppliedSequence);
     } catch (err) {
       throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change', {
         cause: err
       });
     }
 
-    return updatedState;
+    return updatedConsensusState;
   }
 
   // runs the action in the same transaction that advances the last allocated sequence.
@@ -231,9 +231,9 @@ class ConsensusService implements ConsensusServiceContract {
     sequence: ConsensusLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
-    const state = await this.getConsensusState();
+    const consensusState = await this.getConsensusState();
 
-    verifySequenceWithinRewindBounds(state, sequence);
+    verifySequenceWithinRewindBounds(consensusState, sequence);
 
     return this.repository.withRewoundLastAllocatedSequence(
       {
@@ -249,23 +249,23 @@ class ConsensusService implements ConsensusServiceContract {
   // used during initial cluster bootstrap to claim leadership before any leader exists.
   // this transition advances the epoch and records the bootstrapping node as leader with its self-vote.
   async claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const initialConsensusState = await this.getConsensusState();
 
-    if (state.leaderMasterId === selfMasterNodeId) {
-      return state;
+    if (initialConsensusState.leaderMasterId === selfMasterNodeId) {
+      return initialConsensusState;
     }
 
-    if (state.leaderMasterId !== null) {
-      return state;
+    if (initialConsensusState.leaderMasterId !== null) {
+      return initialConsensusState;
     }
 
     await this.repository.claimLeadership({
       leadershipContext: {
-        epoch: state.currentEpoch + 1n,
+        epoch: initialConsensusState.currentEpoch + 1n,
         leaderMasterId: selfMasterNodeId
       },
       lastLeaderContactAt: new Date(),
-      matchedSequence: state.lastCommittedSequence
+      matchedSequence: initialConsensusState.lastCommittedSequence
     });
 
     return this.getConsensusState();
@@ -275,15 +275,16 @@ class ConsensusService implements ConsensusServiceContract {
   // or a heartbeat confirms a remote leader for the current or a newer epoch.
   // this transition records the remote leader and contact time, resetting matched sequence progress if leadership changed.
   async acceptFollowership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const initialConsensusState = await this.getConsensusState();
 
-    verifyFollowershipAcceptable(state, leadershipContext);
+    verifyFollowershipAcceptable(initialConsensusState, leadershipContext);
 
     // reset the matched sequence if the leader or epoch has changed
     const matchedSequence =
-      state.currentEpoch !== leadershipContext.epoch || state.leaderMasterId !== leadershipContext.leaderMasterId
-        ? state.lastCommittedSequence
-        : state.lastMatchedSequence;
+      initialConsensusState.currentEpoch !== leadershipContext.epoch ||
+      initialConsensusState.leaderMasterId !== leadershipContext.leaderMasterId
+        ? initialConsensusState.lastCommittedSequence
+        : initialConsensusState.lastMatchedSequence;
 
     await this.repository.acceptFollowership({
       leadershipContext,
@@ -291,28 +292,28 @@ class ConsensusService implements ConsensusServiceContract {
       matchedSequence
     });
 
-    const followerState = await this.getConsensusState();
+    const acceptedLeaderConsensusState = await this.getConsensusState();
 
-    verifyFollowershipAccepted(followerState, leadershipContext);
+    verifyFollowershipAccepted(acceptedLeaderConsensusState, leadershipContext);
 
-    return followerState;
+    return acceptedLeaderConsensusState;
   }
 
   // used by the leader when it becomes ineligible or loses contact with the quorum.
   // this transition clears the known leader and resets matched sequence progress without advancing the epoch.
   async releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
-    const previousState = await this.getConsensusState();
+    const initialConsensusState = await this.getConsensusState();
 
     await this.repository.releaseLeadership({
       leadershipContext,
-      matchedSequence: previousState.lastCommittedSequence
+      matchedSequence: initialConsensusState.lastCommittedSequence
     });
 
-    const state = await this.getConsensusState();
+    const releasedLeadershipConsensusState = await this.getConsensusState();
 
-    verifyLeadershipReleased(state, leadershipContext);
+    verifyLeadershipReleased(releasedLeadershipConsensusState, leadershipContext);
 
-    return state;
+    return releasedLeadershipConsensusState;
   }
 
   /* election methods */
@@ -323,26 +324,26 @@ class ConsensusService implements ConsensusServiceContract {
   // records the self-vote (i.e. the node that started the election votes for itself),
   // and resets the matched sequence progress to the committed sequence.
   async startElection(): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
-    const electionEpoch = state.currentEpoch + 1n;
+    const initialConsensusState = await this.getConsensusState();
+    const electionEpoch = initialConsensusState.currentEpoch + 1n;
 
-    const electionState = await this.repository.startElection({
-      expectedEpoch: state.currentEpoch,
+    const electionConsensusState = await this.repository.startElection({
+      expectedEpoch: initialConsensusState.currentEpoch,
       electionEpoch,
       electionStarterMasterNodeId: this.selfMasterNodeId,
-      matchedSequence: state.lastCommittedSequence
+      matchedSequence: initialConsensusState.lastCommittedSequence
     });
 
-    verifyElectionStarted(electionState, electionEpoch, this.selfMasterNodeId);
+    verifyElectionStarted(electionConsensusState, electionEpoch, this.selfMasterNodeId);
 
-    return electionState;
+    return electionConsensusState;
   }
 
   // used by a follower that started an election (election starter) after it receives votes from the quorum.
   // this transition promotes the election starter to leader only if the epoch and self-vote still match,
   // then records last leader contact timestamp and resets matched sequence progress to the committed sequence.
   async completeElection(epoch: ConsensusEpoch, electionStarterMasterNodeId: MasterNodeId): Promise<ConsensusState> {
-    const previousState = await this.getConsensusState();
+    const initialConsensusState = await this.getConsensusState();
 
     await this.repository.claimLeadership({
       leadershipContext: {
@@ -350,14 +351,14 @@ class ConsensusService implements ConsensusServiceContract {
         leaderMasterId: electionStarterMasterNodeId
       },
       lastLeaderContactAt: new Date(),
-      matchedSequence: previousState.lastCommittedSequence
+      matchedSequence: initialConsensusState.lastCommittedSequence
     });
 
-    const state = await this.getConsensusState();
+    const leaderConsensusState = await this.getConsensusState();
 
-    verifyElectionCompleted(state, epoch, electionStarterMasterNodeId);
+    verifyElectionCompleted(leaderConsensusState, epoch, electionStarterMasterNodeId);
 
-    return state;
+    return leaderConsensusState;
   }
 
   // used when any master node learns that another master node has reached a newer epoch,
@@ -365,20 +366,20 @@ class ConsensusService implements ConsensusServiceContract {
   // this transition increments currentEpoch, clears the known leader, vote,
   // leader contact timestamp, and resets matched sequence progress to the committed sequence.
   async adoptNewerEpoch(epoch: ConsensusEpoch): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
+    const initialConsensusState = await this.getConsensusState();
 
-    if (epoch <= state.currentEpoch) {
-      return state;
+    if (epoch <= initialConsensusState.currentEpoch) {
+      return initialConsensusState;
     }
 
-    const adoptedState = await this.repository.adoptNewerEpoch({
+    const adoptedConsensusState = await this.repository.adoptNewerEpoch({
       epoch,
-      matchedSequence: state.lastCommittedSequence
+      matchedSequence: initialConsensusState.lastCommittedSequence
     });
 
-    verifyNewerEpochAdopted(adoptedState, epoch);
+    verifyNewerEpochAdopted(adoptedConsensusState, epoch);
 
-    return adoptedState;
+    return adoptedConsensusState;
   }
 
   // used when this node receives a vote request from the follower that started an election (election starter).
