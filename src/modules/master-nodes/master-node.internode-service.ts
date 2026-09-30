@@ -61,6 +61,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     private readonly masterNodeService: MasterNodeServiceContract
   ) {}
 
+  /* public methods */
+
   async fetchMasterInfo(): Promise<FetchMasterInfoInternodeResult> {
     const consensusState = await this.requireLeadershipState();
     const cluster = await this.clusterService.getCluster();
@@ -201,6 +203,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       lastCommittedSequence: input.lastCommittedSequence
     });
   }
+
+  /* private methods */
 
   private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<MasterNode> {
     let masterNode;

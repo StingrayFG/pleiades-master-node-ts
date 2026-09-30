@@ -31,8 +31,6 @@ class BootstrapService implements BootstrapServiceContract {
     private readonly selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'>
   ) {}
 
-  /* public methods */
-
   async bootstrapAsLeader(): Promise<MasterBootstrapResult> {
     const initialConsensusState = await this.consensusService.getConsensusState();
 

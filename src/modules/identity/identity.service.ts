@@ -24,6 +24,8 @@ class IdentityService implements IdentityServiceContract {
 
   constructor(private readonly repository: IdentityRepositoryContract) {}
 
+  /* public methods */
+
   getNodeId(): NodeId {
     if (this.nodeId) {
       return this.nodeId;
@@ -60,6 +62,8 @@ class IdentityService implements IdentityServiceContract {
   getNodeSessionId(): NodeSessionId {
     return this.nodeSessionId;
   }
+
+  /* private methods */
 
   private generateNodeId(): NodeId {
     let randomIdPart;

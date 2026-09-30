@@ -46,6 +46,8 @@ class DiskByteStorageService implements DiskByteStorageServiceContract {
     this.payloadPath = join(config.rootPath, 'payloads');
   }
 
+  /* public methods */
+
   async store(reference: ByteStorageReference, bytes: Buffer): Promise<void> {
     const parsedReference = this.parseReference(reference);
 
@@ -137,6 +139,8 @@ class DiskByteStorageService implements DiskByteStorageServiceContract {
       }
     }
   }
+
+  /* private methods */
 
   private parseReference(reference: ByteStorageReference): ByteStorageReference {
     const referenceResult = byteStorageReferenceSchema.safeParse(reference);
