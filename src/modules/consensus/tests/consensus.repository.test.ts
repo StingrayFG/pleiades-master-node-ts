@@ -14,8 +14,8 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const prismaState: PrismaConsensusState = {
   id: CONSENSUS_STATE_ID,
   current_epoch: 2n,
-  leader_master_id: 'master-node-a',
-  voted_for_master_id: 'master-node-a',
+  leader_master_id: 'master-node-aaaaaaaaaaaa',
+  voted_for_master_id: 'master-node-aaaaaaaaaaaa',
   last_leader_contact_at: now,
 
   last_allocated_sequence: 4n,
@@ -30,8 +30,8 @@ const prismaState: PrismaConsensusState = {
 const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-a',
-  votedForMasterId: 'master-node-a',
+  leaderMasterId: 'master-node-aaaaaaaaaaaa',
+  votedForMasterId: 'master-node-aaaaaaaaaaaa',
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 4n,
@@ -127,7 +127,7 @@ describe('ConsensusStateRepository', () => {
         sequence: 4n,
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         }
       })
     ).resolves.toEqual({
@@ -139,7 +139,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a',
+        leader_master_id: 'master-node-aaaaaaaaaaaa',
         last_committed_sequence: { lt: 4n },
         last_allocated_sequence: { gte: 4n }
       },
@@ -161,7 +161,7 @@ describe('ConsensusStateRepository', () => {
         sequence: 2n,
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         }
       })
     ).resolves.toEqual(state);
@@ -208,7 +208,7 @@ describe('ConsensusStateRepository', () => {
         sequence: 5n,
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         }
       })
     ).resolves.toEqual({
@@ -220,7 +220,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a',
+        leader_master_id: 'master-node-aaaaaaaaaaaa',
         last_allocated_sequence: { lt: 5n }
       },
       data: {
@@ -244,7 +244,7 @@ describe('ConsensusStateRepository', () => {
         sequence: 4n,
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         }
       })
     ).resolves.toEqual({
@@ -256,7 +256,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a',
+        leader_master_id: 'master-node-aaaaaaaaaaaa',
         last_matched_sequence: { lt: 4n },
         last_allocated_sequence: { gte: 4n }
       },
@@ -278,7 +278,7 @@ describe('ConsensusStateRepository', () => {
         sequence: 2n,
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         }
       })
     ).resolves.toEqual(state);
@@ -301,7 +301,7 @@ describe('ConsensusStateRepository', () => {
         {
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -311,7 +311,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a'
+        leader_master_id: 'master-node-aaaaaaaaaaaa'
       },
       data: {
         last_allocated_sequence: { increment: 1 },
@@ -331,7 +331,7 @@ describe('ConsensusStateRepository', () => {
         {
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -350,7 +350,7 @@ describe('ConsensusStateRepository', () => {
         {
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -369,7 +369,7 @@ describe('ConsensusStateRepository', () => {
           sequence: 3n,
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -379,7 +379,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a',
+        leader_master_id: 'master-node-aaaaaaaaaaaa',
         last_allocated_sequence: { gte: 3n },
         last_committed_sequence: { lte: 3n }
       },
@@ -412,7 +412,7 @@ describe('ConsensusStateRepository', () => {
           sequence: 3n,
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -431,7 +431,7 @@ describe('ConsensusStateRepository', () => {
           sequence: 4n,
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -460,7 +460,7 @@ describe('ConsensusStateRepository', () => {
           sequence: 3n,
           leadershipContext: {
             epoch: 2n,
-            leaderMasterId: 'master-node-a'
+            leaderMasterId: 'master-node-aaaaaaaaaaaa'
           }
         },
         action
@@ -473,7 +473,7 @@ describe('ConsensusStateRepository', () => {
       repository.claimLeadership({
         leadershipContext: {
           epoch: 3n,
-          leaderMasterId: 'master-node-b'
+          leaderMasterId: 'master-node-bbbbbbbbbbbb'
         },
         lastLeaderContactAt: now,
         matchedSequence: 3n
@@ -483,12 +483,12 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         leader_master_id: null,
-        OR: [{ current_epoch: { lt: 3n } }, { current_epoch: 3n, voted_for_master_id: 'master-node-b' }]
+        OR: [{ current_epoch: { lt: 3n } }, { current_epoch: 3n, voted_for_master_id: 'master-node-bbbbbbbbbbbb' }]
       },
       data: {
         current_epoch: 3n,
-        leader_master_id: 'master-node-b',
-        voted_for_master_id: 'master-node-b',
+        leader_master_id: 'master-node-bbbbbbbbbbbb',
+        voted_for_master_id: 'master-node-bbbbbbbbbbbb',
         last_leader_contact_at: now,
         last_matched_sequence: 3n,
         revision: { increment: 1 }
@@ -503,7 +503,7 @@ describe('ConsensusStateRepository', () => {
       repository.claimLeadership({
         leadershipContext: {
           epoch: 10n,
-          leaderMasterId: 'master-node-b'
+          leaderMasterId: 'master-node-bbbbbbbbbbbb'
         },
         lastLeaderContactAt: now,
         matchedSequence: 3n
@@ -513,12 +513,12 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         leader_master_id: null,
-        OR: [{ current_epoch: { lt: 10n } }, { current_epoch: 10n, voted_for_master_id: 'master-node-b' }]
+        OR: [{ current_epoch: { lt: 10n } }, { current_epoch: 10n, voted_for_master_id: 'master-node-bbbbbbbbbbbb' }]
       },
       data: {
         current_epoch: 10n,
-        leader_master_id: 'master-node-b',
-        voted_for_master_id: 'master-node-b',
+        leader_master_id: 'master-node-bbbbbbbbbbbb',
+        voted_for_master_id: 'master-node-bbbbbbbbbbbb',
         last_leader_contact_at: now,
         last_matched_sequence: 3n,
         revision: { increment: 1 }
@@ -531,7 +531,7 @@ describe('ConsensusStateRepository', () => {
       repository.acceptFollowership({
         leadershipContext: {
           epoch: 3n,
-          leaderMasterId: 'master-node-b'
+          leaderMasterId: 'master-node-bbbbbbbbbbbb'
         },
         lastLeaderContactAt: now,
         matchedSequence: 3n
@@ -544,14 +544,14 @@ describe('ConsensusStateRepository', () => {
           { current_epoch: { lt: 3n } },
           {
             current_epoch: 3n,
-            OR: [{ leader_master_id: null }, { leader_master_id: 'master-node-b' }]
+            OR: [{ leader_master_id: null }, { leader_master_id: 'master-node-bbbbbbbbbbbb' }]
           }
         ]
       },
       data: {
         current_epoch: 3n,
-        leader_master_id: 'master-node-b',
-        voted_for_master_id: 'master-node-b',
+        leader_master_id: 'master-node-bbbbbbbbbbbb',
+        voted_for_master_id: 'master-node-bbbbbbbbbbbb',
         last_leader_contact_at: now,
         last_matched_sequence: 3n,
         revision: { increment: 1 }
@@ -566,7 +566,7 @@ describe('ConsensusStateRepository', () => {
       repository.acceptFollowership({
         leadershipContext: {
           epoch: 3n,
-          leaderMasterId: 'master-node-b'
+          leaderMasterId: 'master-node-bbbbbbbbbbbb'
         },
         lastLeaderContactAt: now,
         matchedSequence: 3n
@@ -579,7 +579,7 @@ describe('ConsensusStateRepository', () => {
       repository.releaseLeadership({
         leadershipContext: {
           epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         },
         matchedSequence: 3n
       })
@@ -588,7 +588,7 @@ describe('ConsensusStateRepository', () => {
       where: {
         id: CONSENSUS_STATE_ID,
         current_epoch: 2n,
-        leader_master_id: 'master-node-a'
+        leader_master_id: 'master-node-aaaaaaaaaaaa'
       },
       data: {
         leader_master_id: null,
@@ -604,7 +604,7 @@ describe('ConsensusStateRepository', () => {
       ...prismaState,
       current_epoch: 3n,
       leader_master_id: null,
-      voted_for_master_id: 'master-node-b',
+      voted_for_master_id: 'master-node-bbbbbbbbbbbb',
       last_leader_contact_at: null,
       revision: 6n
     };
@@ -615,14 +615,14 @@ describe('ConsensusStateRepository', () => {
       repository.startElection({
         expectedEpoch: 2n,
         electionEpoch: 3n,
-        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
         matchedSequence: 3n
       })
     ).resolves.toEqual({
       ...state,
       currentEpoch: 3n,
       leaderMasterId: null,
-      votedForMasterId: 'master-node-b',
+      votedForMasterId: 'master-node-bbbbbbbbbbbb',
       lastLeaderContactAt: null,
       revision: 6n
     });
@@ -634,7 +634,7 @@ describe('ConsensusStateRepository', () => {
       data: {
         current_epoch: 3n,
         leader_master_id: null,
-        voted_for_master_id: 'master-node-b',
+        voted_for_master_id: 'master-node-bbbbbbbbbbbb',
         last_leader_contact_at: null,
         last_matched_sequence: 3n,
         revision: { increment: 1 }
@@ -689,7 +689,7 @@ describe('ConsensusStateRepository', () => {
     };
     const votedPrismaState = {
       ...observedPrismaState,
-      voted_for_master_id: 'master-node-b',
+      voted_for_master_id: 'master-node-bbbbbbbbbbbb',
       revision: 7n
     };
 
@@ -701,7 +701,7 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.applyVoteRequest({
         epoch: 3n,
-        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
         electionStarterLogIsUpToDate: true
       })
     ).resolves.toEqual({
@@ -709,7 +709,7 @@ describe('ConsensusStateRepository', () => {
         ...state,
         currentEpoch: 3n,
         leaderMasterId: null,
-        votedForMasterId: 'master-node-b',
+        votedForMasterId: 'master-node-bbbbbbbbbbbb',
         lastLeaderContactAt: null,
         revision: 7n
       },
@@ -723,14 +723,14 @@ describe('ConsensusStateRepository', () => {
       ...prismaState,
       current_epoch: 3n,
       leader_master_id: null,
-      voted_for_master_id: 'master-node-c',
+      voted_for_master_id: 'master-node-cccccccccccc',
       last_leader_contact_at: null
     });
 
     await expect(
       repository.applyVoteRequest({
         epoch: 3n,
-        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
         electionStarterLogIsUpToDate: true
       })
     ).resolves.toEqual({
@@ -738,7 +738,7 @@ describe('ConsensusStateRepository', () => {
         ...state,
         currentEpoch: 3n,
         leaderMasterId: null,
-        votedForMasterId: 'master-node-c',
+        votedForMasterId: 'master-node-cccccccccccc',
         lastLeaderContactAt: null
       },
       voteGranted: false

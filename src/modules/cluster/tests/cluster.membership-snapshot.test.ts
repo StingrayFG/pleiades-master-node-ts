@@ -16,7 +16,7 @@ const cluster: Cluster = {
 };
 
 const masterNode = {
-  id: 'master-node-a',
+  id: 'master-node-aaaaaaaaaaaa',
 
   certificateFingerprint: 'ab'.repeat(32),
   sessionId: '00000000-0000-4000-8000-000000000001',
@@ -102,7 +102,7 @@ describe('cluster membership snapshot', () => {
           masterNode,
           {
             ...masterNode,
-            id: 'master-node-b'
+            id: 'master-node-bbbbbbbbbbbb'
           }
         ],
         dataNodes: [dataNode]

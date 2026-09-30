@@ -40,7 +40,7 @@ const createInput: CreateClusterRepositoryInput = {
 };
 
 const prismaMasterNode: PrismaMasterNode = {
-  id: 'master-node-a',
+  id: 'master-node-aaaaaaaaaaaa',
   cluster_record_id: CLUSTER_RECORD_ID,
   certificate_fingerprint: 'ab'.repeat(32),
   session_id: '00000000-0000-4000-8000-000000000001',

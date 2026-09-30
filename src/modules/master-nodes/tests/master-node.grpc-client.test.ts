@@ -37,11 +37,11 @@ const grpcConfig: GrpcClientConfig = {
 const payloadId = '00000000-0000-4000-8000-000000000003';
 const certificateFingerprint = 'ab'.repeat(32);
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-follower';
+const selfMasterNodeId = 'master-node-f01100000002';
 const selfMasterNodeSessionId = '00000000-0000-4000-8000-000000000004';
 
 const masterInfoResponse: FetchMasterInfoResponse = {
-  master_id: 'master-node-a',
+  master_id: 'master-node-aaaaaaaaaaaa',
   session_id: '00000000-0000-4000-8000-000000000001',
   cluster_id: '00000000-0000-4000-8000-000000000002',
   epoch: '2'
@@ -54,7 +54,7 @@ const entriesResponse: FetchTaskEntriesResponse = {
   entries: [
     {
       id: '00000000-0000-4000-8000-000000000002',
-      origin_master_id: 'master-node-a',
+      origin_master_id: 'master-node-aaaaaaaaaaaa',
       epoch: '2',
       sequence: '4',
       type: 'bucket.create',

@@ -12,7 +12,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 
 const prismaTask: PrismaTask = {
   id: '00000000-0000-4000-8000-000000000001',
-  origin_master_id: 'master-node-test',
+  origin_master_id: 'master-node-7e5700000003',
   epoch: 1n,
   sequence: 2n,
   type: 'test.execute',
@@ -43,7 +43,7 @@ const task: PersistedTask = {
 const prismaExecution: PrismaTaskExecution = {
   id: '00000000-0000-4000-8000-000000000002',
   task_id: prismaTask.id,
-  target_master_id: 'master-node-test',
+  target_master_id: 'master-node-7e5700000003',
   state: 'completed',
   failure_reason: null,
   created_at: now,

@@ -30,14 +30,14 @@ import type { MasterNodeInternodeServiceContract } from '../master-node.internod
 
 const payloadId = '00000000-0000-4000-8000-000000000003';
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
-const callerMasterNodeId = 'master-node-follower';
+const callerMasterNodeId = 'master-node-f01100000002';
 const callerSessionId = '00000000-0000-4000-8000-000000000004';
 const peerCertificate = Buffer.from('peer certificate');
 const callerCertificateFingerprint = createHash('sha256').update(peerCertificate).digest('hex');
 
 const entry: InternodeTaskEntry = {
   id: '00000000-0000-4000-8000-000000000002',
-  originMasterNodeId: 'master-node-a',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 2n,
   sequence: 4n,
   type: 'bucket.create',

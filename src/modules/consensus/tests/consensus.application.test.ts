@@ -17,7 +17,7 @@ describe('consensus application schemas', () => {
   const now = new Date('2026-01-01T00:00:00.000Z');
   const leadershipContext = {
     epoch: 2n,
-    leaderMasterId: 'master-node-a'
+    leaderMasterId: 'master-node-aaaaaaaaaaaa'
   };
 
   test('parses sequence advancement inputs', () => {
@@ -69,8 +69,8 @@ describe('consensus application schemas', () => {
       state: {
         id: 'self',
         currentEpoch: 2n,
-        leaderMasterId: 'master-node-a',
-        votedForMasterId: 'master-node-a',
+        leaderMasterId: 'master-node-aaaaaaaaaaaa',
+        votedForMasterId: 'master-node-aaaaaaaaaaaa',
         lastLeaderContactAt: now,
         lastAllocatedSequence: 3n,
         lastMatchedSequence: 3n,
@@ -104,7 +104,7 @@ describe('consensus application schemas', () => {
       claimLeadershipRepositoryInputSchema.parse({
         leadershipContext: {
           epoch: -1n,
-          leaderMasterId: 'master-node-a'
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
         },
         lastLeaderContactAt: now,
         matchedSequence: 3n

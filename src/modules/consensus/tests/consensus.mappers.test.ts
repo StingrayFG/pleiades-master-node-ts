@@ -13,8 +13,8 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const prismaState: PrismaConsensusState = {
   id: CONSENSUS_STATE_ID,
   current_epoch: 2n,
-  leader_master_id: 'master-node-a',
-  voted_for_master_id: 'master-node-a',
+  leader_master_id: 'master-node-aaaaaaaaaaaa',
+  voted_for_master_id: 'master-node-aaaaaaaaaaaa',
   last_leader_contact_at: now,
 
   last_allocated_sequence: 4n,
@@ -29,8 +29,8 @@ const prismaState: PrismaConsensusState = {
 const state: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-a',
-  votedForMasterId: 'master-node-a',
+  leaderMasterId: 'master-node-aaaaaaaaaaaa',
+  votedForMasterId: 'master-node-aaaaaaaaaaaa',
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 4n,
@@ -62,7 +62,7 @@ describe('consensus mappers', () => {
     expect(() =>
       mapPrismaConsensusStateToDomainConsensusState({
         ...prismaState,
-        voted_for_master_id: 'master-node-b'
+        voted_for_master_id: 'master-node-bbbbbbbbbbbb'
       })
     ).toThrow(GenericMapperError);
   });

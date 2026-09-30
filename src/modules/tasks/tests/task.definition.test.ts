@@ -21,7 +21,7 @@ describe('task definitions', () => {
     expect(
       definition.taskSchema.parse({
         id: '00000000-0000-4000-8000-000000000001',
-        originMasterNodeId: 'master-node-test',
+        originMasterNodeId: 'master-node-7e5700000003',
         epoch: 1n,
         sequence: 2n,
         state: 'pending',
@@ -57,7 +57,7 @@ describe('task definitions', () => {
     });
     const task = {
       id: '00000000-0000-4000-8000-000000000001',
-      originMasterNodeId: 'master-node-test',
+      originMasterNodeId: 'master-node-7e5700000003',
       epoch: 1n,
       sequence: 2n,
       state: 'pending',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { nodeSessionIdSchema } from '@/modules/identity/identity.domain';
+import { nodeIdSchema, nodeSessionIdSchema } from '@/modules/identity/identity.domain';
 
 /* constants */
 
@@ -11,7 +11,7 @@ export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as con
 
 /* field schemas */
 
-export const masterNodeIdSchema = z.string().min(1);
+export const masterNodeIdSchema = nodeIdSchema;
 
 export const masterNodeCertificateFingerprintSchema = z.string().regex(/^[0-9a-f]{64}$/);
 export const masterNodeSessionIdSchema = nodeSessionIdSchema;
