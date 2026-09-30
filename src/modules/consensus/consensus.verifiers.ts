@@ -1,7 +1,7 @@
 import { GenericAbortedError, GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
-import type { ConsensusLeadershipContext, RequestConsensusVoteInput } from './consensus.application';
+import type { ConsensusLeadershipContext } from './consensus.application';
 import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
 
 /* sequence verifiers */
@@ -138,14 +138,4 @@ export const verifyEpochObserved = (state: ConsensusState, epoch: ConsensusEpoch
   if (state.currentEpoch < epoch) {
     throw new GenericAbortedError('Epoch observation was aborted by a concurrent consensus change');
   }
-};
-
-/* vote verifiers */
-
-export const isCandidateLogUpToDate = (input: RequestConsensusVoteInput): boolean => {
-  return (
-    input.candidateLastLogEpoch > input.localLastLogEpoch ||
-    (input.candidateLastLogEpoch === input.localLastLogEpoch &&
-      input.candidateLastLogSequence >= input.localLastLogSequence)
-  );
 };

@@ -10,9 +10,9 @@ import type {
   RewoundSequenceTransactionAction
 } from './consensus.application';
 import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
+import { isCandidateLogUpToDate } from './consensus.policies';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
 import {
-  isCandidateLogUpToDate,
   verifyAppliedSequenceWithinCommitted,
   verifyCommittedSequenceWithinAllocated,
   verifyElectionCompleted,
