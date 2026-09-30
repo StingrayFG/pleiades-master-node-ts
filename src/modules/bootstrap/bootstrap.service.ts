@@ -1,16 +1,17 @@
-import { GenericConflictError } from '@/errors/application.errors';
-import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type {
-  FetchMasterInfoInternodeResult,
-  RegisterMasterNodeInput
-} from '@/modules/master-nodes/master-node.application';
-import type { MasterNodeCertificateFingerprint } from '@/modules/master-nodes/master-node.domain';
+import type { RegisterMasterNodeInput } from '@/modules/master-nodes/master-node.application';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 
 import type { BootstrapAsFollowerInput, MasterBootstrapResult } from './bootstrap.application';
+import {
+  verifyBootstrapMembershipSnapshot,
+  verifyFollowerBootstrapAvailable,
+  verifyFollowerBootstrapTarget,
+  verifyInitialLeadershipClaimed,
+  verifyLeaderBootstrapAvailable
+} from './bootstrap.verifiers';
 
 /* contract */
 
@@ -33,15 +34,9 @@ class BootstrapService implements BootstrapServiceContract {
   /* public methods */
 
   async bootstrapAsLeader(): Promise<MasterBootstrapResult> {
-    const consensusState = await this.consensusService.getConsensusState();
+    const initialConsensusState = await this.consensusService.getConsensusState();
 
-    if (consensusState.leaderMasterId === this.selfMasterNode.id) {
-      throw new GenericConflictError('This master node is already the cluster leader');
-    }
-
-    if (consensusState.leaderMasterId !== null) {
-      throw new GenericConflictError('Another master node is already the cluster leader');
-    }
+    verifyLeaderBootstrapAvailable(initialConsensusState, this.selfMasterNode.id);
 
     await this.clusterService.initializeCluster();
 
@@ -51,11 +46,9 @@ class BootstrapService implements BootstrapServiceContract {
       mode: 'serving'
     });
 
-    const leaderState = await this.consensusService.claimInitialLeadership(this.selfMasterNode.id);
+    const leaderConsensusState = await this.consensusService.claimInitialLeadership(this.selfMasterNode.id);
 
-    if (leaderState.leaderMasterId !== this.selfMasterNode.id) {
-      throw new GenericConflictError('Another master node claimed the cluster leadership first');
-    }
+    verifyInitialLeadershipClaimed(leaderConsensusState, this.selfMasterNode.id);
 
     await this.masterNodeService.registerMasterNode({
       ...this.selfMasterNode,
@@ -65,30 +58,22 @@ class BootstrapService implements BootstrapServiceContract {
 
     return {
       role: 'leader',
-      epoch: leaderState.currentEpoch,
+      epoch: leaderConsensusState.currentEpoch,
       leaderMasterId: this.selfMasterNode.id
     };
   }
 
   async bootstrapAsFollower(input: BootstrapAsFollowerInput): Promise<MasterBootstrapResult> {
-    const consensusState = await this.consensusService.getConsensusState();
+    const initialConsensusState = await this.consensusService.getConsensusState();
 
-    if (consensusState.leaderMasterId === this.selfMasterNode.id) {
-      throw new GenericConflictError('This master node is the cluster leader and cannot become a follower');
-    }
+    verifyFollowerBootstrapAvailable(initialConsensusState, this.selfMasterNode.id);
 
     const leaderInfo = await this.masterNodeGrpcClient.fetchMasterInfo({
       masterNodeEndpoint: input.leaderEndpoint,
       expectedCertificateFingerprint: input.leaderCertificateFingerprint
     });
 
-    if (leaderInfo.masterId === this.selfMasterNode.id) {
-      throw new GenericConflictError('A master node cannot follow itself');
-    }
-
-    if (consensusState.leaderMasterId !== null && consensusState.leaderMasterId !== leaderInfo.masterId) {
-      throw new GenericConflictError('This master node already belongs to a different leader');
-    }
+    verifyFollowerBootstrapTarget(initialConsensusState, leaderInfo.masterId, this.selfMasterNode.id);
 
     await this.clusterService.registerCluster(leaderInfo.clusterId);
 
@@ -107,47 +92,20 @@ class BootstrapService implements BootstrapServiceContract {
       expectedCertificateFingerprint: input.leaderCertificateFingerprint
     });
 
-    this.requireValidMembershipSnapshot(snapshot, leaderInfo, input.leaderCertificateFingerprint);
+    verifyBootstrapMembershipSnapshot(snapshot, leaderInfo, input.leaderCertificateFingerprint, this.selfMasterNode);
 
     await this.clusterService.applyMembershipSnapshot(snapshot);
 
-    const followerState = await this.consensusService.acceptFollowership({
+    const followerConsensusState = await this.consensusService.acceptFollowership({
       epoch: leaderInfo.epoch,
       leaderMasterId: leaderInfo.masterId
     });
 
     return {
       role: 'follower',
-      epoch: followerState.currentEpoch,
+      epoch: followerConsensusState.currentEpoch,
       leaderMasterId: leaderInfo.masterId
     };
-  }
-
-  /* private methods */
-
-  private requireValidMembershipSnapshot(
-    snapshot: ClusterMembershipSnapshot,
-    leaderInfo: FetchMasterInfoInternodeResult,
-    leaderCertificateFingerprint: MasterNodeCertificateFingerprint
-  ): void {
-    const snapshotLeader = snapshot.masterNodes.find((masterNode) => masterNode.id === leaderInfo.masterId);
-    const snapshotSelf = snapshot.masterNodes.find((masterNode) => masterNode.id === this.selfMasterNode.id);
-
-    if (
-      !snapshotLeader ||
-      snapshotLeader.certificateFingerprint !== leaderCertificateFingerprint ||
-      snapshotLeader.sessionId !== leaderInfo.sessionId
-    ) {
-      throw new GenericConflictError('Cluster membership snapshot does not match the authenticated leader');
-    }
-
-    if (
-      !snapshotSelf ||
-      snapshotSelf.certificateFingerprint !== this.selfMasterNode.certificateFingerprint ||
-      snapshotSelf.sessionId !== this.selfMasterNode.sessionId
-    ) {
-      throw new GenericConflictError('Cluster membership snapshot does not contain the registered local master node');
-    }
   }
 }
 
