@@ -325,8 +325,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           throw new GenericAbortedError('The sequence rewind was aborted by a concurrent consensus change');
         }
 
-        // a truncated tail is no longer verified against the leader, so the matched
-        // sequence must not point past the rewound allocation
+        // reset matched sequence progress if it exceeds the rewind target sequence.
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,

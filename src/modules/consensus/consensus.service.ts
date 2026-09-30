@@ -210,6 +210,7 @@ class ConsensusService implements ConsensusServiceContract {
     return updatedState;
   }
 
+  // runs the action in the same transaction that advances the last allocated sequence.
   async withAdvancedLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -224,6 +225,7 @@ class ConsensusService implements ConsensusServiceContract {
     );
   }
 
+  // runs the action in the same transaction that rewinds the last allocated sequence.
   async withRewoundLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     sequence: ConsensusLastSequence,
@@ -244,6 +246,8 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* leadership methods */
 
+  // used during initial cluster bootstrap to claim leadership before any leader exists.
+  // this transition advances the epoch and records the bootstrapping node as leader with its self-vote.
   async claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
@@ -255,7 +259,6 @@ class ConsensusService implements ConsensusServiceContract {
       return state;
     }
 
-    // the claim only lands when no leader exists, so re-read to return the actual outcome either way
     await this.repository.claimLeadership({
       leadershipContext: {
         epoch: state.currentEpoch + 1n,
@@ -268,13 +271,15 @@ class ConsensusService implements ConsensusServiceContract {
     return this.getConsensusState();
   }
 
+  // used locally by a node becoming or staying a follower when bootstrap, replication,
+  // or a heartbeat confirms a remote leader for the current or a newer epoch.
+  // this transition records the remote leader and contact time, resetting matched sequence progress if leadership changed.
   async acceptFollowership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
     verifyFollowershipAcceptable(state, leadershipContext);
 
-    // a new leader or epoch invalidates the log verification state; only the committed
-    // prefix is known to match, everything beyond it must be verified again
+    // reset the matched sequence if the leader or epoch has changed
     const matchedSequence =
       state.currentEpoch !== leadershipContext.epoch || state.leaderMasterId !== leadershipContext.leaderMasterId
         ? state.lastCommittedSequence
@@ -293,6 +298,8 @@ class ConsensusService implements ConsensusServiceContract {
     return followerState;
   }
 
+  // used by the leader when it becomes ineligible or loses contact with the quorum.
+  // this transition clears the known leader and resets matched sequence progress without advancing the epoch.
   async releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
@@ -310,6 +317,11 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* election methods */
 
+  // can be used by an election-eligible follower (election starter)
+  // when it loses contact with the leader to start a new election.
+  // this transition increments the epoch in advance, clears the known leader,
+  // records the self-vote (i.e. the node that started the election votes for itself),
+  // and resets the matched sequence progress to the committed sequence.
   async startElection(): Promise<ConsensusState> {
     const state = await this.getConsensusState();
     const electionEpoch = state.currentEpoch + 1n;
@@ -326,6 +338,9 @@ class ConsensusService implements ConsensusServiceContract {
     return electionState;
   }
 
+  // used by a follower that started an election (election starter) after it receives votes from the quorum.
+  // this transition promotes the election starter to leader only if the epoch and self-vote still match,
+  // then records last leader contact timestamp and resets matched sequence progress to the committed sequence.
   async completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
@@ -345,6 +360,10 @@ class ConsensusService implements ConsensusServiceContract {
     return state;
   }
 
+  // used when any master node learns that another master node has reached a newer epoch,
+  // be it through a vote response or heartbeat response.
+  // this transition increments currentEpoch, clears the known leader, vote,
+  // leader contact timestamp, and resets matched sequence progress to the committed sequence.
   async adoptNewerEpoch(epoch: ConsensusEpoch): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
@@ -362,6 +381,12 @@ class ConsensusService implements ConsensusServiceContract {
     return adoptedState;
   }
 
+  // used when this node receives a vote request from the follower that started an election (election starter).
+  // it first compares the election starter's log position from the request with the local log,
+  // then atomically applies the Raft voting rules in the repository.
+  // if the request epoch is newer, this transition advances the current epoch and clears the known leader and vote.
+  // this node votes for the election starter only if its epoch matches the local epoch, its log is up to date,
+  // and no different leader or vote is recorded for the local epoch.
   async requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult> {
     return this.repository.applyVoteRequest({
       epoch: input.epoch,

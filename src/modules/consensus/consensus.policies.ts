@@ -1,5 +1,7 @@
 import type { RequestConsensusVoteInput } from './consensus.application';
 
+/**/
+
 export const isCandidateLogUpToDate = (input: RequestConsensusVoteInput): boolean => {
   return (
     input.candidateLastLogEpoch > input.localLastLogEpoch ||

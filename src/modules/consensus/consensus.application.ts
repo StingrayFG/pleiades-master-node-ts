@@ -14,11 +14,13 @@ import {
 
 /* schemas */
 
+// leadership context
 export const consensusLeadershipContextSchema = z.object({
   epoch: consensusEpochSchema,
   leaderMasterId: masterNodeIdSchema
 });
 
+// sequence
 export const advanceSequenceRepositoryInputSchema = z.object({
   sequence: consensusSequenceSchema
 });
@@ -41,6 +43,7 @@ export const withRewoundLastAllocatedSequenceRepositoryInputSchema = z.object({
   leadershipContext: consensusLeadershipContextSchema
 });
 
+// leadership
 export const claimLeadershipRepositoryInputSchema = z.object({
   leadershipContext: consensusLeadershipContextSchema,
   lastLeaderContactAt: z.date(),
@@ -58,6 +61,7 @@ export const releaseLeadershipRepositoryInputSchema = z.object({
   matchedSequence: consensusLastSequenceSchema
 });
 
+// election
 export const startElectionRepositoryInputSchema = z.object({
   expectedEpoch: consensusEpochSchema,
   electionEpoch: consensusEpochSchema,
@@ -92,8 +96,10 @@ export const consensusVoteResultSchema = z.object({
 
 /* types */
 
+// leadership context
 export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
 
+// sequence
 export type AdvanceSequenceRepositoryInput = z.infer<typeof advanceSequenceRepositoryInputSchema>;
 export type AdvanceLeadershipSequenceRepositoryInput = z.infer<typeof advanceLeadershipSequenceRepositoryInputSchema>;
 export type AdvanceLeadershipLastSequenceRepositoryInput = z.infer<
@@ -106,24 +112,28 @@ export type WithRewoundLastAllocatedSequenceRepositoryInput = z.infer<
   typeof withRewoundLastAllocatedSequenceRepositoryInputSchema
 >;
 
-export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
-export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
-export type ReleaseLeadershipRepositoryInput = z.infer<typeof releaseLeadershipRepositoryInputSchema>;
+// transaction action callbacks use direct types because their Prisma transaction client cannot be schema-derived.
 
-export type StartElectionRepositoryInput = z.infer<typeof startElectionRepositoryInputSchema>;
-export type AdoptNewerEpochRepositoryInput = z.infer<typeof adoptNewerEpochRepositoryInputSchema>;
-export type ApplyVoteRequestRepositoryInput = z.infer<typeof applyVoteRequestRepositoryInputSchema>;
-export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
-export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;
-
-// runs within the sequence-allocation transaction; all database work must use the provided transaction client.
+// runs as part of the sequence-allocation transaction and receives the same transaction client.
 export type AllocatedSequenceTransactionAction<TResult> = (
   tx: Prisma.TransactionClient,
   allocatedSequence: ConsensusSequence
 ) => Promise<TResult>;
 
-// runs within the sequence-rewind transaction; all database work must use the provided transaction client.
+// runs as part of the sequence-rewind transaction and receives the same transaction client.
 export type RewoundSequenceTransactionAction<TResult> = (
   tx: Prisma.TransactionClient,
   rewoundSequence: ConsensusLastSequence
 ) => Promise<TResult>;
+
+// leadership
+export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
+export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
+export type ReleaseLeadershipRepositoryInput = z.infer<typeof releaseLeadershipRepositoryInputSchema>;
+
+// election
+export type StartElectionRepositoryInput = z.infer<typeof startElectionRepositoryInputSchema>;
+export type AdoptNewerEpochRepositoryInput = z.infer<typeof adoptNewerEpochRepositoryInputSchema>;
+export type ApplyVoteRequestRepositoryInput = z.infer<typeof applyVoteRequestRepositoryInputSchema>;
+export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
+export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;
