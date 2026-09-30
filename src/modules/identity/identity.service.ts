@@ -2,12 +2,11 @@ import { randomBytes, randomUUID } from 'node:crypto';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
 
-import { nodeIdSchema, nodeSessionIdSchema, type NodeId, type NodeSessionId } from './identity.domain';
+import { NODE_ID_PREFIX, nodeIdSchema, nodeSessionIdSchema, type NodeId, type NodeSessionId } from './identity.domain';
 import type { IdentityRepositoryContract } from './identity.repository';
 
 /* constants */
 
-const NODE_ID_PREFIX = 'master-node';
 const NODE_ID_RANDOM_SIZE_BYTES = 6;
 
 /* contract */
@@ -46,6 +45,7 @@ class IdentityService implements IdentityServiceContract {
       return nodeId;
     }
 
+    // another process won the creation race, so use the node ID it persisted
     const concurrentlyCreatedNodeId = this.repository.findNodeId();
 
     if (!concurrentlyCreatedNodeId) {
