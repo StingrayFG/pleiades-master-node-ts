@@ -21,10 +21,10 @@ import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskApplyHandlerContract } from './task.apply-handler';
 import type { ListTasksInSequenceRangeInput, ReplicateTaskInput } from './task.application';
 import type { TaskConfig } from './task.config';
-import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
+import { isDehydratedTaskDefinition, type TaskDefinition, type TaskDefinitionHandler } from './task.definition';
 import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence, TaskType } from './task.domain';
 import type { TaskForwarderContract } from './task.forwarder';
-import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
+import type { TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskTargetsFromScope } from './task.resolvers';
 import type { TaskResultWaiterContract } from './task.result-waiter';
@@ -46,21 +46,21 @@ type TaskServiceContract = {
   ): Promise<number>;
 
   // registration
-  registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
-    handler: TaskHandler<TType, TData, TScope, TResult>
+  registerHandler<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    handler: TaskDefinitionHandler<TDefinition>
   ): void;
-  getTaskDefinitionByType(type: TaskType): TaskDefinitionContract;
+  getTaskDefinitionByType(type: TaskType): TaskDefinition;
 
   // submission
   submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, unknown>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
     data: TData
   ): Promise<PersistedTask>;
 
   // execution
   executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
     data: TData
   ): Promise<TResult>;
   executeTaskByDefinitionAndTargets<
@@ -70,7 +70,7 @@ type TaskServiceContract = {
     TScope extends TaskExecutionScope,
     TResult
   >(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
     data: TData,
     targetMasterIds: MasterNodeId[]
   ): Promise<TResult>;
@@ -222,21 +222,21 @@ class TaskService implements TaskServiceContract {
 
   /* registration methods */
 
-  registerHandler<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
-    handler: TaskHandler<TType, TData, TScope, TResult>
+  registerHandler<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    handler: TaskDefinitionHandler<TDefinition>
   ): void {
     this.handlerRegistry.register(definition, handler);
   }
 
-  getTaskDefinitionByType(type: TaskType): TaskDefinitionContract {
+  getTaskDefinitionByType(type: TaskType): TaskDefinition {
     return this.handlerRegistry.resolveByType(type).definition;
   }
 
   /* submission methods */
 
   async submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, unknown>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
     data: TData
   ): Promise<PersistedTask> {
     const id = randomUUID();
@@ -254,7 +254,7 @@ class TaskService implements TaskServiceContract {
     TPersistedData,
     TScope extends TaskExecutionScope,
     TResult
-  >(definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>, data: TData): Promise<TResult> {
+  >(definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>, data: TData): Promise<TResult> {
     const consensusState = await this.consensusService.getConsensusState();
 
     if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
@@ -281,7 +281,7 @@ class TaskService implements TaskServiceContract {
     TScope extends TaskExecutionScope,
     TResult
   >(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
     data: TData,
     targetMasterIds: MasterNodeId[]
   ): Promise<TResult> {
@@ -326,7 +326,7 @@ class TaskService implements TaskServiceContract {
     TPersistedData,
     TScope extends TaskExecutionScope,
     TResult
-  >(definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>): void {
+  >(definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>): void {
     this.handlerRegistry.resolve(definition);
   }
 
@@ -383,7 +383,7 @@ class TaskService implements TaskServiceContract {
     TScope extends TaskExecutionScope,
     TResult
   >(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
     data: TData
   ): { data: TPersistedData; payloadId: TaskPayloadId | null; payload?: Buffer } {
     if (isDehydratedTaskDefinition(definition)) {
@@ -415,7 +415,7 @@ class TaskService implements TaskServiceContract {
   /* task creation flows */
 
   private async submitTaskWithId<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, unknown>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
     data: TData,
     id: TaskId
   ): Promise<PersistedTask> {
@@ -463,7 +463,7 @@ class TaskService implements TaskServiceContract {
     TPersistedData,
     TScope extends TaskExecutionScope
   >(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, unknown>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
     data: TData,
     targetMasterIds: MasterNodeId[],
     id: TaskId

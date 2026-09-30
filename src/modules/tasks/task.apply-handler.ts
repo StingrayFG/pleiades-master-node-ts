@@ -8,9 +8,9 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskConfig } from './task.config';
-import { isDehydratedTaskDefinition, type TaskDefinitionContract } from './task.definition';
-import type { PersistedTask, Task, TaskExecution, TaskExecutionScope, TaskId, TaskState } from './task.domain';
-import type { TaskHandler, TaskHandlerRegistryContract } from './task.handler-registry';
+import { isDehydratedTaskDefinition, type TaskDefinition, type TaskDefinitionHandler } from './task.definition';
+import type { PersistedTask, TaskExecution, TaskExecutionScope, TaskId, TaskState } from './task.domain';
+import type { TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
 import { resolveTaskStateFromExecutions, resolveTaskTargetsFromScope } from './task.resolvers';
 import type { TaskResultWaiterContract } from './task.result-waiter';
@@ -136,7 +136,7 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       (execution) => execution.state !== 'completed' && execution.state !== 'failed'
     );
 
-    const typedTask: Task = { ...task, data };
+    const typedTask: PersistedTask = { ...task, data };
 
     const outcomes: TaskExecutionOutcome[] = [];
 
@@ -178,7 +178,7 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
 
   private async hydrateTaskDataIfNeeded(
     task: PersistedTask,
-    definition: TaskDefinitionContract<string, TaskExecutionScope, unknown, unknown, unknown>
+    definition: TaskDefinition<string, TaskExecutionScope, unknown, unknown, unknown>
   ): Promise<unknown> {
     if (!isDehydratedTaskDefinition(definition)) {
       return z.decode(definition.dataSchema, task.data);
@@ -198,9 +198,9 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
   // execution lifecycle
 
   private async runExecution(
-    task: Task,
+    task: PersistedTask,
     execution: TaskExecution,
-    handler: TaskHandler
+    handler: TaskDefinitionHandler<TaskDefinition>
   ): Promise<TaskExecutionOutcome> {
     let executingExecution;
 

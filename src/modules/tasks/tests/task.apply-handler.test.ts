@@ -11,8 +11,9 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import { TaskApplyHandler } from '../task.apply-handler';
 import type { TaskConfig } from '../task.config';
 import { createDehydratedTaskDefinition, createTaskDefinition } from '../task.definition';
+import type { TaskDefinition, TaskDefinitionHandler } from '../task.definition';
 import type { PersistedTask, TaskExecution } from '../task.domain';
-import type { TaskHandler, TaskHandlerRegistryContract } from '../task.handler-registry';
+import type { TaskHandlerRegistryContract } from '../task.handler-registry';
 import type { TaskRepositoryContract } from '../task.repository';
 import type { TaskResultWaiterContract } from '../task.result-waiter';
 
@@ -189,7 +190,7 @@ describe('TaskApplyHandler', () => {
   let consensusService: jest.Mocked<ConsensusServiceContract>;
   let byteStorageService: jest.Mocked<ByteStorageServiceContract>;
   let resultWaiter: jest.Mocked<TaskResultWaiterContract>;
-  let taskHandler: jest.Mock<TaskHandler>;
+  let taskHandler: jest.Mock<TaskDefinitionHandler<TaskDefinition>>;
   let applyHandler: TaskApplyHandler;
 
   beforeEach(() => {
@@ -197,7 +198,7 @@ describe('TaskApplyHandler', () => {
     jest.setSystemTime(now);
 
     repository = createRepositoryMock();
-    taskHandler = jest.fn<TaskHandler>().mockResolvedValue('result');
+    taskHandler = jest.fn<TaskDefinitionHandler<TaskDefinition>>().mockResolvedValue('result');
     registry = {
       register: jest.fn<TaskHandlerRegistryContract['register']>(),
       resolve: jest.fn<TaskHandlerRegistryContract['resolve']>(),

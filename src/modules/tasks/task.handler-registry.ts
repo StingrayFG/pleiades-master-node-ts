@@ -1,32 +1,23 @@
 import { GenericConflictError, GenericNotFoundError } from '@/errors/application.errors';
 
-import type { TaskDefinitionContract } from './task.definition';
-import type { Task, TaskExecutionScope, TaskType } from './task.domain';
+import type { TaskDefinition, TaskDefinitionHandler } from './task.definition';
+import type { TaskType } from './task.domain';
 
 /* contract */
 
-// task handlers may be invoked more than once for the same task,
-// therefore implementations must be idempotent and safe to retry
-type TaskHandler<
-  TType extends string = string,
-  TData = unknown,
-  TScope extends TaskExecutionScope = TaskExecutionScope,
-  TResult = unknown
-> = (task: Task<TType, TData, TScope>) => Promise<TResult>;
-
 type RegisteredTaskHandler = {
-  definition: TaskDefinitionContract<string, TaskExecutionScope, unknown, unknown, unknown>;
-  handler: TaskHandler;
+  definition: TaskDefinition;
+  handler: TaskDefinitionHandler<TaskDefinition>;
 };
 
 type TaskHandlerRegistryContract = {
-  register<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
-    handler: TaskHandler<TType, TData, TScope, TResult>
+  register<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    handler: TaskDefinitionHandler<TDefinition>
   ): void;
-  resolve<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>
-  ): TaskHandler<TType, TData, TScope, TResult>;
+  resolve<TDefinition extends TaskDefinition>(
+    definition: TDefinition
+  ): TaskDefinitionHandler<TDefinition>;
   resolveByType(type: TaskType): RegisteredTaskHandler;
 };
 
@@ -35,23 +26,23 @@ type TaskHandlerRegistryContract = {
 class InMemoryTaskHandlerRegistry implements TaskHandlerRegistryContract {
   private readonly registrations = new Map<TaskType, RegisteredTaskHandler>();
 
-  register<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
-    handler: TaskHandler<TType, TData, TScope, TResult>
+  register<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    handler: TaskDefinitionHandler<TDefinition>
   ): void {
     if (this.registrations.has(definition.type)) {
       throw new GenericConflictError(`Task handler is already registered for type ${definition.type}`);
     }
 
     this.registrations.set(definition.type, {
-      definition: definition as TaskDefinitionContract<string, TaskExecutionScope, unknown, unknown, unknown>,
-      handler: handler as TaskHandler
+      definition,
+      handler: handler as TaskDefinitionHandler<TaskDefinition>
     });
   }
 
-  resolve<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>
-  ): TaskHandler<TType, TData, TScope, TResult> {
+  resolve<TDefinition extends TaskDefinition>(
+    definition: TDefinition
+  ): TaskDefinitionHandler<TDefinition> {
     const registration = this.resolveByType(definition.type);
 
     if (registration.definition !== definition) {
@@ -60,7 +51,7 @@ class InMemoryTaskHandlerRegistry implements TaskHandlerRegistryContract {
       );
     }
 
-    return registration.handler as TaskHandler<TType, TData, TScope, TResult>;
+    return registration.handler as TaskDefinitionHandler<TDefinition>;
   }
 
   resolveByType(type: TaskType): RegisteredTaskHandler {
@@ -77,4 +68,4 @@ class InMemoryTaskHandlerRegistry implements TaskHandlerRegistryContract {
 /* exports */
 
 export { InMemoryTaskHandlerRegistry };
-export type { RegisteredTaskHandler, TaskHandler, TaskHandlerRegistryContract };
+export type { RegisteredTaskHandler, TaskHandlerRegistryContract };

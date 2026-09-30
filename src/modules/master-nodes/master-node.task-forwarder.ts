@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { z } from 'zod';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import type { TaskDefinitionContract } from '@/modules/tasks/task.definition';
+import type { TaskDefinition } from '@/modules/tasks/task.definition';
 import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
 import type { TaskForwarderContract } from '@/modules/tasks/task.forwarder';
 
@@ -20,7 +20,7 @@ class MasterNodeTaskForwarder implements TaskForwarderContract {
   ) {}
 
   async forwardTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinitionContract<TType, TScope, TData, TPersistedData, TResult>,
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
     data: TData,
     leaderMasterId: MasterNodeId
   ): Promise<TResult> {

@@ -11,9 +11,12 @@ type SimpleTaskDefinition<TType extends string, TScope extends TaskExecutionScop
   executionScope: TScope;
 
   dataSchema: z.ZodType<TData>;
+
   // no persisted data and payload split; persisted data is the full data,
   // so TData must always be inferred from dataSchema instead of this schema
   persistedDataSchema: z.ZodType<NoInfer<TData>>;
+
+  taskSchema: TaskSchema<TType, TScope, TData>;
 
   // wire schema for the handler result; required for definitions whose results
   // must survive being forwarded from a follower to the leader
@@ -43,6 +46,8 @@ type DehydratedTaskDefinition<
   dehydrateData(data: TData): DehydratedTaskData<TPersistedData>;
   hydrateData(data: TPersistedData, payload: Buffer): TData;
 
+  taskSchema: TaskSchema<TType, TScope, TData>;
+
   // wire schema for the handler result; required for definitions whose results
   // must survive being forwarded from a follower to the leader
   resultSchema?: z.ZodType<TResult>;
@@ -51,7 +56,7 @@ type DehydratedTaskDefinition<
   readonly __resultType?: TResult;
 };
 
-type TaskDefinitionContract<
+type TaskDefinition<
   TType extends string = string,
   TScope extends TaskExecutionScope = TaskExecutionScope,
   TData = unknown,
@@ -95,6 +100,8 @@ type TaskDefinitionResult<TDefinition extends { __resultType?: unknown }> = Excl
 
 type TaskDefinitionTask<TDefinition extends { taskSchema: z.ZodTypeAny }> = z.output<TDefinition['taskSchema']>;
 
+// task handlers may be invoked more than once for the same task,
+// therefore implementations must be idempotent and safe to retry
 type TaskDefinitionHandler<TDefinition extends { __resultType?: unknown; taskSchema: z.ZodTypeAny }> = (
   task: TaskDefinitionTask<TDefinition>
 ) => Promise<TaskDefinitionResult<TDefinition>>;
@@ -102,7 +109,7 @@ type TaskDefinitionHandler<TDefinition extends { __resultType?: unknown; taskSch
 /* helpers */
 
 const isDehydratedTaskDefinition = (
-  definition: TaskDefinitionContract<string, TaskExecutionScope, unknown, unknown, unknown>
+  definition: TaskDefinition<string, TaskExecutionScope, unknown, unknown, unknown>
 ): definition is DehydratedTaskDefinition<string, TaskExecutionScope, unknown, unknown, unknown> =>
   'dehydrateData' in definition;
 
@@ -124,25 +131,6 @@ type TaskSchema<TType extends string, TScope extends TaskExecutionScope, TData> 
   typeof createTaskSchema<TType, TScope, TData>
 >;
 
-type SimpleTaskDefinitionWithSchema<
-  TType extends string,
-  TScope extends TaskExecutionScope,
-  TData,
-  TResult
-> = SimpleTaskDefinition<TType, TScope, TData, TResult> & {
-  taskSchema: TaskSchema<TType, TScope, TData>;
-};
-
-type DehydratedTaskDefinitionWithSchema<
-  TType extends string,
-  TScope extends TaskExecutionScope,
-  TData,
-  TPersistedData,
-  TResult
-> = DehydratedTaskDefinition<TType, TScope, TData, TPersistedData, TResult> & {
-  taskSchema: TaskSchema<TType, TScope, TData>;
-};
-
 /* factories */
 
 function createTaskDefinition<
@@ -154,7 +142,7 @@ function createTaskDefinition<
   definition: CreateTaskDefinitionInput<TType, TScope, TDataSchema> & {
     resultSchema: TResultSchema;
   }
-): SimpleTaskDefinitionWithSchema<TType, TScope, z.output<TDataSchema>, z.output<TResultSchema>>;
+): SimpleTaskDefinition<TType, TScope, z.output<TDataSchema>, z.output<TResultSchema>>;
 function createTaskDefinition<
   TType extends string,
   TScope extends TaskExecutionScope,
@@ -163,7 +151,7 @@ function createTaskDefinition<
   definition: CreateTaskDefinitionInput<TType, TScope, TDataSchema> & {
     resultSchema?: never;
   }
-): SimpleTaskDefinitionWithSchema<TType, TScope, z.output<TDataSchema>, void>;
+): SimpleTaskDefinition<TType, TScope, z.output<TDataSchema>, void>;
 function createTaskDefinition(
   definition: CreateTaskDefinitionInput<string, TaskExecutionScope, z.ZodTypeAny> & {
     resultSchema?: z.ZodTypeAny;
@@ -194,7 +182,7 @@ function createDehydratedTaskDefinition<
   definition: CreateDehydratedTaskDefinitionInput<TType, TScope, TDataSchema, TPersistedDataSchema> & {
     resultSchema: TResultSchema;
   }
-): DehydratedTaskDefinitionWithSchema<
+): DehydratedTaskDefinition<
   TType,
   TScope,
   z.output<TDataSchema>,
@@ -210,7 +198,7 @@ function createDehydratedTaskDefinition<
   definition: CreateDehydratedTaskDefinitionInput<TType, TScope, TDataSchema, TPersistedDataSchema> & {
     resultSchema?: never;
   }
-): DehydratedTaskDefinitionWithSchema<TType, TScope, z.output<TDataSchema>, z.output<TPersistedDataSchema>, void>;
+): DehydratedTaskDefinition<TType, TScope, z.output<TDataSchema>, z.output<TPersistedDataSchema>, void>;
 function createDehydratedTaskDefinition(
   definition: CreateDehydratedTaskDefinitionInput<string, TaskExecutionScope, z.ZodTypeAny, z.ZodTypeAny> & {
     resultSchema?: z.ZodTypeAny;
@@ -240,7 +228,7 @@ export type {
   SimpleTaskDefinition,
   DehydratedTaskData,
   DehydratedTaskDefinition,
-  TaskDefinitionContract,
+  TaskDefinition,
   CreateTaskDefinitionInput,
   CreateDehydratedTaskDefinitionInput,
   TaskDefinitionData,

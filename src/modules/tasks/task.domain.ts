@@ -89,18 +89,3 @@ export type TaskExecutionState = z.infer<typeof taskExecutionStateSchema>;
 export type TaskBase = z.infer<typeof taskBaseSchema>;
 export type PersistedTask = z.infer<typeof persistedTaskSchema>;
 export type TaskExecution = z.infer<typeof taskExecutionSchema>;
-
-export type Task<
-  TType extends string = TaskType,
-  TData = unknown,
-  TScope extends TaskExecutionScope = TaskExecutionScope
-> = Omit<PersistedTask, 'type' | 'executionScope' | 'data'> & TaskDefinition<TType, TData, TScope>;
-export type TaskDefinition<
-  TType extends string = TaskType,
-  TData = unknown,
-  TScope extends TaskExecutionScope = TaskExecutionScope
-> = {
-  type: TType;
-  data: TData;
-  executionScope: TScope;
-};
