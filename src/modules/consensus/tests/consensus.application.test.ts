@@ -1,12 +1,13 @@
 import { describe, expect, test } from '@jest/globals';
 
 import {
-  advanceLastAllocatedSequenceRepositoryInputSchema,
-  advanceLastAppliedSequenceRepositoryInputSchema,
-  advanceLastCommittedSequenceRepositoryInputSchema,
-  advanceLastMatchedSequenceRepositoryInputSchema,
+  advanceLeadershipLastSequenceRepositoryInputSchema,
+  advanceLeadershipSequenceRepositoryInputSchema,
+  advanceSequenceRepositoryInputSchema,
+  acceptFollowershipRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
   consensusLeadershipContextSchema,
+  consensusVoteResultSchema,
   releaseLeadershipRepositoryInputSchema
 } from '../consensus.application';
 
@@ -21,73 +22,97 @@ describe('consensus application schemas', () => {
 
   test('parses sequence advancement inputs', () => {
     const appliedSequenceInput = { sequence: 3n };
-    const leadershipFencedInput = {
-      ...leadershipContext,
-      sequence: 3n
+    const leadershipSequenceInput = {
+      sequence: 3n,
+      leadershipContext
     };
-    const matchedSequenceInput = {
-      ...leadershipContext,
-      sequence: -1n
+    const leadershipLastSequenceInput = {
+      sequence: -1n,
+      leadershipContext
     };
 
     expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
-    expect(advanceLastCommittedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
-      leadershipFencedInput
+    expect(advanceSequenceRepositoryInputSchema.parse(appliedSequenceInput)).toEqual(appliedSequenceInput);
+    expect(advanceLeadershipSequenceRepositoryInputSchema.parse(leadershipSequenceInput)).toEqual(
+      leadershipSequenceInput
     );
-    expect(advanceLastAppliedSequenceRepositoryInputSchema.parse(appliedSequenceInput)).toEqual(appliedSequenceInput);
-    expect(advanceLastAllocatedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(
-      leadershipFencedInput
+    expect(advanceLeadershipLastSequenceRepositoryInputSchema.parse(leadershipSequenceInput)).toEqual(
+      leadershipSequenceInput
     );
-    expect(advanceLastMatchedSequenceRepositoryInputSchema.parse(leadershipFencedInput)).toEqual(leadershipFencedInput);
-    expect(advanceLastMatchedSequenceRepositoryInputSchema.parse(matchedSequenceInput)).toEqual(matchedSequenceInput);
+    expect(advanceLeadershipLastSequenceRepositoryInputSchema.parse(leadershipLastSequenceInput)).toEqual(
+      leadershipLastSequenceInput
+    );
   });
 
   test('parses leadership claims', () => {
     const input = {
-      epoch: 2n,
-      leaderMasterId: 'master-node-a',
+      leadershipContext,
       lastLeaderContactAt: now,
       matchedSequence: 3n
     };
 
     expect(claimLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
+    expect(acceptFollowershipRepositoryInputSchema.parse(input)).toEqual(input);
   });
 
   test('parses conditional leadership release inputs', () => {
     const input = {
-      epoch: 2n,
-      leaderMasterId: 'master-node-a',
+      leadershipContext,
       matchedSequence: 3n
     };
 
     expect(releaseLeadershipRepositoryInputSchema.parse(input)).toEqual(input);
   });
 
+  test('parses consensus vote results', () => {
+    const result = {
+      state: {
+        id: 'self',
+        currentEpoch: 2n,
+        leaderMasterId: 'master-node-a',
+        votedForMasterId: 'master-node-a',
+        lastLeaderContactAt: now,
+        lastAllocatedSequence: 3n,
+        lastMatchedSequence: 3n,
+        lastCommittedSequence: 3n,
+        lastAppliedSequence: 3n,
+        createdAt: now,
+        updatedAt: now,
+        revision: 1n
+      },
+      voteGranted: true
+    };
+
+    expect(consensusVoteResultSchema.parse(result)).toEqual(result);
+    expect(() => consensusVoteResultSchema.parse({ ...result, voteGranted: 'true' })).toThrow();
+  });
+
   test('rejects negative sequences and epochs', () => {
     expect(() =>
-      advanceLastCommittedSequenceRepositoryInputSchema.parse({
-        ...leadershipContext,
-        sequence: -1n
+      advanceLeadershipSequenceRepositoryInputSchema.parse({
+        sequence: -1n,
+        leadershipContext
       })
     ).toThrow();
     expect(() =>
-      advanceLastMatchedSequenceRepositoryInputSchema.parse({
-        ...leadershipContext,
-        sequence: -2n
+      advanceLeadershipLastSequenceRepositoryInputSchema.parse({
+        sequence: -2n,
+        leadershipContext
       })
     ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
-        epoch: -1n,
-        leaderMasterId: 'master-node-a',
+        leadershipContext: {
+          epoch: -1n,
+          leaderMasterId: 'master-node-a'
+        },
         lastLeaderContactAt: now,
         matchedSequence: 3n
       })
     ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
+        leadershipContext,
         lastLeaderContactAt: now,
         matchedSequence: -2n
       })

@@ -111,7 +111,10 @@ class BootstrapService implements BootstrapServiceContract {
 
     await this.clusterService.applyMembershipSnapshot(snapshot);
 
-    const followerState = await this.consensusService.acceptFollowership(leaderInfo.masterId, leaderInfo.epoch);
+    const followerState = await this.consensusService.acceptFollowership({
+      epoch: leaderInfo.epoch,
+      leaderMasterId: leaderInfo.masterId
+    });
 
     return {
       role: 'follower',

@@ -161,9 +161,8 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastCommittedSequence).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: selfMasterNodeId,
-      sequence: 4n
+      sequence: 4n,
+      leadershipContext
     });
   });
 
@@ -232,9 +231,8 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastAllocatedSequence).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: selfMasterNodeId,
-      sequence: 5n
+      sequence: 5n,
+      leadershipContext
     });
   });
 
@@ -257,9 +255,8 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
     expect(repository.advanceLastMatchedSequence).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: selfMasterNodeId,
-      sequence: 4n
+      sequence: 4n,
+      leadershipContext
     });
   });
 
@@ -302,8 +299,10 @@ describe('ConsensusService', () => {
     await expect(service.withAdvancedLastAllocatedSequence(leadershipContext, action)).resolves.toBe('task-5');
     expect(repository.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
       {
-        epoch: 2n,
-        leaderMasterId: selfMasterNodeId
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: selfMasterNodeId
+        }
       },
       action
     );
@@ -317,9 +316,8 @@ describe('ConsensusService', () => {
     await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 3n, action)).resolves.toBe('task-3');
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
       {
-        epoch: 2n,
-        leaderMasterId: selfMasterNodeId,
-        sequence: 3n
+        sequence: 3n,
+        leadershipContext
       },
       action
     );
@@ -340,9 +338,8 @@ describe('ConsensusService', () => {
     await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 4n, action)).resolves.toBeUndefined();
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
       {
-        epoch: 2n,
-        leaderMasterId: selfMasterNodeId,
-        sequence: 4n
+        sequence: 4n,
+        leadershipContext
       },
       action
     );
@@ -384,8 +381,10 @@ describe('ConsensusService', () => {
 
     await expect(service.claimInitialLeadership(selfMasterNodeId)).resolves.toBe(leaderState);
     expect(repository.claimLeadership).toHaveBeenCalledWith({
-      epoch: 1n,
-      leaderMasterId: selfMasterNodeId,
+      leadershipContext: {
+        epoch: 1n,
+        leaderMasterId: selfMasterNodeId
+      },
       lastLeaderContactAt: expect.any(Date),
       matchedSequence: -1n
     });
@@ -411,12 +410,17 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, followerState.currentEpoch)).resolves.toBe(
-      followerState
-    );
+    await expect(
+      service.acceptFollowership({
+        epoch: followerState.currentEpoch,
+        leaderMasterId: otherMasterNodeId
+      })
+    ).resolves.toBe(followerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      epoch: followerState.currentEpoch,
-      leaderMasterId: otherMasterNodeId,
+      leadershipContext: {
+        epoch: followerState.currentEpoch,
+        leaderMasterId: otherMasterNodeId
+      },
       lastLeaderContactAt: expect.any(Date),
       matchedSequence: 4n
     });
@@ -439,10 +443,14 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValueOnce(preAcceptanceState).mockResolvedValueOnce(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(followerState);
+    await expect(
+      service.acceptFollowership({ epoch: 2n, leaderMasterId: otherMasterNodeId })
+    ).resolves.toBe(followerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: otherMasterNodeId,
+      leadershipContext: {
+        epoch: 2n,
+        leaderMasterId: otherMasterNodeId
+      },
       lastLeaderContactAt: expect.any(Date),
       matchedSequence: 2n
     });
@@ -466,10 +474,14 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValueOnce(existingFollowerState).mockResolvedValueOnce(advancedFollowerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).resolves.toBe(advancedFollowerState);
+    await expect(
+      service.acceptFollowership({ epoch: 2n, leaderMasterId: otherMasterNodeId })
+    ).resolves.toBe(advancedFollowerState);
     expect(repository.acceptFollowership).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: otherMasterNodeId,
+      leadershipContext: {
+        epoch: 2n,
+        leaderMasterId: otherMasterNodeId
+      },
       lastLeaderContactAt: expect.any(Date),
       matchedSequence: 2n
     });
@@ -480,7 +492,9 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValue(followerState);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(
+      service.acceptFollowership({ epoch: 2n, leaderMasterId: otherMasterNodeId })
+    ).rejects.toBeInstanceOf(GenericConflictError);
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 
@@ -490,7 +504,9 @@ describe('ConsensusService', () => {
       currentEpoch: 3n
     });
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(
+      service.acceptFollowership({ epoch: 2n, leaderMasterId: otherMasterNodeId })
+    ).rejects.toBeInstanceOf(GenericConflictError);
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 
@@ -500,7 +516,9 @@ describe('ConsensusService', () => {
       leaderMasterId: otherMasterNodeId
     });
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 1n)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(
+      service.acceptFollowership({ epoch: 1n, leaderMasterId: otherMasterNodeId })
+    ).rejects.toBeInstanceOf(GenericConflictError);
     expect(repository.acceptFollowership).not.toHaveBeenCalled();
   });
 
@@ -510,7 +528,9 @@ describe('ConsensusService', () => {
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(winningState);
     repository.acceptFollowership.mockResolvedValue(false);
 
-    await expect(service.acceptFollowership(otherMasterNodeId, 2n)).rejects.toBeInstanceOf(GenericConflictError);
+    await expect(
+      service.acceptFollowership({ epoch: 2n, leaderMasterId: otherMasterNodeId })
+    ).rejects.toBeInstanceOf(GenericConflictError);
   });
 
   test('conditionally releases local leadership at the expected epoch', async () => {
@@ -523,10 +543,12 @@ describe('ConsensusService', () => {
 
     repository.findState.mockResolvedValueOnce(state).mockResolvedValueOnce(releasedState);
 
-    await expect(service.releaseLeadership(selfMasterNodeId, 2n)).resolves.toBe(releasedState);
+    await expect(service.releaseLeadership(leadershipContext)).resolves.toBe(releasedState);
     expect(repository.releaseLeadership).toHaveBeenCalledWith({
-      epoch: 2n,
-      leaderMasterId: selfMasterNodeId,
+      leadershipContext: {
+        epoch: 2n,
+        leaderMasterId: selfMasterNodeId
+      },
       matchedSequence: 3n
     });
   });

@@ -124,9 +124,11 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastCommittedSequence({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
-        sequence: 4n
+        sequence: 4n,
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        }
       })
     ).resolves.toEqual({
       ...state,
@@ -156,9 +158,11 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastCommittedSequence({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
-        sequence: 2n
+        sequence: 2n,
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        }
       })
     ).resolves.toEqual(state);
   });
@@ -201,9 +205,11 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastAllocatedSequence({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
-        sequence: 5n
+        sequence: 5n,
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        }
       })
     ).resolves.toEqual({
       ...state,
@@ -235,9 +241,11 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastMatchedSequence({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
-        sequence: 4n
+        sequence: 4n,
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        }
       })
     ).resolves.toEqual({
       ...state,
@@ -267,9 +275,11 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.advanceLastMatchedSequence({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
-        sequence: 2n
+        sequence: 2n,
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        }
       })
     ).resolves.toEqual(state);
   });
@@ -289,8 +299,10 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withAdvancedLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -317,8 +329,10 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withAdvancedLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -334,8 +348,10 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withAdvancedLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a'
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -350,9 +366,11 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withRewoundLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a',
-          sequence: 3n
+          sequence: 3n,
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -391,9 +409,11 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withRewoundLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a',
-          sequence: 3n
+          sequence: 3n,
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -408,9 +428,11 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withRewoundLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a',
-          sequence: 4n
+          sequence: 4n,
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -435,9 +457,11 @@ describe('ConsensusStateRepository', () => {
     await expect(
       repository.withRewoundLastAllocatedSequence(
         {
-          epoch: 2n,
-          leaderMasterId: 'master-node-a',
-          sequence: 3n
+          sequence: 3n,
+          leadershipContext: {
+            epoch: 2n,
+            leaderMasterId: 'master-node-a'
+          }
         },
         action
       )
@@ -447,8 +471,10 @@ describe('ConsensusStateRepository', () => {
   test('claims leadership while no leader exists and the epoch is older', async () => {
     await expect(
       repository.claimLeadership({
-        epoch: 3n,
-        leaderMasterId: 'master-node-b',
+        leadershipContext: {
+          epoch: 3n,
+          leaderMasterId: 'master-node-b'
+        },
         lastLeaderContactAt: now,
         matchedSequence: 3n
       })
@@ -475,8 +501,10 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.claimLeadership({
-        epoch: 10n,
-        leaderMasterId: 'master-node-b',
+        leadershipContext: {
+          epoch: 10n,
+          leaderMasterId: 'master-node-b'
+        },
         lastLeaderContactAt: now,
         matchedSequence: 3n
       })
@@ -501,8 +529,10 @@ describe('ConsensusStateRepository', () => {
   test('accepts followership only while no leader exists', async () => {
     await expect(
       repository.acceptFollowership({
-        epoch: 3n,
-        leaderMasterId: 'master-node-b',
+        leadershipContext: {
+          epoch: 3n,
+          leaderMasterId: 'master-node-b'
+        },
         lastLeaderContactAt: now,
         matchedSequence: 3n
       })
@@ -534,8 +564,10 @@ describe('ConsensusStateRepository', () => {
 
     await expect(
       repository.acceptFollowership({
-        epoch: 3n,
-        leaderMasterId: 'master-node-b',
+        leadershipContext: {
+          epoch: 3n,
+          leaderMasterId: 'master-node-b'
+        },
         lastLeaderContactAt: now,
         matchedSequence: 3n
       })
@@ -545,8 +577,10 @@ describe('ConsensusStateRepository', () => {
   test('releases leadership only for the expected leader and epoch', async () => {
     await expect(
       repository.releaseLeadership({
-        epoch: 2n,
-        leaderMasterId: 'master-node-a',
+        leadershipContext: {
+          epoch: 2n,
+          leaderMasterId: 'master-node-a'
+        },
         matchedSequence: 3n
       })
     ).resolves.toBe(true);

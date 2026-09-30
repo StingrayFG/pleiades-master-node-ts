@@ -214,7 +214,10 @@ describe('MasterNodeReplicationHandler', () => {
       afterSequence: consensusState.lastCommittedSequence,
       limit: config.replication.batchSize
     });
-    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, 3n);
+    expect(consensusService.acceptFollowership).toHaveBeenCalledWith({
+      epoch: 3n,
+      leaderMasterId: leaderMasterNodeId
+    });
     expect(masterNodeGrpcClient.fetchTaskPayload).toHaveBeenCalledWith({
       masterNodeEndpoint: expectedMasterNodeEndpoint,
       expectedCertificateFingerprint: leaderCertificateFingerprint,

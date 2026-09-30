@@ -4,10 +4,9 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
-  AdvanceLastCommittedSequenceRepositoryInput,
-  AdvanceLastAppliedSequenceRepositoryInput,
-  AdvanceLastAllocatedSequenceRepositoryInput,
-  AdvanceLastMatchedSequenceRepositoryInput,
+  AdvanceLeadershipLastSequenceRepositoryInput,
+  AdvanceLeadershipSequenceRepositoryInput,
+  AdvanceSequenceRepositoryInput,
   WithAdvancedLastAllocatedSequenceRepositoryInput,
   AllocatedSequenceTransactionAction,
   WithRewoundLastAllocatedSequenceRepositoryInput,
@@ -31,10 +30,10 @@ type ConsensusStateRepositoryContract = {
   createState(): Promise<ConsensusState>;
 
   // sequence
-  advanceLastCommittedSequence(input: AdvanceLastCommittedSequenceRepositoryInput): Promise<ConsensusState>;
-  advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState>;
-  advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState>;
-  advanceLastMatchedSequence(input: AdvanceLastMatchedSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastCommittedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastAppliedSequence(input: AdvanceSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastMatchedSequence(input: AdvanceLeadershipLastSequenceRepositoryInput): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     input: WithAdvancedLastAllocatedSequenceRepositoryInput,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -98,7 +97,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
   /* sequence methods */
 
-  async advanceLastCommittedSequence(input: AdvanceLastCommittedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastCommittedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -107,8 +106,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           where: {
             id: CONSENSUS_STATE_ID,
 
-            current_epoch: input.epoch,
-            leader_master_id: input.leaderMasterId,
+            current_epoch: input.leadershipContext.epoch,
+            leader_master_id: input.leadershipContext.leaderMasterId,
 
             last_committed_sequence: {
               lt: input.sequence
@@ -138,7 +137,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastAppliedSequence(input: AdvanceLastAppliedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastAppliedSequence(input: AdvanceSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -174,7 +173,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastAllocatedSequence(input: AdvanceLastAllocatedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastAllocatedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -183,8 +182,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           where: {
             id: CONSENSUS_STATE_ID,
 
-            current_epoch: input.epoch,
-            leader_master_id: input.leaderMasterId,
+            current_epoch: input.leadershipContext.epoch,
+            leader_master_id: input.leadershipContext.leaderMasterId,
 
             last_allocated_sequence: {
               lt: input.sequence
@@ -211,7 +210,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastMatchedSequence(input: AdvanceLastMatchedSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastMatchedSequence(input: AdvanceLeadershipLastSequenceRepositoryInput): Promise<ConsensusState> {
     let state;
 
     try {
@@ -220,8 +219,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           where: {
             id: CONSENSUS_STATE_ID,
 
-            current_epoch: input.epoch,
-            leader_master_id: input.leaderMasterId,
+            current_epoch: input.leadershipContext.epoch,
+            leader_master_id: input.leadershipContext.leaderMasterId,
 
             last_matched_sequence: {
               lt: input.sequence
@@ -262,8 +261,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         const updated = await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
-            current_epoch: input.epoch,
-            leader_master_id: input.leaderMasterId
+            current_epoch: input.leadershipContext.epoch,
+            leader_master_id: input.leadershipContext.leaderMasterId
           },
           data: {
             last_allocated_sequence: {
@@ -305,8 +304,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         const updated = await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
-            current_epoch: input.epoch,
-            leader_master_id: input.leaderMasterId,
+            current_epoch: input.leadershipContext.epoch,
+            leader_master_id: input.leadershipContext.leaderMasterId,
             last_allocated_sequence: {
               gte: input.sequence
             },
@@ -365,19 +364,19 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           OR: [
             {
               current_epoch: {
-                lt: input.epoch
+                lt: input.leadershipContext.epoch
               }
             },
             {
-              current_epoch: input.epoch,
-              voted_for_master_id: input.leaderMasterId
+              current_epoch: input.leadershipContext.epoch,
+              voted_for_master_id: input.leadershipContext.leaderMasterId
             }
           ]
         },
         data: {
-          current_epoch: input.epoch,
-          leader_master_id: input.leaderMasterId,
-          voted_for_master_id: input.leaderMasterId,
+          current_epoch: input.leadershipContext.epoch,
+          leader_master_id: input.leadershipContext.leaderMasterId,
+          voted_for_master_id: input.leadershipContext.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
           last_matched_sequence: input.matchedSequence,
           revision: {
@@ -402,19 +401,19 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           OR: [
             {
               current_epoch: {
-                lt: input.epoch
+                lt: input.leadershipContext.epoch
               }
             },
             {
-              current_epoch: input.epoch,
-              OR: [{ leader_master_id: null }, { leader_master_id: input.leaderMasterId }]
+              current_epoch: input.leadershipContext.epoch,
+              OR: [{ leader_master_id: null }, { leader_master_id: input.leadershipContext.leaderMasterId }]
             }
           ]
         },
         data: {
-          current_epoch: input.epoch,
-          leader_master_id: input.leaderMasterId,
-          voted_for_master_id: input.leaderMasterId,
+          current_epoch: input.leadershipContext.epoch,
+          leader_master_id: input.leadershipContext.leaderMasterId,
+          voted_for_master_id: input.leadershipContext.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
           last_matched_sequence: input.matchedSequence,
           revision: {
@@ -436,8 +435,8 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       releaseResult = await this.prisma.consensusState.updateMany({
         where: {
           id: CONSENSUS_STATE_ID,
-          current_epoch: input.epoch,
-          leader_master_id: input.leaderMasterId
+          current_epoch: input.leadershipContext.epoch,
+          leader_master_id: input.leadershipContext.leaderMasterId
         },
         data: {
           leader_master_id: null,

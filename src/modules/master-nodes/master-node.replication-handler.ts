@@ -63,10 +63,10 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       fetchResult.clusterMembershipRevision
     );
 
-    const followerState = await this.consensusService.acceptFollowership(
-      consensusState.leaderMasterId,
-      fetchResult.epoch
-    );
+    const followerState = await this.consensusService.acceptFollowership({
+      epoch: fetchResult.epoch,
+      leaderMasterId: consensusState.leaderMasterId
+    });
 
     if (
       followerState.currentEpoch !== fetchResult.epoch ||

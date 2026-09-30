@@ -142,49 +142,56 @@ describe('verifyLeadershipSequenceAdvancementNotAborted', () => {
 
 describe('verifyFollowershipAcceptable', () => {
   test('accepts the same leader in the same epoch', () => {
-    expect(() => verifyFollowershipAcceptable(consensusState, 'master-node-a', 2n)).not.toThrow();
+    expect(() => verifyFollowershipAcceptable(consensusState, leadershipContext)).not.toThrow();
   });
 
   test('accepts a leader claim while no leader exists', () => {
     expect(() =>
-      verifyFollowershipAcceptable({ ...consensusState, leaderMasterId: null }, 'master-node-b', 2n)
+      verifyFollowershipAcceptable(
+        { ...consensusState, leaderMasterId: null },
+        { epoch: 2n, leaderMasterId: 'master-node-b' }
+      )
     ).not.toThrow();
   });
 
   test('rejects a different leader in the same epoch', () => {
-    expect(() => verifyFollowershipAcceptable(consensusState, 'master-node-b', 2n)).toThrow(GenericConflictError);
+    expect(() =>
+      verifyFollowershipAcceptable(consensusState, { epoch: 2n, leaderMasterId: 'master-node-b' })
+    ).toThrow(GenericConflictError);
   });
 
   test('rejects a leader epoch older than the local consensus epoch', () => {
-    expect(() => verifyFollowershipAcceptable(consensusState, 'master-node-a', 1n)).toThrow(GenericConflictError);
+    expect(() =>
+      verifyFollowershipAcceptable(consensusState, { epoch: 1n, leaderMasterId: 'master-node-a' })
+    ).toThrow(GenericConflictError);
   });
 });
 
 describe('verifyFollowershipAccepted', () => {
   test('accepts followership under the requested leader and epoch', () => {
-    expect(() => verifyFollowershipAccepted(consensusState, 'master-node-a', 2n)).not.toThrow();
+    expect(() => verifyFollowershipAccepted(consensusState, leadershipContext)).not.toThrow();
   });
 
   test('rejects followership claimed by another leader first', () => {
     expect(() =>
-      verifyFollowershipAccepted({ ...consensusState, leaderMasterId: 'master-node-b' }, 'master-node-a', 2n)
+      verifyFollowershipAccepted({ ...consensusState, leaderMasterId: 'master-node-b' }, leadershipContext)
     ).toThrow(GenericConflictError);
   });
 
   test('rejects followership left behind by a newer epoch', () => {
-    expect(() => verifyFollowershipAccepted(consensusState, 'master-node-a', 3n)).toThrow(GenericConflictError);
+    expect(() =>
+      verifyFollowershipAccepted(consensusState, { epoch: 3n, leaderMasterId: 'master-node-a' })
+    ).toThrow(GenericConflictError);
   });
 });
 
 describe('verifyLeadershipReleased', () => {
   test('accepts a state where leadership moved on', () => {
-    expect(() =>
-      verifyLeadershipReleased({ ...consensusState, leaderMasterId: null }, 'master-node-a', 2n)
-    ).not.toThrow();
+    expect(() => verifyLeadershipReleased({ ...consensusState, leaderMasterId: null }, leadershipContext)).not.toThrow();
   });
 
   test('rejects a state where the leader still holds the epoch', () => {
-    expect(() => verifyLeadershipReleased(consensusState, 'master-node-a', 2n)).toThrow(GenericAbortedError);
+    expect(() => verifyLeadershipReleased(consensusState, leadershipContext)).toThrow(GenericAbortedError);
   });
 });
 

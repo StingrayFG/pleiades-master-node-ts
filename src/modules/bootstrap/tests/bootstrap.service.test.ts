@@ -240,7 +240,10 @@ describe('BootstrapService', () => {
       expectedCertificateFingerprint: leaderCertificateFingerprint
     });
     expect(clusterService.applyMembershipSnapshot).toHaveBeenCalledWith(clusterMembershipSnapshot);
-    expect(consensusService.acceptFollowership).toHaveBeenCalledWith(leaderMasterNodeId, leaderInfo.epoch);
+    expect(consensusService.acceptFollowership).toHaveBeenCalledWith({
+      epoch: leaderInfo.epoch,
+      leaderMasterId: leaderMasterNodeId
+    });
     expect(masterNodeGrpcClient.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
       masterNodeGrpcClient.fetchClusterMembershipSnapshot.mock.invocationCallOrder[0]
     );

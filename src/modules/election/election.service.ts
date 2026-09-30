@@ -101,7 +101,10 @@ class ElectionService implements ElectionServiceContract {
     }
 
     try {
-      const state = await this.consensusService.acceptFollowership(input.leaderMasterNodeId, input.epoch);
+      const state = await this.consensusService.acceptFollowership({
+        epoch: input.epoch,
+        leaderMasterId: input.leaderMasterNodeId
+      });
 
       return {
         epoch: state.currentEpoch,
@@ -194,7 +197,7 @@ class ElectionService implements ElectionServiceContract {
     }
 
     try {
-      await this.consensusService.completeElection(this.selfMasterNodeId, electionState.currentEpoch);
+      await this.consensusService.completeElection(electionState.currentEpoch, this.selfMasterNodeId);
     } catch (err) {
       if (err instanceof GenericAbortedError) {
         return false;
@@ -225,7 +228,10 @@ class ElectionService implements ElectionServiceContract {
 
     if (!canServeAsLeader) {
       this.quorumLossStartedAtMs = null;
-      await this.consensusService.releaseLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
+      await this.consensusService.releaseLeadership({
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      });
       return;
     }
 
@@ -288,7 +294,10 @@ class ElectionService implements ElectionServiceContract {
 
     if (now.getTime() - this.quorumLossStartedAtMs >= this.config.timeoutMaxMs) {
       this.quorumLossStartedAtMs = null;
-      await this.consensusService.releaseLeadership(this.selfMasterNodeId, consensusState.currentEpoch);
+      await this.consensusService.releaseLeadership({
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      });
     }
   }
 

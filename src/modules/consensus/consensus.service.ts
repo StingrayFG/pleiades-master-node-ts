@@ -59,12 +59,12 @@ type ConsensusServiceContract = {
 
   // leadership
   claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
-  acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
-  releaseLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+  acceptFollowership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState>;
+  releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState>;
 
   // election
   startElection(candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
-  completeElection(candidateMasterNodeId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState>;
+  completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   observeEpoch(epoch: ConsensusEpoch): Promise<ConsensusState>;
   requestVote(input: RequestConsensusVoteInput): Promise<ConsensusVoteResult>;
 };
@@ -111,10 +111,8 @@ class ConsensusService implements ConsensusServiceContract {
     verifyCommittedSequenceWithinAllocated(state, sequence);
 
     const updatedState = await this.repository.advanceLastCommittedSequence({
-      epoch: leadershipContext.epoch,
-      leaderMasterId: leadershipContext.leaderMasterId,
-
-      sequence
+      sequence,
+      leadershipContext
     });
 
     try {
@@ -160,10 +158,8 @@ class ConsensusService implements ConsensusServiceContract {
     await this.getConsensusState();
 
     const updatedState = await this.repository.advanceLastAllocatedSequence({
-      epoch: leadershipContext.epoch,
-      leaderMasterId: leadershipContext.leaderMasterId,
-
-      sequence
+      sequence,
+      leadershipContext
     });
 
     try {
@@ -191,10 +187,8 @@ class ConsensusService implements ConsensusServiceContract {
     verifyMatchedSequenceWithinAllocated(state, sequence);
 
     const updatedState = await this.repository.advanceLastMatchedSequence({
-      epoch: leadershipContext.epoch,
-      leaderMasterId: leadershipContext.leaderMasterId,
-
-      sequence
+      sequence,
+      leadershipContext
     });
 
     try {
@@ -221,8 +215,7 @@ class ConsensusService implements ConsensusServiceContract {
 
     return this.repository.withAdvancedLastAllocatedSequence(
       {
-        epoch: leadershipContext.epoch,
-        leaderMasterId: leadershipContext.leaderMasterId
+        leadershipContext
       },
       action
     );
@@ -239,9 +232,8 @@ class ConsensusService implements ConsensusServiceContract {
 
     return this.repository.withRewoundLastAllocatedSequence(
       {
-        epoch: leadershipContext.epoch,
-        leaderMasterId: leadershipContext.leaderMasterId,
-        sequence
+        sequence,
+        leadershipContext
       },
       action
     );
@@ -262,8 +254,10 @@ class ConsensusService implements ConsensusServiceContract {
 
     // the claim only lands when no leader exists, so re-read to return the actual outcome either way
     await this.repository.claimLeadership({
-      epoch: state.currentEpoch + 1n,
-      leaderMasterId: selfMasterNodeId,
+      leadershipContext: {
+        epoch: state.currentEpoch + 1n,
+        leaderMasterId: selfMasterNodeId
+      },
       lastLeaderContactAt: new Date(),
       matchedSequence: state.lastCommittedSequence
     });
@@ -271,44 +265,42 @@ class ConsensusService implements ConsensusServiceContract {
     return this.getConsensusState();
   }
 
-  async acceptFollowership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+  async acceptFollowership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
     const state = await this.getConsensusState();
 
-    verifyFollowershipAcceptable(state, leaderMasterId, epoch);
+    verifyFollowershipAcceptable(state, leadershipContext);
 
     // a new leader or epoch invalidates the log verification state; only the committed
     // prefix is known to match, everything beyond it must be verified again
     const matchedSequence =
-      state.currentEpoch !== epoch || state.leaderMasterId !== leaderMasterId
+      state.currentEpoch !== leadershipContext.epoch || state.leaderMasterId !== leadershipContext.leaderMasterId
         ? state.lastCommittedSequence
         : state.lastMatchedSequence;
 
     await this.repository.acceptFollowership({
-      epoch,
-      leaderMasterId,
+      leadershipContext,
       lastLeaderContactAt: new Date(),
       matchedSequence
     });
 
     const followerState = await this.getConsensusState();
 
-    verifyFollowershipAccepted(followerState, leaderMasterId, epoch);
+    verifyFollowershipAccepted(followerState, leadershipContext);
 
     return followerState;
   }
 
-  async releaseLeadership(leaderMasterId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+  async releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
     await this.repository.releaseLeadership({
-      epoch,
-      leaderMasterId,
+      leadershipContext,
       matchedSequence: previousState.lastCommittedSequence
     });
 
     const state = await this.getConsensusState();
 
-    verifyLeadershipReleased(state, leaderMasterId, epoch);
+    verifyLeadershipReleased(state, leadershipContext);
 
     return state;
   }
@@ -331,12 +323,14 @@ class ConsensusService implements ConsensusServiceContract {
     return electionState;
   }
 
-  async completeElection(candidateMasterNodeId: MasterNodeId, epoch: ConsensusEpoch): Promise<ConsensusState> {
+  async completeElection(epoch: ConsensusEpoch, candidateMasterNodeId: MasterNodeId): Promise<ConsensusState> {
     const previousState = await this.getConsensusState();
 
     await this.repository.claimLeadership({
-      epoch,
-      leaderMasterId: candidateMasterNodeId,
+      leadershipContext: {
+        epoch,
+        leaderMasterId: candidateMasterNodeId
+      },
       lastLeaderContactAt: new Date(),
       matchedSequence: previousState.lastCommittedSequence
     });

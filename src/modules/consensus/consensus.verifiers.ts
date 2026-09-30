@@ -69,34 +69,41 @@ export const verifyLeadershipSequenceAdvancementNotAborted = (
 
 export const verifyFollowershipAcceptable = (
   state: ConsensusState,
-  leaderMasterId: MasterNodeId,
-  epoch: ConsensusEpoch
+  leadershipContext: ConsensusLeadershipContext
 ): void => {
-  if (state.currentEpoch === epoch && state.leaderMasterId !== null && state.leaderMasterId !== leaderMasterId) {
+  if (
+    state.currentEpoch === leadershipContext.epoch &&
+    state.leaderMasterId !== null &&
+    state.leaderMasterId !== leadershipContext.leaderMasterId
+  ) {
     throw new GenericConflictError('This master node already belongs to a different leader');
   }
 
-  if (state.currentEpoch > epoch) {
+  if (state.currentEpoch > leadershipContext.epoch) {
     throw new GenericConflictError('The leader epoch is older than the local consensus epoch');
   }
 };
 
 export const verifyFollowershipAccepted = (
   state: ConsensusState,
-  leaderMasterId: MasterNodeId,
-  epoch: ConsensusEpoch
+  leadershipContext: ConsensusLeadershipContext
 ): void => {
-  if (state.leaderMasterId !== leaderMasterId || state.currentEpoch < epoch) {
+  if (
+    state.currentEpoch < leadershipContext.epoch ||
+    state.leaderMasterId !== leadershipContext.leaderMasterId
+  ) {
     throw new GenericConflictError('Another master node was accepted as the cluster leader first');
   }
 };
 
 export const verifyLeadershipReleased = (
   state: ConsensusState,
-  leaderMasterId: MasterNodeId,
-  epoch: ConsensusEpoch
+  leadershipContext: ConsensusLeadershipContext
 ): void => {
-  if (state.currentEpoch === epoch && state.leaderMasterId === leaderMasterId) {
+  if (
+    state.currentEpoch === leadershipContext.epoch &&
+    state.leaderMasterId === leadershipContext.leaderMasterId
+  ) {
     throw new GenericAbortedError('Leadership release was aborted by a concurrent consensus change');
   }
 };

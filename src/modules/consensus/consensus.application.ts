@@ -7,9 +7,9 @@ import {
   consensusEpochSchema,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
+  consensusStateSchema,
   type ConsensusLastSequence,
-  type ConsensusSequence,
-  type ConsensusState
+  type ConsensusSequence
 } from './consensus.domain';
 
 /* schemas */
@@ -19,45 +19,42 @@ export const consensusLeadershipContextSchema = z.object({
   leaderMasterId: masterNodeIdSchema
 });
 
-export const advanceLastCommittedSequenceRepositoryInputSchema = consensusLeadershipContextSchema.extend({
+export const advanceSequenceRepositoryInputSchema = z.object({
   sequence: consensusSequenceSchema
 });
 
-export const advanceLastAppliedSequenceRepositoryInputSchema = z.object({
-  sequence: consensusSequenceSchema
+export const advanceLeadershipSequenceRepositoryInputSchema = advanceSequenceRepositoryInputSchema.extend({
+  leadershipContext: consensusLeadershipContextSchema
 });
 
-export const advanceLastAllocatedSequenceRepositoryInputSchema = consensusLeadershipContextSchema.extend({
-  sequence: consensusSequenceSchema
+export const advanceLeadershipLastSequenceRepositoryInputSchema = z.object({
+  sequence: consensusLastSequenceSchema,
+  leadershipContext: consensusLeadershipContextSchema
 });
 
-export const advanceLastMatchedSequenceRepositoryInputSchema = consensusLeadershipContextSchema.extend({
-  sequence: consensusLastSequenceSchema
+export const withAdvancedLastAllocatedSequenceRepositoryInputSchema = z.object({
+  leadershipContext: consensusLeadershipContextSchema
 });
 
-export const withAdvancedLastAllocatedSequenceRepositoryInputSchema = consensusLeadershipContextSchema;
-
-export const withRewoundLastAllocatedSequenceRepositoryInputSchema = consensusLeadershipContextSchema.extend({
-  sequence: consensusLastSequenceSchema
+export const withRewoundLastAllocatedSequenceRepositoryInputSchema = z.object({
+  sequence: consensusLastSequenceSchema,
+  leadershipContext: consensusLeadershipContextSchema
 });
 
 export const claimLeadershipRepositoryInputSchema = z.object({
-  epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema,
+  leadershipContext: consensusLeadershipContextSchema,
   lastLeaderContactAt: z.date(),
   matchedSequence: consensusLastSequenceSchema
 });
 
 export const acceptFollowershipRepositoryInputSchema = z.object({
-  epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema,
+  leadershipContext: consensusLeadershipContextSchema,
   lastLeaderContactAt: z.date(),
   matchedSequence: consensusLastSequenceSchema
 });
 
 export const releaseLeadershipRepositoryInputSchema = z.object({
-  epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema,
+  leadershipContext: consensusLeadershipContextSchema,
   matchedSequence: consensusLastSequenceSchema
 });
 
@@ -88,35 +85,36 @@ export const requestConsensusVoteInputSchema = z.object({
   localLastLogSequence: consensusLastSequenceSchema
 });
 
+export const consensusVoteResultSchema = z.object({
+  state: consensusStateSchema,
+  voteGranted: z.boolean()
+});
+
 /* types */
 
 export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
-export type AdvanceLastCommittedSequenceRepositoryInput = z.infer<
-  typeof advanceLastCommittedSequenceRepositoryInputSchema
+
+export type AdvanceSequenceRepositoryInput = z.infer<typeof advanceSequenceRepositoryInputSchema>;
+export type AdvanceLeadershipSequenceRepositoryInput = z.infer<typeof advanceLeadershipSequenceRepositoryInputSchema>;
+export type AdvanceLeadershipLastSequenceRepositoryInput = z.infer<
+  typeof advanceLeadershipLastSequenceRepositoryInputSchema
 >;
-export type AdvanceLastAppliedSequenceRepositoryInput = z.infer<typeof advanceLastAppliedSequenceRepositoryInputSchema>;
-export type AdvanceLastAllocatedSequenceRepositoryInput = z.infer<
-  typeof advanceLastAllocatedSequenceRepositoryInputSchema
->;
-export type AdvanceLastMatchedSequenceRepositoryInput = z.infer<typeof advanceLastMatchedSequenceRepositoryInputSchema>;
 export type WithAdvancedLastAllocatedSequenceRepositoryInput = z.infer<
   typeof withAdvancedLastAllocatedSequenceRepositoryInputSchema
 >;
 export type WithRewoundLastAllocatedSequenceRepositoryInput = z.infer<
   typeof withRewoundLastAllocatedSequenceRepositoryInputSchema
 >;
+
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
 export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
 export type ReleaseLeadershipRepositoryInput = z.infer<typeof releaseLeadershipRepositoryInputSchema>;
+
 export type StartElectionRepositoryInput = z.infer<typeof startElectionRepositoryInputSchema>;
 export type ObserveEpochRepositoryInput = z.infer<typeof observeEpochRepositoryInputSchema>;
 export type ApplyVoteRequestRepositoryInput = z.infer<typeof applyVoteRequestRepositoryInputSchema>;
 export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
-
-export type ConsensusVoteResult = {
-  state: ConsensusState;
-  voteGranted: boolean;
-};
+export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;
 
 // runs within the sequence-allocation transaction; all database work must use the provided transaction client.
 export type AllocatedSequenceTransactionAction<TResult> = (

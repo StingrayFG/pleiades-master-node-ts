@@ -195,7 +195,10 @@ describe('ElectionService', () => {
       accepted: true
     });
 
-    expect(consensusService.acceptFollowership).toHaveBeenCalledWith('master-node-leader', 3n);
+    expect(consensusService.acceptFollowership).toHaveBeenCalledWith({
+      epoch: 3n,
+      leaderMasterId: 'master-node-leader'
+    });
   });
 
   test('rejects stale leader heartbeats', async () => {
@@ -222,7 +225,7 @@ describe('ElectionService', () => {
 
     await expect(service.runElection()).resolves.toBe(true);
 
-    expect(consensusService.completeElection).toHaveBeenCalledWith(selfMasterNodeId, 3n);
+    expect(consensusService.completeElection).toHaveBeenCalledWith(3n, selfMasterNodeId);
     expect(masterNodeGrpcClient.requestVote).toHaveBeenCalledTimes(2);
     expect(masterNodeGrpcClient.recordLeaderHeartbeat).toHaveBeenCalledTimes(2);
   });
@@ -293,7 +296,10 @@ describe('ElectionService', () => {
     await service.broadcastLeaderHeartbeat();
 
     expect(masterNodeGrpcClient.recordLeaderHeartbeat).not.toHaveBeenCalled();
-    expect(consensusService.releaseLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
+    expect(consensusService.releaseLeadership).toHaveBeenCalledWith({
+      epoch: leaderState.currentEpoch,
+      leaderMasterId: selfMasterNodeId
+    });
   });
 
   test('retains leadership through a transient heartbeat quorum failure', async () => {
@@ -320,7 +326,10 @@ describe('ElectionService', () => {
     await service.broadcastLeaderHeartbeat(now);
     await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.timeoutMaxMs));
 
-    expect(consensusService.releaseLeadership).toHaveBeenCalledWith(selfMasterNodeId, leaderState.currentEpoch);
+    expect(consensusService.releaseLeadership).toHaveBeenCalledWith({
+      epoch: leaderState.currentEpoch,
+      leaderMasterId: selfMasterNodeId
+    });
   });
 
   test('clears a pending quorum-loss timeout after heartbeat quorum is restored', async () => {
