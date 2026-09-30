@@ -7,6 +7,7 @@ import {
 } from '@/errors/application.errors';
 
 import { CLUSTER_RECORD_ID, clusterIdSchema, type Cluster, type ClusterId } from './cluster.domain';
+import type { MembershipRevisionTransactionAction } from './cluster.application';
 import type { ClusterRepositoryContract } from './cluster.repository';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 import { verifyMembershipSnapshotCluster } from './cluster.verifiers';
@@ -23,7 +24,7 @@ type ClusterServiceContract = {
   registerCluster(clusterId: ClusterId): Promise<Cluster>;
 
   // membership
-  advanceMembershipRevision(): Promise<Cluster>;
+  withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult>;
   applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
@@ -120,10 +121,10 @@ class ClusterService implements ClusterServiceContract {
 
   /* membership methods */
 
-  async advanceMembershipRevision(): Promise<Cluster> {
+  async withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult> {
     await this.getCluster();
 
-    return this.repository.advanceMembershipRevision();
+    return this.repository.withAdvancedMembershipRevision(action);
   }
 
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {

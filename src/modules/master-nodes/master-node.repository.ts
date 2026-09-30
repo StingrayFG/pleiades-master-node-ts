@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
 import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
@@ -16,8 +16,8 @@ type MasterNodeRepositoryContract = {
   listAll(): Promise<MasterNode[]>;
   findById(id: MasterNodeId): Promise<MasterNode | null>;
   findMemberById(id: MasterNodeId): Promise<MasterNode | null>;
-  applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput): Promise<MasterNode>;
-  transitionMode(input: TransitionMasterNodeModeRepositoryInput): Promise<boolean>;
+  applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput, tx?: Prisma.TransactionClient): Promise<MasterNode>;
+  transitionMode(input: TransitionMasterNodeModeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean>;
 };
 
 /* repository */
@@ -81,11 +81,13 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
   }
 
-  async applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput): Promise<MasterNode> {
+  async applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput, tx?: Prisma.TransactionClient): Promise<MasterNode> {
     let masterNode;
 
     try {
-      masterNode = await this.prisma.masterNode.upsert({
+      const client = tx ?? this.prisma;
+
+      masterNode = await client.masterNode.upsert({
         where: {
           id: input.id
         },
@@ -133,11 +135,13 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     return mapPrismaMasterNodeToDomainMasterNode(masterNode);
   }
 
-  async transitionMode(input: TransitionMasterNodeModeRepositoryInput): Promise<boolean> {
+  async transitionMode(input: TransitionMasterNodeModeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean> {
     let transitionResult;
 
     try {
-      transitionResult = await this.prisma.masterNode.updateMany({
+      const client = tx ?? this.prisma;
+
+      transitionResult = await client.masterNode.updateMany({
         where: {
           id: input.id,
           cluster_record_id: CLUSTER_RECORD_ID,

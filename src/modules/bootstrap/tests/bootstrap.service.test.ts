@@ -142,11 +142,9 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
       .mockResolvedValue(clusterMembershipSnapshot),
     initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>().mockResolvedValue(cluster),
     registerCluster: jest.fn<ClusterServiceContract['registerCluster']>().mockResolvedValue(cluster),
-    advanceMembershipRevision: jest
-      .fn<ClusterServiceContract['advanceMembershipRevision']>()
-      .mockResolvedValue(cluster),
+    withAdvancedMembershipRevision: jest.fn<ClusterServiceContract['withAdvancedMembershipRevision']>(),
     applyMembershipSnapshot: jest.fn<ClusterServiceContract['applyMembershipSnapshot']>().mockResolvedValue()
-  };
+  } as unknown as jest.Mocked<ClusterServiceContract>;
 };
 
 const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {

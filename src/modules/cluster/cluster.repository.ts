@@ -7,7 +7,7 @@ import { mapPrismaDataNodeToDomainDataNode } from '@/modules/data-nodes/data-nod
 import type { MasterNode, MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import { mapPrismaMasterNodeToDomainMasterNode } from '@/modules/master-nodes/master-node.mappers';
 
-import type { CreateClusterRepositoryInput } from './cluster.application';
+import type { CreateClusterRepositoryInput, MembershipRevisionTransactionAction } from './cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from './cluster.domain';
 import { mapPrismaClusterToDomainCluster } from './cluster.mappers';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
@@ -30,7 +30,7 @@ type ClusterRepositoryContract = {
   create(input: CreateClusterRepositoryInput): Promise<Cluster>;
 
   // membership
-  advanceMembershipRevision(): Promise<Cluster>;
+  withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult>;
   applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
@@ -133,25 +133,31 @@ class ClusterRepository implements ClusterRepositoryContract {
 
   /* membership methods */
 
-  async advanceMembershipRevision(): Promise<Cluster> {
-    let cluster;
+  // the revision bump and the caller's membership mutation share one transaction,
+  // so followers never observe one without the other
+  async withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult> {
+    let result;
 
     try {
-      cluster = await this.prisma.cluster.update({
-        where: {
-          id: CLUSTER_RECORD_ID
-        },
-        data: {
-          membership_revision: {
-            increment: 1
+      result = await this.prisma.$transaction(async (transaction) => {
+        await transaction.cluster.update({
+          where: {
+            id: CLUSTER_RECORD_ID
+          },
+          data: {
+            membership_revision: {
+              increment: 1
+            }
           }
-        }
+        });
+
+        return action(transaction);
       });
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
 
-    return mapPrismaClusterToDomainCluster(cluster);
+    return result;
   }
 
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {

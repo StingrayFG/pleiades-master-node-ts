@@ -8,6 +8,7 @@ import {
   GenericInternalServerError
 } from '@/errors/application.errors';
 
+import type { MembershipRevisionTransactionAction } from '../cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from '../cluster.domain';
 import type { ClusterRepositoryContract } from '../cluster.repository';
 import { ClusterService } from '../cluster.service';
@@ -38,11 +39,9 @@ const createClusterRepositoryMock = (): jest.Mocked<ClusterRepositoryContract> =
     find: jest.fn<ClusterRepositoryContract['find']>().mockResolvedValue(null),
     findMembershipSnapshot: jest.fn<ClusterRepositoryContract['findMembershipSnapshot']>().mockResolvedValue(null),
     create: jest.fn<ClusterRepositoryContract['create']>().mockResolvedValue(cluster),
-    advanceMembershipRevision: jest
-      .fn<ClusterRepositoryContract['advanceMembershipRevision']>()
-      .mockResolvedValue(cluster),
+    withAdvancedMembershipRevision: jest.fn<ClusterRepositoryContract['withAdvancedMembershipRevision']>(),
     applyMembershipSnapshot: jest.fn<ClusterRepositoryContract['applyMembershipSnapshot']>().mockResolvedValue()
-  };
+  } as unknown as jest.Mocked<ClusterRepositoryContract>;
 };
 
 /* tests */
@@ -184,14 +183,19 @@ describe('ClusterService', () => {
 
   test('advances the membership revision of an initialized cluster', async () => {
     repository.find.mockResolvedValue(cluster);
+    repository.withAdvancedMembershipRevision.mockResolvedValue('applied');
 
-    await expect(service.advanceMembershipRevision()).resolves.toBe(cluster);
-    expect(repository.advanceMembershipRevision).toHaveBeenCalledWith();
+    const action = jest.fn<MembershipRevisionTransactionAction<string>>().mockResolvedValue('applied');
+
+    await expect(service.withAdvancedMembershipRevision(action)).resolves.toBe('applied');
+    expect(repository.withAdvancedMembershipRevision).toHaveBeenCalledWith(action);
   });
 
   test('rejects membership revision advancement before initialization', async () => {
-    await expect(service.advanceMembershipRevision()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
-    expect(repository.advanceMembershipRevision).not.toHaveBeenCalled();
+    const action = jest.fn<MembershipRevisionTransactionAction<void>>().mockResolvedValue();
+
+    await expect(service.withAdvancedMembershipRevision(action)).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    expect(repository.withAdvancedMembershipRevision).not.toHaveBeenCalled();
   });
 
   test('applies a membership snapshot from the registered cluster', async () => {

@@ -136,11 +136,9 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
       .mockResolvedValue(clusterMembershipSnapshot),
     initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>(),
     registerCluster: jest.fn<ClusterServiceContract['registerCluster']>(),
-    advanceMembershipRevision: jest
-      .fn<ClusterServiceContract['advanceMembershipRevision']>()
-      .mockResolvedValue(cluster),
+    withAdvancedMembershipRevision: jest.fn<ClusterServiceContract['withAdvancedMembershipRevision']>(),
     applyMembershipSnapshot: jest.fn<ClusterServiceContract['applyMembershipSnapshot']>()
-  };
+  } as unknown as jest.Mocked<ClusterServiceContract>;
 };
 
 const createElectionServiceMock = (): jest.Mocked<ElectionServiceContract> => {
@@ -231,7 +229,6 @@ describe('MasterNodeInternodeService', () => {
         scheme: callerMasterNode.scheme
       }
     });
-    expect(clusterService.advanceMembershipRevision).toHaveBeenCalledWith();
   });
 
   test('delegates authenticated vote requests to the election service', async () => {

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
+import type { Prisma } from '@prisma/client';
+
 import {
   GenericAbortedError,
   GenericConflictError,
@@ -100,13 +102,9 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
 
 const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
   return {
-    advanceMembershipRevision: jest.fn<ClusterServiceContract['advanceMembershipRevision']>().mockResolvedValue({
-      id: 'self',
-      clusterId: '00000000-0000-4000-8000-000000000001',
-      membershipRevision: 2n,
-      createdAt: lastContactAt,
-      updatedAt: lastContactAt
-    })
+    withAdvancedMembershipRevision: jest
+      .fn<ClusterServiceContract['withAdvancedMembershipRevision']>()
+      .mockImplementation(async (action) => action({} as Prisma.TransactionClient))
   } as unknown as jest.Mocked<ClusterServiceContract>;
 };
 
@@ -155,20 +153,26 @@ describe('MasterNodeService', () => {
   test('registers a new master node', async () => {
     await expect(service.registerMasterNode(registrationInput)).resolves.toBe(masterNode);
     expect(repository.findById).toHaveBeenCalledWith(masterNodeId);
-    expect(repository.applyRegistration).toHaveBeenCalledWith({
-      ...registrationInput,
-      lastContactAt
-    });
+    expect(repository.applyRegistration).toHaveBeenCalledWith(
+      {
+        ...registrationInput,
+        lastContactAt
+      },
+      expect.anything()
+    );
   });
 
   test('accepts repeated registration from the same master node session', async () => {
     repository.findById.mockResolvedValue(masterNode);
 
     await expect(service.registerMasterNode(registrationInput)).resolves.toBe(masterNode);
-    expect(repository.applyRegistration).toHaveBeenCalledWith({
-      ...registrationInput,
-      lastContactAt
-    });
+    expect(repository.applyRegistration).toHaveBeenCalledWith(
+      {
+        ...registrationInput,
+        lastContactAt
+      },
+      expect.anything()
+    );
   });
 
   test('refreshes a master node session with its existing certificate', async () => {
@@ -180,10 +184,13 @@ describe('MasterNodeService', () => {
     };
 
     await expect(service.registerMasterNode(restartedInput)).resolves.toBe(masterNode);
-    expect(repository.applyRegistration).toHaveBeenCalledWith({
-      ...restartedInput,
-      lastContactAt
-    });
+    expect(repository.applyRegistration).toHaveBeenCalledWith(
+      {
+        ...restartedInput,
+        lastContactAt
+      },
+      expect.anything()
+    );
   });
 
   test('rejects re-registration with a different certificate', async () => {
@@ -208,13 +215,16 @@ describe('MasterNodeService', () => {
     repository.findMemberById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
-    expect(repository.transitionMode).toHaveBeenCalledWith({
-      id: masterNodeId,
-      from: 'serving',
-      to: 'draining',
-      expectedRevision: masterNode.revision
-    });
-    expect(clusterService.advanceMembershipRevision).toHaveBeenCalledWith();
+    expect(repository.transitionMode).toHaveBeenCalledWith(
+      {
+        id: masterNodeId,
+        from: 'serving',
+        to: 'draining',
+        expectedRevision: masterNode.revision
+      },
+      expect.anything()
+    );
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
   });
 
   test('returns an already matching master node without another transition', async () => {
@@ -222,7 +232,7 @@ describe('MasterNodeService', () => {
 
     await expect(service.setMasterNodeMode(masterNodeId, 'serving')).resolves.toBe(masterNode);
     expect(repository.transitionMode).not.toHaveBeenCalled();
-    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
+    expect(clusterService.withAdvancedMembershipRevision).not.toHaveBeenCalled();
   });
 
   test('rejects mode changes submitted to a follower', async () => {
@@ -249,7 +259,7 @@ describe('MasterNodeService', () => {
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
-    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
   });
 
   test('rejects a lost mode transition when the requested mode is not present', async () => {
@@ -257,6 +267,6 @@ describe('MasterNodeService', () => {
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
-    expect(clusterService.advanceMembershipRevision).not.toHaveBeenCalled();
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
   });
 });

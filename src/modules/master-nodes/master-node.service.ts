@@ -64,7 +64,9 @@ class MasterNodeService implements MasterNodeServiceContract {
       lastContactAt: new Date()
     };
 
-    return this.repository.applyRegistration(repositoryInput);
+    return this.clusterService.withAdvancedMembershipRevision((tx) =>
+      this.repository.applyRegistration(repositoryInput, tx)
+    );
   }
 
   async setMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode> {
@@ -82,12 +84,17 @@ class MasterNodeService implements MasterNodeServiceContract {
       return masterNode;
     }
 
-    const transitioned = await this.repository.transitionMode({
-      id,
-      from: masterNode.mode,
-      to: mode,
-      expectedRevision: masterNode.revision
-    });
+    const transitioned = await this.clusterService.withAdvancedMembershipRevision((tx) =>
+      this.repository.transitionMode(
+        {
+          id,
+          from: masterNode.mode,
+          to: mode,
+          expectedRevision: masterNode.revision
+        },
+        tx
+      )
+    );
 
     if (!transitioned) {
       const currentMasterNode = await this.getMasterNodeById(id);
@@ -98,8 +105,6 @@ class MasterNodeService implements MasterNodeServiceContract {
 
       throw new GenericAbortedError('Master node mode transition was aborted by a concurrent change');
     }
-
-    await this.clusterService.advanceMembershipRevision();
 
     const updatedMasterNode = await this.getMasterNodeById(id);
 

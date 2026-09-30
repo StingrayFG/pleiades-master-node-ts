@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericAlreadyExistsError, GenericConflictError, GenericMapperError } from '@/errors/application.errors';
 
-import type { CreateClusterRepositoryInput } from '../cluster.application';
+import type { CreateClusterRepositoryInput, MembershipRevisionTransactionAction } from '../cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from '../cluster.domain';
 import { ClusterRepository } from '../cluster.repository';
 import type { ClusterMembershipSnapshot } from '../cluster.membership-snapshot';
@@ -274,16 +274,10 @@ describe('ClusterRepository', () => {
     await expect(repository.find()).rejects.toBeInstanceOf(GenericMapperError);
   });
 
-  test('advances the cluster membership revision', async () => {
-    delegate.update.mockResolvedValue({
-      ...prismaCluster,
-      membership_revision: 1n
-    });
+  test('advances the cluster membership revision and runs the action in the transaction', async () => {
+    const action = jest.fn<MembershipRevisionTransactionAction<string>>().mockResolvedValue('applied');
 
-    await expect(repository.advanceMembershipRevision()).resolves.toEqual({
-      ...cluster,
-      membershipRevision: 1n
-    });
+    await expect(repository.withAdvancedMembershipRevision(action)).resolves.toBe('applied');
     expect(delegate.update).toHaveBeenCalledWith({
       where: {
         id: CLUSTER_RECORD_ID
@@ -294,6 +288,7 @@ describe('ClusterRepository', () => {
         }
       }
     });
+    expect(action).toHaveBeenCalledWith(transaction as unknown as Prisma.TransactionClient);
   });
 
   test('rejects membership application before the local cluster is registered', async () => {
