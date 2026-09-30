@@ -34,11 +34,6 @@ type ConsensusServiceContract = {
   getConsensusState(): Promise<ConsensusState>;
 
   // sequence
-  advanceLastCommittedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState>;
-  advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState>;
   advanceLastAllocatedSequence(
     sequence: TaskSequence,
     leadershipContext: ConsensusLeadershipContext
@@ -47,6 +42,11 @@ type ConsensusServiceContract = {
     sequence: ConsensusLastSequence,
     leadershipContext: ConsensusLeadershipContext
   ): Promise<ConsensusState>;
+  advanceLastCommittedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState>;
+  advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
@@ -102,55 +102,6 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* sequence methods */
 
-  async advanceLastCommittedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
-
-    verifyCommittedSequenceWithinAllocated(state, sequence);
-
-    const updatedState = await this.repository.advanceLastCommittedSequence({
-      sequence,
-      leadershipContext
-    });
-
-    try {
-      verifyLeadershipSequenceAdvancementNotAborted(
-        updatedState,
-        leadershipContext,
-        sequence,
-        updatedState.lastCommittedSequence
-      );
-    } catch (err) {
-      throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change', {
-        cause: err
-      });
-    }
-
-    return updatedState;
-  }
-
-  async advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState> {
-    const state = await this.getConsensusState();
-
-    verifyAppliedSequenceWithinCommitted(state, sequence);
-
-    const updatedState = await this.repository.advanceLastAppliedSequence({
-      sequence
-    });
-
-    try {
-      verifySequenceAdvancementNotAborted(sequence, updatedState.lastAppliedSequence);
-    } catch (err) {
-      throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change', {
-        cause: err
-      });
-    }
-
-    return updatedState;
-  }
-
   async advanceLastAllocatedSequence(
     sequence: TaskSequence,
     leadershipContext: ConsensusLeadershipContext
@@ -200,6 +151,55 @@ class ConsensusService implements ConsensusServiceContract {
       );
     } catch (err) {
       throw new GenericAbortedError('Matched sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
+    }
+
+    return updatedState;
+  }
+
+  async advanceLastCommittedSequence(
+    sequence: TaskSequence,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+
+    verifyCommittedSequenceWithinAllocated(state, sequence);
+
+    const updatedState = await this.repository.advanceLastCommittedSequence({
+      sequence,
+      leadershipContext
+    });
+
+    try {
+      verifyLeadershipSequenceAdvancementNotAborted(
+        updatedState,
+        leadershipContext,
+        sequence,
+        updatedState.lastCommittedSequence
+      );
+    } catch (err) {
+      throw new GenericAbortedError('Committed sequence advancement was aborted by a concurrent consensus change', {
+        cause: err
+      });
+    }
+
+    return updatedState;
+  }
+
+  async advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState> {
+    const state = await this.getConsensusState();
+
+    verifyAppliedSequenceWithinCommitted(state, sequence);
+
+    const updatedState = await this.repository.advanceLastAppliedSequence({
+      sequence
+    });
+
+    try {
+      verifySequenceAdvancementNotAborted(sequence, updatedState.lastAppliedSequence);
+    } catch (err) {
+      throw new GenericAbortedError('Applied sequence advancement was aborted by a concurrent consensus change', {
         cause: err
       });
     }
