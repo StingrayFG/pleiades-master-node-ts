@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { hasFileSystemErrorCode } from '@/common/predicates/file-system.predicates';
 import { GenericDataLossError, GenericInternalServerError } from '@/errors/application.errors';
 
 import type { IdentityConfig } from './identity.config';
@@ -11,12 +12,6 @@ import { nodeIdSchema, type NodeId } from './identity.domain';
 type IdentityRepositoryContract = {
   findNodeId(): NodeId | null;
   createNodeId(id: NodeId): boolean;
-};
-
-/* helpers */
-
-const hasFileSystemErrorCode = (err: unknown, code: string): err is NodeJS.ErrnoException => {
-  return typeof err === 'object' && err !== null && 'code' in err && err.code === code;
 };
 
 /* repository */

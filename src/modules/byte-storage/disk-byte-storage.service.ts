@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { hasFileSystemErrorCode } from '@/common/predicates/file-system.predicates';
 import {
   GenericBadRequestError,
   GenericDataLossError,
@@ -29,10 +30,6 @@ type DiskByteStorageServiceContract = {
 };
 
 /* helpers */
-
-const hasFileSystemErrorCode = (err: unknown, code: string): err is NodeJS.ErrnoException => {
-  return typeof err === 'object' && err !== null && 'code' in err && err.code === code;
-};
 
 const isStorageCapacityError = (err: unknown): boolean => {
   return hasFileSystemErrorCode(err, 'ENOSPC') || hasFileSystemErrorCode(err, 'EDQUOT');
