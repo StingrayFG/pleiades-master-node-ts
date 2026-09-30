@@ -109,15 +109,16 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             current_epoch: input.leadershipContext.epoch,
             leader_master_id: input.leadershipContext.leaderMasterId,
 
-            last_committed_sequence: {
-              lt: input.sequence
-            },
             last_allocated_sequence: {
               gte: input.sequence
+            },
+            last_committed_sequence: {
+              lt: input.sequence
             }
           },
           data: {
             last_committed_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -145,15 +146,17 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
-            last_applied_sequence: {
-              lt: input.sequence
-            },
+
             last_committed_sequence: {
               gte: input.sequence
+            },
+            last_applied_sequence: {
+              lt: input.sequence
             }
           },
           data: {
             last_applied_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -191,6 +194,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           },
           data: {
             last_allocated_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -222,15 +226,16 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             current_epoch: input.leadershipContext.epoch,
             leader_master_id: input.leadershipContext.leaderMasterId,
 
-            last_matched_sequence: {
-              lt: input.sequence
-            },
             last_allocated_sequence: {
               gte: input.sequence
+            },
+            last_matched_sequence: {
+              lt: input.sequence
             }
           },
           data: {
             last_matched_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -261,6 +266,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         const updated = await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             current_epoch: input.leadershipContext.epoch,
             leader_master_id: input.leadershipContext.leaderMasterId
           },
@@ -268,6 +274,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             last_allocated_sequence: {
               increment: 1
             },
+
             revision: {
               increment: 1
             }
@@ -304,8 +311,10 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         const updated = await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             current_epoch: input.leadershipContext.epoch,
             leader_master_id: input.leadershipContext.leaderMasterId,
+
             last_allocated_sequence: {
               gte: input.sequence
             },
@@ -315,6 +324,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           },
           data: {
             last_allocated_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -329,12 +339,14 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             last_matched_sequence: {
               gt: input.sequence
             }
           },
           data: {
             last_matched_sequence: input.sequence,
+
             revision: {
               increment: 1
             }
@@ -359,6 +371,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       claimResult = await this.prisma.consensusState.updateMany({
         where: {
           id: CONSENSUS_STATE_ID,
+
           leader_master_id: null,
           OR: [
             {
@@ -377,7 +390,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           leader_master_id: input.leadershipContext.leaderMasterId,
           voted_for_master_id: input.leadershipContext.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
+
           last_matched_sequence: input.matchedSequence,
+
           revision: {
             increment: 1
           }
@@ -397,6 +412,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       acceptanceResult = await this.prisma.consensusState.updateMany({
         where: {
           id: CONSENSUS_STATE_ID,
+
           OR: [
             {
               current_epoch: {
@@ -414,7 +430,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           leader_master_id: input.leadershipContext.leaderMasterId,
           voted_for_master_id: input.leadershipContext.leaderMasterId,
           last_leader_contact_at: input.lastLeaderContactAt,
+
           last_matched_sequence: input.matchedSequence,
+
           revision: {
             increment: 1
           }
@@ -434,13 +452,16 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
       releaseResult = await this.prisma.consensusState.updateMany({
         where: {
           id: CONSENSUS_STATE_ID,
+
           current_epoch: input.leadershipContext.epoch,
           leader_master_id: input.leadershipContext.leaderMasterId
         },
         data: {
           leader_master_id: null,
           last_leader_contact_at: null,
+
           last_matched_sequence: input.matchedSequence,
+
           revision: {
             increment: 1
           }
@@ -463,6 +484,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             current_epoch: input.expectedEpoch
           },
           data: {
@@ -470,7 +492,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             leader_master_id: null,
             voted_for_master_id: input.electionStarterMasterNodeId,
             last_leader_contact_at: null,
+
             last_matched_sequence: input.matchedSequence,
+
             revision: {
               increment: 1
             }
@@ -498,6 +522,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             current_epoch: {
               lt: input.epoch
             }
@@ -507,7 +532,9 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
             leader_master_id: null,
             voted_for_master_id: null,
             last_leader_contact_at: null,
+
             last_matched_sequence: input.matchedSequence,
+
             revision: {
               increment: 1
             }
@@ -546,6 +573,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
           await tx.consensusState.updateMany({
             where: {
               id: CONSENSUS_STATE_ID,
+
               current_epoch: {
                 lt: input.epoch
               }
@@ -555,6 +583,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
               leader_master_id: null,
               voted_for_master_id: null,
               last_leader_contact_at: null,
+
               revision: {
                 increment: 1
               }
@@ -587,13 +616,16 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
         await tx.consensusState.updateMany({
           where: {
             id: CONSENSUS_STATE_ID,
+
             current_epoch: input.epoch,
             leader_master_id: null,
             voted_for_master_id: null,
+
             revision: state.revision
           },
           data: {
             voted_for_master_id: input.electionStarterMasterNodeId,
+
             revision: {
               increment: 1
             }

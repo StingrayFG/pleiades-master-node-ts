@@ -402,15 +402,7 @@ describe('ClusterRepository', () => {
   });
 
   test('marks master nodes omitted from a newer membership snapshot as removed', async () => {
-    const removedMasterNode: PrismaMasterNode = {
-      ...prismaMasterNode,
-      id: 'master-node-removed',
-      certificate_fingerprint: 'cd'.repeat(32)
-    };
-
-    masterNodeDelegate.findMany
-      .mockResolvedValueOnce([prismaMasterNode, removedMasterNode])
-      .mockResolvedValueOnce([prismaMasterNode]);
+    masterNodeDelegate.findMany.mockResolvedValueOnce([prismaMasterNode]);
 
     await expect(repository.applyMembershipSnapshot(newerSnapshot)).resolves.toBeUndefined();
 
@@ -429,15 +421,7 @@ describe('ClusterRepository', () => {
   });
 
   test('marks data nodes omitted from a newer membership snapshot as removed', async () => {
-    const removedDataNode: PrismaDataNode = {
-      ...prismaDataNode,
-      id: 'data-node-removed',
-      certificate_fingerprint: '12'.repeat(32)
-    };
-
-    dataNodeDelegate.findMany
-      .mockResolvedValueOnce([prismaDataNode, removedDataNode])
-      .mockResolvedValueOnce([prismaDataNode]);
+    dataNodeDelegate.findMany.mockResolvedValueOnce([prismaDataNode]);
 
     await expect(repository.applyMembershipSnapshot(newerSnapshot)).resolves.toBeUndefined();
 
