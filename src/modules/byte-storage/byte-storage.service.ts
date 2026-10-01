@@ -158,7 +158,8 @@ class ByteStorageService implements ByteStorageServiceContract {
       await this.diskService.delete(mapByteStorageObjectToByteStorageReference(object));
       await this.repository.deleteByIdIfState(id, 'deleting');
     } catch {
-      // ignore transient cleanup failures here; the row remains marked as deleting for later recovery.
+      // ignore transient cleanup failures here;
+      // the row remains marked as deleting for later recovery.
     }
   }
 

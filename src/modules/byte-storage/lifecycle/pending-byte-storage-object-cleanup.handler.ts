@@ -51,9 +51,6 @@ class PendingByteStorageObjectCleanupHandler {
       return;
     }
 
-    // Claim the stale object before cleanup. The deletion worker removes its
-    // payload after the deletion grace period, so an in-flight store can finish
-    // observing the lost activation race without having its file removed here.
     await this.repository.transitionState({
       id: object.id,
       from: 'pending',

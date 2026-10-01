@@ -65,8 +65,8 @@ class DeletingByteStorageObjectCleanupHandler {
         id: object.id
       };
 
-      // move a failed candidate behind older untouched rows. Its updated
-      // timestamp also provides the configured delay before the next retry.
+      // refresh the failed candidate's timestamp so that it gets processed again only
+      // after the older candidates are handled and the configured delay has passed
       await this.repository.touchDeletionCandidate(touchDeletionCandidateInput);
 
       throw err;

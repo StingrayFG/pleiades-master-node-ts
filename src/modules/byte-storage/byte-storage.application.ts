@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { byteStorageIdSchema, byteStorageObjectStateSchema, byteStorageReferenceSchema } from './byte-storage.domain';
 
-/* repository schemas */
+/* schemas */
 
 export const createByteStorageObjectRepositoryInputSchema = byteStorageReferenceSchema.extend({
   state: byteStorageObjectStateSchema
@@ -29,7 +29,7 @@ export const listDeletingCleanupCandidatesRepositoryInputSchema = z.object({
   limit: z.number().int().positive()
 });
 
-/* repository types */
+/* types */
 
 export type CreateByteStorageObjectRepositoryInput = z.infer<typeof createByteStorageObjectRepositoryInputSchema>;
 export type TransitionByteStorageObjectStateRepositoryInput = z.infer<
