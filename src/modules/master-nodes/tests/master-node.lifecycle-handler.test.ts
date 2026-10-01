@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecycle/election.lifecycle-handler';
+import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 
 import { MasterNodeLifecycleHandler } from '../lifecycle/master-node.lifecycle-handler';
 import type { MasterNodeReplicationHandlerContract } from '../master-node.replication-handler';
@@ -33,7 +33,7 @@ const consensusState: ConsensusState = {
 
 describe('MasterNodeLifecycleHandler', () => {
   let consensusService: jest.Mocked<ConsensusServiceContract>;
-  let electionService: jest.Mocked<ElectionServiceContract>;
+  let leadershipService: jest.Mocked<LeadershipServiceContract>;
   let electionLifecycleHandler: jest.Mocked<ElectionLifecycleHandlerContract>;
   let replicationHandler: jest.Mocked<MasterNodeReplicationHandlerContract>;
   let handler: MasterNodeLifecycleHandler;
@@ -42,13 +42,9 @@ describe('MasterNodeLifecycleHandler', () => {
     consensusService = {
       getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>().mockResolvedValue(consensusState)
     } as unknown as jest.Mocked<ConsensusServiceContract>;
-    electionService = {
-      requestVote: jest.fn<ElectionServiceContract['requestVote']>(),
-      recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>(),
-      runElection: jest.fn<ElectionServiceContract['runElection']>(),
-      broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>(),
-      evaluateCommitment: jest.fn<ElectionServiceContract['evaluateCommitment']>().mockResolvedValue()
-    };
+    leadershipService = {
+      broadcastLeaderHeartbeat: jest.fn<LeadershipServiceContract['broadcastLeaderHeartbeat']>().mockResolvedValue()
+    } as unknown as jest.Mocked<LeadershipServiceContract>;
     electionLifecycleHandler = {
       run: jest.fn<ElectionLifecycleHandlerContract['run']>()
     };
@@ -58,7 +54,7 @@ describe('MasterNodeLifecycleHandler', () => {
 
     handler = new MasterNodeLifecycleHandler(
       consensusService,
-      electionService,
+      leadershipService,
       electionLifecycleHandler,
       replicationHandler,
       selfMasterNodeId
@@ -74,7 +70,7 @@ describe('MasterNodeLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(electionService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
+    expect(leadershipService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
     expect(replicationHandler.run).not.toHaveBeenCalled();
     expect(electionLifecycleHandler.run).not.toHaveBeenCalled();
   });
@@ -93,7 +89,23 @@ describe('MasterNodeLifecycleHandler', () => {
 
     expect(calls).toEqual(['replication', 'election']);
     expect(electionLifecycleHandler.run).toHaveBeenCalledWith(now);
-    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
+    expect(leadershipService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
+  });
+
+  test('broadcasts a heartbeat when the follower lifecycle wins an election', async () => {
+    consensusService.getConsensusState
+      .mockResolvedValueOnce(consensusState)
+      .mockResolvedValueOnce({
+        ...consensusState,
+        leaderMasterId: selfMasterNodeId,
+        votedForMasterId: selfMasterNodeId
+      });
+
+    await handler.run(now);
+
+    expect(replicationHandler.run).toHaveBeenCalled();
+    expect(electionLifecycleHandler.run).toHaveBeenCalledWith(now);
+    expect(leadershipService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
   });
 
   test('checks the election deadline even when follower replication fails', async () => {

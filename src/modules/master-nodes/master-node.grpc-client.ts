@@ -15,7 +15,8 @@ import {
 } from '@/gen/proto/master/v1/master';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import { parseClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot.serializer';
-import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
+import type { RequestVoteResult } from '@/modules/election/election.application';
+import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
 import { createDefaultGrpcCallOptions } from '@/transports/grpc/client/grpc-client.options';

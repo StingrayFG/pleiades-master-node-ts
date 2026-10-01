@@ -12,6 +12,14 @@ export const isMasterNodeEligibleForElection = (masterNode: MasterNode): boolean
   return masterNode.state === 'active' && masterNode.mode === 'serving';
 };
 
+export const isSelfMasterNodeEligibleForElection = (selfMasterNode: MasterNode | undefined): boolean => {
+  return (
+    selfMasterNode !== undefined &&
+    isMasterNodeVotingMember(selfMasterNode) &&
+    isMasterNodeEligibleForElection(selfMasterNode)
+  );
+};
+
 export const resolveElectionQuorumSize = (voterCount: number): number => {
   return Math.floor(voterCount / 2) + 1;
 };

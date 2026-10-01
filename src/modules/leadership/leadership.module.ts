@@ -2,62 +2,60 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
+import type { TaskApplyHandlerContract } from '@/modules/tasks/task.apply-handler';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
-import type { ElectionConfig } from './election.config';
-import { ElectionService } from './election.service';
-import { ElectionLifecycleHandler } from './lifecycle/election.lifecycle-handler';
+import type { LeadershipConfig } from './leadership.config';
+import { LeadershipService } from './leadership.service';
+import { LeadershipCommitmentHandler } from './lifecycle/leadership.commitment-handler';
 
 /* contract */
 
-type ElectionModuleDependencies = {
+type LeadershipModuleDependencies = {
   consensusService: ConsensusServiceContract;
   masterNodeService: MasterNodeServiceContract;
   masterNodeGrpcClient: MasterNodeGrpcClientContract;
   taskService: TaskServiceContract;
+  taskApplyHandler: TaskApplyHandlerContract;
   selfMasterNodeId: MasterNodeId;
-  config: ElectionConfig;
+  config: LeadershipConfig;
 };
 
-type ElectionModule = {
-  service: ElectionService;
-  lifecycleHandler: ElectionLifecycleHandler;
+type LeadershipModule = {
+  service: LeadershipService;
+  commitmentHandler: LeadershipCommitmentHandler;
 };
 
 /* module */
 
-const createElectionModule = ({
+const createLeadershipModule = ({
   consensusService,
   masterNodeService,
   masterNodeGrpcClient,
   taskService,
+  taskApplyHandler,
   selfMasterNodeId,
   config
-}: ElectionModuleDependencies): ElectionModule => {
-  const service = new ElectionService(
+}: LeadershipModuleDependencies): LeadershipModule => {
+  const service = new LeadershipService(
     consensusService,
     masterNodeService,
     masterNodeGrpcClient,
     taskService,
+    taskApplyHandler,
     selfMasterNodeId,
     config
   );
 
-  const lifecycleHandler = new ElectionLifecycleHandler(
-    consensusService,
-    service,
-    masterNodeService,
-    selfMasterNodeId,
-    config
-  );
+  const commitmentHandler = new LeadershipCommitmentHandler(service);
 
   return {
     service,
-    lifecycleHandler
+    commitmentHandler
   };
 };
 
 /* exports */
 
-export { createElectionModule };
-export type { ElectionModule, ElectionModuleDependencies };
+export { createLeadershipModule };
+export type { LeadershipModule, LeadershipModuleDependencies };

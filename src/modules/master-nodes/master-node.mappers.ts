@@ -18,12 +18,11 @@ import {
   type RecordLeaderHeartbeatResponse,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
+import { requestVoteResultSchema, type RequestVoteResult } from '@/modules/election/election.application';
 import {
   recordLeaderHeartbeatResultSchema,
-  requestVoteResultSchema,
-  type RecordLeaderHeartbeatResult,
-  type RequestVoteResult
-} from '@/modules/election/election.application';
+  type RecordLeaderHeartbeatResult
+} from '@/modules/leadership/leadership.application';
 import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
 
 import {

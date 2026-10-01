@@ -13,6 +13,7 @@ import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { ElectionServiceContract } from '@/modules/election/election.service';
+import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -147,15 +148,18 @@ const createElectionServiceMock = (): jest.Mocked<ElectionServiceContract> => {
       epoch: consensusState.currentEpoch,
       voteGranted: false
     }),
-    recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>().mockResolvedValue({
+    runElection: jest.fn<ElectionServiceContract['runElection']>()
+  };
+};
+
+const createLeadershipServiceMock = (): jest.Mocked<LeadershipServiceContract> => {
+  return {
+    recordLeaderHeartbeat: jest.fn<LeadershipServiceContract['recordLeaderHeartbeat']>().mockResolvedValue({
       epoch: consensusState.currentEpoch,
       lastMatchedSequence: consensusState.lastMatchedSequence,
       accepted: true
-    }),
-    runElection: jest.fn<ElectionServiceContract['runElection']>(),
-    broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>(),
-    evaluateCommitment: jest.fn<ElectionServiceContract['evaluateCommitment']>().mockResolvedValue()
-  };
+    })
+  } as unknown as jest.Mocked<LeadershipServiceContract>;
 };
 
 const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> => {
@@ -171,6 +175,7 @@ describe('MasterNodeInternodeService', () => {
   let taskService: jest.Mocked<TaskServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
   let electionService: jest.Mocked<ElectionServiceContract>;
+  let leadershipService: jest.Mocked<LeadershipServiceContract>;
   let clusterService: jest.Mocked<ClusterServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let service: MasterNodeInternodeService;
@@ -179,12 +184,14 @@ describe('MasterNodeInternodeService', () => {
     taskService = createTaskServiceMock();
     consensusService = createConsensusServiceMock();
     electionService = createElectionServiceMock();
+    leadershipService = createLeadershipServiceMock();
     clusterService = createClusterServiceMock();
     masterNodeService = createMasterNodeServiceMock();
     service = new MasterNodeInternodeService(
       taskService,
       consensusService,
       electionService,
+      leadershipService,
       selfMasterNodeId,
       selfMasterNodeSessionId,
       clusterService,
@@ -283,7 +290,7 @@ describe('MasterNodeInternodeService', () => {
       accepted: true
     });
 
-    expect(electionService.recordLeaderHeartbeat).toHaveBeenCalledWith({
+    expect(leadershipService.recordLeaderHeartbeat).toHaveBeenCalledWith({
       leaderMasterNodeId: callerMasterNodeId,
       epoch: 3n,
       lastCommittedSequence: 4n
@@ -304,7 +311,7 @@ describe('MasterNodeInternodeService', () => {
       })
     ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
 
-    expect(electionService.recordLeaderHeartbeat).not.toHaveBeenCalled();
+    expect(leadershipService.recordLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
   test('rejects a leader heartbeat when the authenticated record does not match the caller id', async () => {
@@ -321,7 +328,7 @@ describe('MasterNodeInternodeService', () => {
       })
     ).rejects.toBeInstanceOf(GenericForbiddenError);
 
-    expect(electionService.recordLeaderHeartbeat).not.toHaveBeenCalled();
+    expect(leadershipService.recordLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
   test('rejects registration from a different cluster', async () => {

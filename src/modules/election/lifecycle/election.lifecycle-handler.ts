@@ -50,7 +50,8 @@ class ElectionLifecycleHandler implements ElectionLifecycleHandlerContract {
       return;
     }
 
-    // follower-only election logic
+    // follower-only election logic next
+
     this.synchronizeElectionDeadline(consensusState, now);
 
     if (this.electionDeadlineAtMs !== null && now.getTime() < this.electionDeadlineAtMs) {

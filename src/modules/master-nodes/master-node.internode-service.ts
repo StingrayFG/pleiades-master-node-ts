@@ -13,7 +13,9 @@ import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { RecordLeaderHeartbeatResult, RequestVoteResult } from '@/modules/election/election.application';
+import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
+import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
+import type { RequestVoteResult } from '@/modules/election/election.application';
 import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -55,6 +57,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
     private readonly electionService: ElectionServiceContract,
+    private readonly leadershipService: LeadershipServiceContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly selfMasterNodeSessionId: MasterNodeSessionId,
     private readonly clusterService: ClusterServiceContract,
@@ -211,7 +214,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       throw new GenericFailedPreconditionError('Calling master node is not eligible to serve as the cluster leader');
     }
 
-    return this.electionService.recordLeaderHeartbeat({
+    return this.leadershipService.recordLeaderHeartbeat({
       leaderMasterNodeId: leader.id,
       epoch: input.epoch,
       lastCommittedSequence: input.lastCommittedSequence

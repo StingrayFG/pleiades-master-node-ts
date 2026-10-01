@@ -1,8 +1,8 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
-import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecycle/election.lifecycle-handler';
+import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 
 import type { MasterNodeId } from '../master-node.domain';
 import type { MasterNodeReplicationHandlerContract } from '../master-node.replication-handler';
@@ -18,7 +18,7 @@ type MasterNodeLifecycleHandlerContract = {
 class MasterNodeLifecycleHandler implements MasterNodeLifecycleHandlerContract {
   constructor(
     private readonly consensusService: ConsensusServiceContract,
-    private readonly electionService: ElectionServiceContract,
+    private readonly leadershipService: LeadershipServiceContract,
     private readonly electionLifecycleHandler: ElectionLifecycleHandlerContract,
     private readonly replicationHandler: MasterNodeReplicationHandlerContract,
     private readonly selfMasterNodeId: MasterNodeId
@@ -28,11 +28,19 @@ class MasterNodeLifecycleHandler implements MasterNodeLifecycleHandlerContract {
     const consensusState = await this.consensusService.getConsensusState();
 
     if (consensusState.leaderMasterId === this.selfMasterNodeId) {
-      await this.electionService.broadcastLeaderHeartbeat(now);
+      await this.leadershipService.broadcastLeaderHeartbeat(now);
       return;
     }
 
     await this.runFollowerLifecycle(now);
+
+    // a successful election inside the follower lifecycle makes this node the leader;
+    // announce it immediately instead of waiting for the next tick
+    const updatedState = await this.consensusService.getConsensusState();
+
+    if (updatedState.leaderMasterId === this.selfMasterNodeId) {
+      await this.leadershipService.broadcastLeaderHeartbeat(now);
+    }
   }
 
   private async runFollowerLifecycle(now: Date): Promise<void> {

@@ -21,6 +21,8 @@ import { createConsensusModule } from '@/modules/consensus/consensus.module';
 import { createDataNodeModule } from '@/modules/data-nodes/data-node.module';
 import { electionConfig } from '@/modules/election/election.config';
 import { createElectionModule } from '@/modules/election/election.module';
+import { leadershipConfig } from '@/modules/leadership/leadership.config';
+import { createLeadershipModule } from '@/modules/leadership/leadership.module';
 import type { IdentityConfig } from '@/modules/identity/identity.config';
 import { createIdentityModule } from '@/modules/identity/identity.module';
 import { createMasterNodeInternodeModule } from '@/modules/master-nodes/master-node.internode-module';
@@ -49,6 +51,7 @@ type CompositionRoot = {
   masterNodeInternodeModule: ReturnType<typeof createMasterNodeInternodeModule>;
   consensusModule: ReturnType<typeof createConsensusModule>;
   electionModule: ReturnType<typeof createElectionModule>;
+  leadershipModule: ReturnType<typeof createLeadershipModule>;
   bootstrapModule: ReturnType<typeof createBootstrapModule>;
   byteStorageModule: ReturnType<typeof createByteStorageModule>;
   taskModule: ReturnType<typeof createTaskModule>;
@@ -125,9 +128,18 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     masterNodeService: masterNodeModule.service,
     masterNodeGrpcClient: masterNodeModule.grpcClient,
     taskService: taskModule.service,
-    taskApplyHandler: taskModule.applyHandler,
     selfMasterNodeId,
     config: electionConfig
+  });
+
+  const leadershipModule = createLeadershipModule({
+    consensusService: consensusModule.service,
+    masterNodeService: masterNodeModule.service,
+    masterNodeGrpcClient: masterNodeModule.grpcClient,
+    taskService: taskModule.service,
+    taskApplyHandler: taskModule.applyHandler,
+    selfMasterNodeId,
+    config: leadershipConfig
   });
 
   const masterNodeInternodeModule = createMasterNodeInternodeModule({
@@ -135,6 +147,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     consensusService: consensusModule.service,
     electionService: electionModule.service,
     electionLifecycleHandler: electionModule.lifecycleHandler,
+    leadershipService: leadershipModule.service,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService: clusterModule.service,
@@ -209,7 +222,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     taskApplyHandler: taskModule.applyHandler,
     taskLifecycleHandler: taskModule.lifecycleHandler,
     masterNodeLifecycleHandler: masterNodeInternodeModule.lifecycleHandler,
-    electionCommitmentHandler: electionModule.commitmentHandler,
+    leadershipCommitmentHandler: leadershipModule.commitmentHandler,
     byteStorageLifecycleHandler: byteStorageModule.lifecycleHandler,
     dataNodeLifecycleHandler: dataNodeModule.lifecycleHandler,
     objectVersionPartLifecycleHandler: objectVersionPartModule.lifecycleHandler,
@@ -233,6 +246,7 @@ const createCompositionRoot = ({ logger }: CreateCompositionRootInput): Composit
     masterNodeInternodeModule,
     consensusModule,
     electionModule,
+    leadershipModule,
     bootstrapModule,
     byteStorageModule,
     taskModule,

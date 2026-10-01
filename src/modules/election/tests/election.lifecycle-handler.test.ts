@@ -65,10 +65,7 @@ describe('ElectionLifecycleHandler', () => {
     } as unknown as jest.Mocked<ConsensusServiceContract>;
     electionService = {
       requestVote: jest.fn<ElectionServiceContract['requestVote']>(),
-      recordLeaderHeartbeat: jest.fn<ElectionServiceContract['recordLeaderHeartbeat']>(),
-      runElection: jest.fn<ElectionServiceContract['runElection']>().mockResolvedValue(false),
-      broadcastLeaderHeartbeat: jest.fn<ElectionServiceContract['broadcastLeaderHeartbeat']>(),
-      evaluateCommitment: jest.fn<ElectionServiceContract['evaluateCommitment']>().mockResolvedValue()
+      runElection: jest.fn<ElectionServiceContract['runElection']>().mockResolvedValue(false)
     };
     masterNodeService = {
       listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue([selfMasterNode])
@@ -102,7 +99,6 @@ describe('ElectionLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
     expect(electionService.runElection).not.toHaveBeenCalled();
   });
 
@@ -112,7 +108,6 @@ describe('ElectionLifecycleHandler', () => {
     await handler.run(new Date(now.getTime() + 10_000));
 
     expect(electionService.runElection).not.toHaveBeenCalled();
-    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
   test('does not run follower election logic for an ineligible current leader', async () => {
@@ -125,7 +120,6 @@ describe('ElectionLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(electionService.broadcastLeaderHeartbeat).not.toHaveBeenCalled();
     expect(electionService.runElection).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecycle/election.lifecycle-handler';
+import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import {
@@ -23,6 +24,7 @@ type MasterNodeInternodeModuleDependencies = {
   consensusService: ConsensusServiceContract;
   electionService: ElectionServiceContract;
   electionLifecycleHandler: ElectionLifecycleHandlerContract;
+  leadershipService: LeadershipServiceContract;
   selfMasterNodeId: MasterNodeId;
   selfMasterNodeSessionId: MasterNodeSessionId;
   clusterService: ClusterServiceContract;
@@ -44,6 +46,7 @@ const createMasterNodeInternodeModule = ({
   consensusService,
   electionService,
   electionLifecycleHandler,
+  leadershipService,
   selfMasterNodeId,
   selfMasterNodeSessionId,
   clusterService,
@@ -55,6 +58,7 @@ const createMasterNodeInternodeModule = ({
     taskService,
     consensusService,
     electionService,
+    leadershipService,
     selfMasterNodeId,
     selfMasterNodeSessionId,
     clusterService,
@@ -75,7 +79,7 @@ const createMasterNodeInternodeModule = ({
 
   const lifecycleHandler = new MasterNodeLifecycleHandler(
     consensusService,
-    electionService,
+    leadershipService,
     electionLifecycleHandler,
     replicationHandler,
     selfMasterNodeId
