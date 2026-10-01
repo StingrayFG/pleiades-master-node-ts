@@ -7,7 +7,7 @@ import type {
   UntypedServiceImplementation
 } from '@grpc/grpc-js';
 
-import { toGrpcServerError, type ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
+import { toGrpcServerError, type ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error.handler';
 
 /* types */
 

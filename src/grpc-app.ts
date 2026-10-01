@@ -9,7 +9,7 @@ import { MasterService } from '@/gen/proto/master/v1/master';
 import { DataNodeMembershipService } from '@/gen/proto/membership/v1/membership';
 
 // grpc infrastructure
-import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error-handler';
+import type { ToGrpcServerErrorOptions } from '@/transports/grpc/handlers/error.handler';
 import { registerGrpcServiceWithErrorHandling } from '@/transports/grpc/server/grpc-service';
 
 // module grpc surfaces
