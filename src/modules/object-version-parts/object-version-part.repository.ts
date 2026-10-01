@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
-import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
+import { isUniqueConstraintError } from '@/database/prisma/error.predicates';
 import { GenericFailedPreconditionError } from '@/errors/application.errors';
 
 import type { BlobId } from '@/modules/blobs/blob.domain';

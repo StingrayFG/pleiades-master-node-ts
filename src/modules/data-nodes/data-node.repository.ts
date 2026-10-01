@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
-import { isUniqueConstraintError } from '@/database/prisma/error-predicates';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
+import { isUniqueConstraintError } from '@/database/prisma/error.predicates';
 import { GenericConflictError } from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 

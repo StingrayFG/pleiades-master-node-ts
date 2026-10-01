@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
 
 import type {
   CreateByteStorageObjectRepositoryInput,

@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
 import { GenericAlreadyExistsError } from '@/errors/application.errors';
 import type { DataNode, DataNodeId } from '@/modules/data-nodes/data-node.domain';
 import { mapPrismaDataNodeToDomainDataNode } from '@/modules/data-nodes/data-node.mappers';

@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
 import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 
 import type {
@@ -16,7 +16,10 @@ type MasterNodeRepositoryContract = {
   listAll(): Promise<MasterNode[]>;
   findById(id: MasterNodeId): Promise<MasterNode | null>;
   findMemberById(id: MasterNodeId): Promise<MasterNode | null>;
-  applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput, tx?: Prisma.TransactionClient): Promise<MasterNode>;
+  applyRegistration(
+    input: ApplyMasterNodeRegistrationRepositoryInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<MasterNode>;
   transitionMode(input: TransitionMasterNodeModeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean>;
 };
 
@@ -81,7 +84,10 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
   }
 
-  async applyRegistration(input: ApplyMasterNodeRegistrationRepositoryInput, tx?: Prisma.TransactionClient): Promise<MasterNode> {
+  async applyRegistration(
+    input: ApplyMasterNodeRegistrationRepositoryInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<MasterNode> {
     let masterNode;
 
     try {
@@ -135,7 +141,10 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     return mapPrismaMasterNodeToDomainMasterNode(masterNode);
   }
 
-  async transitionMode(input: TransitionMasterNodeModeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean> {
+  async transitionMode(
+    input: TransitionMasterNodeModeRepositoryInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<boolean> {
     let transitionResult;
 
     try {

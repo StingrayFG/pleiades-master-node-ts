@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error-mapper';
+import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/prisma/error.mapper';
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
