@@ -15,6 +15,11 @@ export const consensusLastSequenceSchema = z.bigint().min(-1n);
 
 /* object schemas */
 
+export const consensusLogPositionSchema = z.object({
+  epoch: consensusEpochSchema,
+  sequence: consensusLastSequenceSchema
+});
+
 export const consensusStateSchema = z
   .object({
     id: consensusStateIdSchema,
@@ -59,4 +64,5 @@ export type ConsensusLastSequence = z.infer<typeof consensusLastSequenceSchema>;
 
 /* object types */
 
+export type ConsensusLogPosition = z.infer<typeof consensusLogPositionSchema>;
 export type ConsensusState = z.infer<typeof consensusStateSchema>;
