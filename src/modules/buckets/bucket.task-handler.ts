@@ -36,7 +36,7 @@ class BucketTaskHandler implements BucketTaskHandlerContract {
       }
 
       // a replayed execution finds the bucket it has already created;
-      // the same name owned by another bucket is a real conflict
+      // the same name owned by another bucket is a real conflict.
       const existingBucket = await this.repository.findByName(task.data.userId, task.data.bucketName);
 
       if (!existingBucket) {
