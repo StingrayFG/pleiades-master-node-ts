@@ -68,6 +68,7 @@ class ClusterRepository implements ClusterRepositoryContract {
     return cluster ? mapPrismaClusterToDomainCluster(cluster) : null;
   }
 
+  // captures local membership as a cluster snapshot.
   async findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null> {
     let snapshot;
 
@@ -133,9 +134,9 @@ class ClusterRepository implements ClusterRepositoryContract {
 
   /* membership methods */
 
-  // the revision bump and the caller's membership mutation share one transaction,
-  // so followers never observe one without the other
-  async withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult> {
+  async withAdvancedMembershipRevision<TResult>(
+    action: MembershipRevisionTransactionAction<TResult>
+  ): Promise<TResult> {
     let result;
 
     try {
@@ -160,6 +161,8 @@ class ClusterRepository implements ClusterRepositoryContract {
     return result;
   }
 
+  // synchronizes local membership with a cluster snapshot.
+  // older revisions are ignored, matching revisions are verified, and newer revisions are applied.
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
     try {
       await this.prisma.$transaction(
@@ -193,8 +196,8 @@ class ClusterRepository implements ClusterRepositoryContract {
 
   /* private methods */
 
-  // only callable from a repository transaction; the revision fence is only
-  // valid while the transaction's repeatable-read view is held
+  // reads and verifies the local cluster within the transaction that evaluates
+  // and applies the snapshot.
   private async requireSnapshotCluster(
     transaction: Prisma.TransactionClient,
     snapshot: ClusterMembershipSnapshot

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { clusterSchema } from './cluster.domain';
 
-/* repository schemas */
+/* schemas */
 
 export const createClusterRepositoryInputSchema = clusterSchema.pick({
   id: true,
@@ -14,5 +14,7 @@ export const createClusterRepositoryInputSchema = clusterSchema.pick({
 
 export type CreateClusterRepositoryInput = z.infer<typeof createClusterRepositoryInputSchema>;
 
-// runs within the membership-revision transaction; all database work must use the provided transaction client.
+// transaction action callbacks use direct types because their Prisma transaction client cannot be schema-derived.
+
+// runs as part of the membership-revision transaction and receives the same transaction client.
 export type MembershipRevisionTransactionAction<TResult> = (tx: Prisma.TransactionClient) => Promise<TResult>;

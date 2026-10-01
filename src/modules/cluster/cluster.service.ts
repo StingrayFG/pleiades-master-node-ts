@@ -121,7 +121,10 @@ class ClusterService implements ClusterServiceContract {
 
   /* membership methods */
 
-  async withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult> {
+  // runs the action in the same transaction that advances the membership revision.
+  async withAdvancedMembershipRevision<TResult>(
+    action: MembershipRevisionTransactionAction<TResult>
+  ): Promise<TResult> {
     await this.getCluster();
 
     return this.repository.withAdvancedMembershipRevision(action);
