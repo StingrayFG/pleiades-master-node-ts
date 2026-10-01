@@ -18,5 +18,7 @@ export const dataNodeBlobWithBytesInputSchema = z.object({
   dataNodeEndpoint: dataNodeEndpointSchema
 });
 
+/* types */
+
 export type DataNodeBlobInput = z.infer<typeof dataNodeBlobInputSchema>;
 export type DataNodeBlobWithBytesInput = z.infer<typeof dataNodeBlobWithBytesInputSchema>;

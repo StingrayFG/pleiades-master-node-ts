@@ -14,8 +14,9 @@ import {
   objectVersionTotalSizeBytesSchema
 } from './object.domain';
 
-/* service schemas */
+/* schemas */
 
+// service
 export const getObjectMetadataInputSchema = z.object({
   userId: userIdSchema,
 
@@ -52,8 +53,7 @@ export const createObjectResultSchema = z.object({
   objectVersion: objectVersionSchema
 });
 
-/* repository schemas */
-
+// repository
 export const listPendingObjectVersionCleanupCandidatesRepositoryInputSchema = z.object({
   updatedBefore: z.date(),
   limit: z.number().int().positive()
@@ -105,12 +105,14 @@ export const deleteObjectVersionIfDeletingAndPartsGoneRepositoryInputSchema = z.
 
 /* types */
 
+// service
 export type GetObjectMetadataInput = z.infer<typeof getObjectMetadataInputSchema>;
 export type GetObjectInput = z.infer<typeof getObjectInputSchema>;
 export type GetObjectResult = z.infer<typeof getObjectResultSchema>;
 export type CreateObjectInput = z.infer<typeof createObjectInputSchema>;
 export type CreateObjectResult = z.infer<typeof createObjectResultSchema>;
 
+// repository
 export type ListPendingObjectVersionCleanupCandidatesRepositoryInput = z.infer<
   typeof listPendingObjectVersionCleanupCandidatesRepositoryInputSchema
 >;

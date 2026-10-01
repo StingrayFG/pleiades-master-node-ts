@@ -20,8 +20,9 @@ import {
   masterNodeStateSchema
 } from './master-node.domain';
 
-/* service schemas */
+/* schemas */
 
+// service
 export const registerMasterNodeInputSchema = z.object({
   id: masterNodeIdSchema,
 
@@ -33,8 +34,7 @@ export const registerMasterNodeInputSchema = z.object({
   endpoint: masterNodeEndpointSchema
 });
 
-/* internode schemas */
-
+// internode
 export const authenticatedMasterNodeCallerSchema = z.object({
   callerMasterNodeId: masterNodeIdSchema,
   callerMasterNodeSessionId: masterNodeSessionIdSchema,
@@ -110,8 +110,7 @@ export const recordLeaderHeartbeatInternodeInputSchema = authenticatedMasterNode
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
-/* client schemas */
-
+// client
 export const fetchMasterInfoClientInputSchema = z.object({
   masterNodeEndpoint: masterNodeEndpointSchema,
   expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema
@@ -172,8 +171,7 @@ export const recordLeaderHeartbeatClientInputSchema = z.object({
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
-/* repository schemas */
-
+// repository
 export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNodeInputSchema.extend({
   lastContactAt: z.date()
 });
@@ -189,7 +187,10 @@ export const transitionMasterNodeModeRepositoryInputSchema = z.object({
 
 /* types */
 
+// service
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
+
+// internode
 export type AuthenticatedMasterNodeCaller = z.infer<typeof authenticatedMasterNodeCallerSchema>;
 export type InternodeTaskEntry = z.infer<typeof internodeTaskEntrySchema>;
 export type FetchMasterInfoInternodeResult = z.infer<typeof fetchMasterInfoInternodeResultSchema>;
@@ -203,6 +204,8 @@ export type FetchTaskPayloadInternodeInput = z.infer<typeof fetchTaskPayloadInte
 export type ForwardTaskInternodeInput = z.infer<typeof forwardTaskInternodeInputSchema>;
 export type RequestVoteInternodeInput = z.infer<typeof requestVoteInternodeInputSchema>;
 export type RecordLeaderHeartbeatInternodeInput = z.infer<typeof recordLeaderHeartbeatInternodeInputSchema>;
+
+// client
 export type FetchMasterInfoClientInput = z.infer<typeof fetchMasterInfoClientInputSchema>;
 export type RegisterMasterNodeClientInput = z.infer<typeof registerMasterNodeClientInputSchema>;
 export type FetchClusterMembershipSnapshotClientInput = z.infer<typeof fetchClusterMembershipSnapshotClientInputSchema>;
@@ -211,6 +214,8 @@ export type FetchTaskPayloadClientInput = z.infer<typeof fetchTaskPayloadClientI
 export type ForwardTaskClientInput = z.infer<typeof forwardTaskClientInputSchema>;
 export type RequestVoteClientInput = z.infer<typeof requestVoteClientInputSchema>;
 export type RecordLeaderHeartbeatClientInput = z.infer<typeof recordLeaderHeartbeatClientInputSchema>;
+
+// repository
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
 >;

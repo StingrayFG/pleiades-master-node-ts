@@ -9,8 +9,9 @@ import {
   dataNodeStateSchema
 } from './data-node.domain';
 
-/* service schemas */
+/* schemas */
 
+// service
 export const registerDataNodeInputSchema = z.object({
   id: dataNodeIdSchema,
 
@@ -31,8 +32,7 @@ export const heartbeatDataNodeInputSchema = z.object({
   healthSnapshot: dataNodeHealthSnapshotSchema
 });
 
-/* repository schemas */
-
+// repository
 export const applyDataNodeRegistrationRepositoryInputSchema = z.object({
   id: dataNodeIdSchema,
 
@@ -83,9 +83,11 @@ export const updateDataNodeStateRepositoryInputSchema = z.object({
 
 /* types */
 
+// service
 export type RegisterDataNodeInput = z.infer<typeof registerDataNodeInputSchema>;
 export type HeartbeatDataNodeInput = z.infer<typeof heartbeatDataNodeInputSchema>;
 
+// repository
 export type ApplyDataNodeRegistrationRepositoryInput = z.infer<typeof applyDataNodeRegistrationRepositoryInputSchema>;
 export type ApplyHeartbeatRepositoryInput = z.infer<typeof applyHeartbeatRepositoryInputSchema>;
 export type RecordDataNodeHealthCheckRepositoryInput = z.infer<typeof recordDataNodeHealthCheckRepositoryInputSchema>;
