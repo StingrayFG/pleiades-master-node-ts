@@ -159,25 +159,37 @@ class TaskService implements TaskServiceContract {
       throw new GenericFailedPreconditionError('Replicated task sequence is not the next allocatable sequence');
     }
 
-    const task = await this.repository.create({
-      id: input.id,
-
-      originMasterNodeId: input.originMasterNodeId,
-      epoch: input.epoch,
-      sequence: input.sequence,
-
-      type: input.type,
-      executionScope: input.executionScope,
-      data: input.data as Prisma.InputJsonValue,
-
-      payloadId: input.payloadId,
-
-      createdAt: input.createdAt,
-      updatedAt: input.createdAt
-    });
-
+    // the payload lands before the entry so the allocated sequence never covers
+    // an entry whose bytes are missing
     await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
-    await this.consensusService.advanceLastAllocatedSequence(input.sequence, leadershipContext);
+
+    // the leader-assigned sequence is claimed and the entry is inserted in one
+    // transaction, so the allocated pointer never covers a missing row either
+    const task = await this.consensusService.withAdvancedLastAllocatedSequence(leadershipContext, (tx, sequence) => {
+      if (sequence !== input.sequence) {
+        throw new GenericAbortedError('Replicated task sequence is no longer the next allocatable sequence');
+      }
+
+      return this.repository.create(
+        {
+          id: input.id,
+
+          originMasterNodeId: input.originMasterNodeId,
+          epoch: input.epoch,
+          sequence,
+
+          type: input.type,
+          executionScope: input.executionScope,
+          data: input.data as Prisma.InputJsonValue,
+
+          payloadId: input.payloadId,
+
+          createdAt: input.createdAt,
+          updatedAt: input.createdAt
+        },
+        tx
+      );
+    });
 
     return task;
   }

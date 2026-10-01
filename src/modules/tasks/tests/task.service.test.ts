@@ -339,20 +339,29 @@ describe('TaskService', () => {
       )
     ).resolves.toBe(task);
 
-    expect(repository.create).toHaveBeenCalledWith({
-      id: task.id,
-      originMasterNodeId: task.originMasterNodeId,
-      epoch: task.epoch,
-      sequence: task.sequence,
-      type: task.type,
-      executionScope: task.executionScope,
-      data: task.data,
-      payloadId: execution.id,
-      createdAt: task.createdAt,
-      updatedAt: task.createdAt
-    });
+    expect(repository.create).toHaveBeenCalledWith(
+      {
+        id: task.id,
+        originMasterNodeId: task.originMasterNodeId,
+        epoch: task.epoch,
+        sequence: task.sequence,
+        type: task.type,
+        executionScope: task.executionScope,
+        data: task.data,
+        payloadId: execution.id,
+        createdAt: task.createdAt,
+        updatedAt: task.createdAt
+      },
+      expect.anything()
+    );
     expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
+    expect(byteStorageService.store.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.create.mock.invocationCallOrder[0]
+    );
+    expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
+      leadershipContext,
+      expect.any(Function)
+    );
   });
 
   test('persists next-sequence history from an older consensus epoch', async () => {
@@ -384,11 +393,12 @@ describe('TaskService', () => {
       expect.objectContaining({
         epoch: historicalTask.epoch,
         sequence: historicalTask.sequence
-      })
+      }),
+      expect.anything()
     );
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(
-      historicalTask.sequence,
-      leadershipContext
+    expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
+      leadershipContext,
+      expect.any(Function)
     );
   });
 
@@ -410,12 +420,12 @@ describe('TaskService', () => {
       )
     ).rejects.toBeInstanceOf(GenericInternalServerError);
 
-    expect(repository.create).toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
     expect(byteStorageService.store).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
+    expect(consensusService.withAdvancedLastAllocatedSequence).not.toHaveBeenCalled();
   });
 
-  test('does not store payloads or advance the sequence when replicated task creation fails', async () => {
+  test('leaves the sequence untouched when replicated task creation fails', async () => {
     const creationError = new GenericAbortedError('Task creation failed');
 
     repository.create.mockRejectedValue(creationError);
@@ -438,7 +448,11 @@ describe('TaskService', () => {
       )
     ).rejects.toBe(creationError);
 
-    expect(byteStorageService.store).not.toHaveBeenCalled();
+    expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, Buffer.from('payload'));
+    expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
+      leadershipContext,
+      expect.any(Function)
+    );
     expect(consensusService.advanceLastAllocatedSequence).not.toHaveBeenCalled();
   });
 
