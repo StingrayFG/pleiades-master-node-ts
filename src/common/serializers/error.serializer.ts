@@ -1,4 +1,4 @@
-import type { ErrorCauseEntry } from '@/errors/error-causes';
+import type { ErrorCauseEntry } from '@/errors/error.causes';
 
 /* types */
 

@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
 import { PartReplicaDeletionHandler } from './part-replica-deletion.handler';
 import { PartReplicaRepairHandler } from './part-replica-repair.handler';

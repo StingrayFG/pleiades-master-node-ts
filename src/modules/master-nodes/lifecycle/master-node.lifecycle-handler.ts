@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecycle/election.lifecycle-handler';
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';

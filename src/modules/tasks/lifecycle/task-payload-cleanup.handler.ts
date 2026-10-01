@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 
 import type { ListPayloadCleanupCandidatesRepositoryInput } from '../task.application';

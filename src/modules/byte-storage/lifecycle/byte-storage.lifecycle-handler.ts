@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
 import { DeletingByteStorageObjectCleanupHandler } from './deleting-byte-storage-object-cleanup.handler';
 import { OrphanedTemporaryFileCleanupHandler } from './orphaned-temporary-file-cleanup.handler';

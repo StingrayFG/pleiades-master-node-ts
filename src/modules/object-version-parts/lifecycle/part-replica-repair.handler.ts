@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
 import type { BlobMetadataWithBytes } from '@/modules/blobs/blob.domain';

@@ -1,5 +1,5 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error-causes';
+import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
 import type { ListPendingCleanupCandidatesRepositoryInput } from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';

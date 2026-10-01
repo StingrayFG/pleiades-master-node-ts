@@ -31,6 +31,8 @@ class BootstrapService implements BootstrapServiceContract {
     private readonly selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'>
   ) {}
 
+  // initializes the first cluster member in joining state, claims initial leadership,
+  // and activates the member only after the leadership claim succeeds.
   async bootstrapAsLeader(): Promise<MasterBootstrapResult> {
     const initialConsensusState = await this.consensusService.getConsensusState();
 
@@ -61,6 +63,8 @@ class BootstrapService implements BootstrapServiceContract {
     };
   }
 
+  // authenticates the target leader, registers this node with its cluster,
+  // applies the resulting membership snapshot, and accepts its leadership context.
   async bootstrapAsFollower(input: BootstrapAsFollowerInput): Promise<MasterBootstrapResult> {
     const initialConsensusState = await this.consensusService.getConsensusState();
 
@@ -85,6 +89,7 @@ class BootstrapService implements BootstrapServiceContract {
       endpoint: this.selfMasterNode.endpoint
     });
 
+    // fetch the snapshot after registration so that it includes this master node.
     const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
       masterNodeEndpoint: input.leaderEndpoint,
       expectedCertificateFingerprint: input.leaderCertificateFingerprint
