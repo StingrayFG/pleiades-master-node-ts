@@ -65,13 +65,13 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
     listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>(),
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>(),
     registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>(),
-    setMasterNodeMode: jest.fn<MasterNodeServiceContract['setMasterNodeMode']>()
+    transitionMasterNodeMode: jest.fn<MasterNodeServiceContract['transitionMasterNodeMode']>()
   };
 
   service.listMasterNodes.mockResolvedValue([]);
   service.getMasterNodeById.mockResolvedValue(masterNode);
   service.registerMasterNode.mockResolvedValue(masterNode);
-  service.setMasterNodeMode.mockResolvedValue(masterNode);
+  service.transitionMasterNodeMode.mockResolvedValue(masterNode);
 
   return service;
 };
@@ -181,7 +181,7 @@ describe('master node HTTP routes', () => {
       mode: 'draining',
       revision: 2n
     };
-    service.setMasterNodeMode.mockResolvedValue(drainingMasterNode);
+    service.transitionMasterNodeMode.mockResolvedValue(drainingMasterNode);
 
     const response = await app.inject({
       method: 'PUT',
@@ -197,7 +197,7 @@ describe('master node HTTP routes', () => {
       mode: 'draining',
       revision: '2'
     });
-    expect(service.setMasterNodeMode).toHaveBeenCalledWith(masterNode.id, 'draining');
+    expect(service.transitionMasterNodeMode).toHaveBeenCalledWith(masterNode.id, 'draining');
   });
 
   test('rejects an invalid master node mode before calling the service', async () => {
@@ -213,12 +213,12 @@ describe('master node HTTP routes', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().code).toBe('BAD_REQUEST');
-    expect(service.setMasterNodeMode).not.toHaveBeenCalled();
+    expect(service.transitionMasterNodeMode).not.toHaveBeenCalled();
   });
 
   test('returns conflict when a follower receives a mode change', async () => {
     app = await createTestApp(service);
-    service.setMasterNodeMode.mockRejectedValue(
+    service.transitionMasterNodeMode.mockRejectedValue(
       new GenericFailedPreconditionError('This node is not the cluster leader')
     );
 

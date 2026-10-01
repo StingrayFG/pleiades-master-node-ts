@@ -214,7 +214,7 @@ describe('MasterNodeService', () => {
 
     repository.findMemberById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
 
-    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
     expect(repository.transitionMode).toHaveBeenCalledWith(
       {
         id: masterNodeId,
@@ -230,7 +230,7 @@ describe('MasterNodeService', () => {
   test('returns an already matching master node without another transition', async () => {
     repository.findMemberById.mockResolvedValue(masterNode);
 
-    await expect(service.setMasterNodeMode(masterNodeId, 'serving')).resolves.toBe(masterNode);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'serving')).resolves.toBe(masterNode);
     expect(repository.transitionMode).not.toHaveBeenCalled();
     expect(clusterService.withAdvancedMembershipRevision).not.toHaveBeenCalled();
   });
@@ -241,7 +241,7 @@ describe('MasterNodeService', () => {
       leaderMasterId: 'master-node-fedcba654321'
     });
 
-    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
     expect(repository.findMemberById).not.toHaveBeenCalled();
@@ -258,7 +258,7 @@ describe('MasterNodeService', () => {
     repository.findMemberById.mockResolvedValueOnce(masterNode).mockResolvedValueOnce(drainingMasterNode);
     repository.transitionMode.mockResolvedValue(false);
 
-    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
   });
 
@@ -266,7 +266,7 @@ describe('MasterNodeService', () => {
     repository.findMemberById.mockResolvedValue(masterNode);
     repository.transitionMode.mockResolvedValue(false);
 
-    await expect(service.setMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
   });
 });

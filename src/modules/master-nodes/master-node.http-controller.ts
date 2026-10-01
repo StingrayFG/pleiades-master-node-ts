@@ -63,7 +63,7 @@ class MasterNodeController implements MasterNodeHttpControllerContract {
   ): Promise<void> {
     const masterNodeId = req.params.masterNodeId;
 
-    const masterNode = await this.service.setMasterNodeMode(masterNodeId, req.body.mode);
+    const masterNode = await this.service.transitionMasterNodeMode(masterNodeId, req.body.mode);
 
     const res = mapDomainMasterNodeToHttpMasterNodeResponse(masterNode);
 

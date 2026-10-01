@@ -17,7 +17,7 @@ type MasterNodeServiceContract = {
   listMasterNodes(): Promise<MasterNode[]>;
   getMasterNodeById(id: MasterNodeId): Promise<MasterNode>;
   registerMasterNode(input: RegisterMasterNodeInput): Promise<MasterNode>;
-  setMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode>;
+  transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode>;
 };
 
 /* service */
@@ -69,7 +69,7 @@ class MasterNodeService implements MasterNodeServiceContract {
     );
   }
 
-  async setMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode> {
+  async transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode> {
     const consensusState = await this.consensusService.getConsensusState();
 
     if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
