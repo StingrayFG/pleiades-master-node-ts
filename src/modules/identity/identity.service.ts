@@ -66,13 +66,7 @@ class IdentityService implements IdentityServiceContract {
   /* private methods */
 
   private generateNodeId(): NodeId {
-    let randomIdPart;
-
-    try {
-      randomIdPart = randomBytes(NODE_ID_RANDOM_SIZE_BYTES).toString('hex');
-    } catch (err) {
-      throw new GenericInternalServerError('Failed to generate the node ID', { cause: err });
-    }
+    const randomIdPart = randomBytes(NODE_ID_RANDOM_SIZE_BYTES).toString('hex');
 
     return nodeIdSchema.parse(`${NODE_ID_PREFIX}-${randomIdPart}`);
   }
