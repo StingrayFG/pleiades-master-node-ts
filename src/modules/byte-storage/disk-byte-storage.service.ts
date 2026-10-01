@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { hasFileSystemErrorCode } from '@/common/predicates/file-system.predicates';
+import { hasFileSystemCapacityError, hasFileSystemErrorCode } from '@/common/predicates/file-system.predicates';
 import {
   GenericBadRequestError,
   GenericDataLossError,
@@ -27,12 +27,6 @@ type DiskByteStorageServiceContract = {
   retrieve(reference: ByteStorageReference): Promise<Buffer>;
   delete(reference: ByteStorageReference): Promise<void>;
   deleteTemporaryFiles(olderThan: Date): Promise<void>;
-};
-
-/* helpers */
-
-const isStorageCapacityError = (err: unknown): boolean => {
-  return hasFileSystemErrorCode(err, 'ENOSPC') || hasFileSystemErrorCode(err, 'EDQUOT');
 };
 
 /* service */
@@ -64,7 +58,7 @@ class DiskByteStorageService implements DiskByteStorageServiceContract {
     } catch (err) {
       await unlink(temporaryFilePath).catch(() => undefined);
 
-      if (isStorageCapacityError(err)) {
+      if (hasFileSystemCapacityError(err)) {
         throw new GenericResourceExhaustedError('Byte storage capacity was exhausted', { cause: err });
       }
 
