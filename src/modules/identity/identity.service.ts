@@ -47,7 +47,7 @@ class IdentityService implements IdentityServiceContract {
       return nodeId;
     }
 
-    // another process won the creation race, so use the node ID it persisted
+    // another process won the creation race, so use the node ID it persisted.
     const concurrentlyCreatedNodeId = this.repository.findNodeId();
 
     if (!concurrentlyCreatedNodeId) {
