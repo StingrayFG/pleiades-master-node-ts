@@ -21,7 +21,13 @@ import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { TaskApplyHandlerContract } from './task.apply-handler';
 import type { ListTasksInSequenceRangeInput, ReplicateTaskInput } from './task.application';
 import type { TaskConfig } from './task.config';
-import { isDehydratedTaskDefinition, type TaskDefinition, type TaskDefinitionHandler } from './task.definition';
+import {
+  isDehydratedTaskDefinition,
+  type TaskDefinition,
+  type TaskDefinitionData,
+  type TaskDefinitionHandler,
+  type TaskDefinitionResult
+} from './task.definition';
 import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence, TaskType } from './task.domain';
 import type { TaskForwarderContract } from './task.forwarder';
 import type { TaskHandlerRegistryContract } from './task.handler-registry';
@@ -50,27 +56,21 @@ type TaskServiceContract = {
   getTaskDefinitionByType(type: TaskType): TaskDefinition;
 
   // submission
-  submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
-    data: TData
+  submitTask<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>
   ): Promise<PersistedTask>;
 
   // execution
-  executeTaskByDefinition<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
-    data: TData
-  ): Promise<TResult>;
-  executeTaskByDefinitionAndTargets<
-    TType extends string,
-    TData,
-    TPersistedData,
-    TScope extends TaskExecutionScope,
-    TResult
-  >(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
-    data: TData,
+  executeTaskByDefinition<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>
+  ): Promise<TaskDefinitionResult<TDefinition>>;
+  executeTaskByDefinitionAndTargets<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>,
     targetMasterIds: MasterNodeId[]
-  ): Promise<TResult>;
+  ): Promise<TaskDefinitionResult<TDefinition>>;
 };
 
 /* service */
@@ -244,9 +244,9 @@ class TaskService implements TaskServiceContract {
 
   /* submission methods */
 
-  async submitTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
-    data: TData
+  async submitTask<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>
   ): Promise<PersistedTask> {
     const id = randomUUID();
 
@@ -255,13 +255,10 @@ class TaskService implements TaskServiceContract {
 
   /* execution methods */
 
-  async executeTaskByDefinition<
-    TType extends string,
-    TData,
-    TPersistedData,
-    TScope extends TaskExecutionScope,
-    TResult
-  >(definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>, data: TData): Promise<TResult> {
+  async executeTaskByDefinition<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>
+  ): Promise<TaskDefinitionResult<TDefinition>> {
     const consensusState = await this.consensusService.getConsensusState();
 
     if (consensusState.leaderMasterId !== this.selfMasterNodeId) {
@@ -281,17 +278,11 @@ class TaskService implements TaskServiceContract {
     return this.executeTaskByDefinitionAndTargets(definition, data, targetMasterIds);
   }
 
-  async executeTaskByDefinitionAndTargets<
-    TType extends string,
-    TData,
-    TPersistedData,
-    TScope extends TaskExecutionScope,
-    TResult
-  >(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
-    data: TData,
+  async executeTaskByDefinitionAndTargets<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>,
     targetMasterIds: MasterNodeId[]
-  ): Promise<TResult> {
+  ): Promise<TaskDefinitionResult<TDefinition>> {
     if (targetMasterIds.length === 0) {
       throw new GenericAbortedError('Task execution was aborted because no targets were resolved');
     }
@@ -300,7 +291,10 @@ class TaskService implements TaskServiceContract {
 
     const id = randomUUID();
 
-    const resultPromise = this.resultWaiter.wait<TResult>(id, this.config.executionWaitTimeoutMs);
+    const resultPromise = this.resultWaiter.wait<TaskDefinitionResult<TDefinition>>(
+      id,
+      this.config.executionWaitTimeoutMs
+    );
 
     // attach a rejection handler immediately to prevent unhandled rejections
     // before the final await consumes the result.

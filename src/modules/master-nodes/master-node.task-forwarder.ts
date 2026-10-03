@@ -3,8 +3,11 @@ import { Buffer } from 'node:buffer';
 import { z } from 'zod';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import type { TaskDefinition } from '@/modules/tasks/task.definition';
-import type { TaskExecutionScope } from '@/modules/tasks/task.domain';
+import type {
+  TaskDefinition,
+  TaskDefinitionData,
+  TaskDefinitionResult
+} from '@/modules/tasks/task.definition';
 import type { TaskForwarderContract } from '@/modules/tasks/task.forwarder';
 
 import type { MasterNodeId } from './master-node.domain';
@@ -19,11 +22,11 @@ class MasterNodeTaskForwarder implements TaskForwarderContract {
     private readonly masterNodeService: MasterNodeServiceContract
   ) {}
 
-  async forwardTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
-    data: TData,
+  async forwardTask<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>,
     leaderMasterId: MasterNodeId
-  ): Promise<TResult> {
+  ): Promise<TaskDefinitionResult<TDefinition>> {
     const leader = await this.masterNodeService.getMasterNodeById(leaderMasterId);
 
     const result = await this.masterNodeGrpcClient.forwardTask({
@@ -39,14 +42,14 @@ class MasterNodeTaskForwarder implements TaskForwarderContract {
     });
 
     if (result === undefined) {
-      return undefined as TResult;
+      return undefined as TaskDefinitionResult<TDefinition>;
     }
 
     if (!definition.resultSchema) {
       throw new GenericInternalServerError('The task definition does not declare a result schema');
     }
 
-    return z.decode(definition.resultSchema, JSON.parse(result.toString('utf8')));
+    return z.decode(definition.resultSchema, JSON.parse(result.toString('utf8'))) as TaskDefinitionResult<TDefinition>;
   }
 }
 

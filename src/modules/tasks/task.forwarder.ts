@@ -1,16 +1,15 @@
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
-import type { TaskDefinition } from './task.definition';
-import type { TaskExecutionScope } from './task.domain';
+import type { TaskDefinition, TaskDefinitionData, TaskDefinitionResult } from './task.definition';
 
 /* contract */
 
 type TaskForwarderContract = {
-  forwardTask<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope, TResult>(
-    definition: TaskDefinition<TType, TScope, TData, TPersistedData, TResult>,
-    data: TData,
+  forwardTask<TDefinition extends TaskDefinition>(
+    definition: TDefinition,
+    data: TaskDefinitionData<TDefinition>,
     leaderMasterId: MasterNodeId
-  ): Promise<TResult>;
+  ): Promise<TaskDefinitionResult<TDefinition>>;
 };
 
 /* exports */
