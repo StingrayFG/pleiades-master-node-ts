@@ -20,9 +20,8 @@ import {
 
 import { partKeySchema, partReplicaStateSchema, partSchema, placementGroupSchema } from './object-version-part.domain';
 
-/* schemas */
+/* service schemas */
 
-// service
 export const listPartsByObjectVersionInputSchema = z.object({
   objectId: objectIdSchema,
   version: objectVersionNumberSchema
@@ -74,7 +73,8 @@ export const createReplicaBlobResultSchema = z.discriminatedUnion('status', [
   })
 ]);
 
-// repository
+/* repository schemas */
+
 export const listPartReplicaVerificationCandidatesRepositoryInputSchema = z.object({
   verifiedBefore: z.date(),
   limit: z.number().int().positive()
@@ -194,9 +194,8 @@ export const deleteReplicaFreePartsByObjectVersionRepositoryInputSchema = z.obje
   version: objectVersionNumberSchema
 });
 
-/* types */
+/* service types */
 
-// service
 export type ListPartsByObjectVersionInput = z.infer<typeof listPartsByObjectVersionInputSchema>;
 export type GetReplicaBlobResult = z.infer<typeof getReplicaBlobResultSchema>;
 export type CreatePartsInput = z.infer<typeof createPartsInputSchema>;
@@ -204,7 +203,8 @@ export type CreatePartInput = z.infer<typeof createPartInputSchema>;
 export type CreatePartResult = z.infer<typeof createPartResultSchema>;
 export type CreateReplicaBlobResult = z.infer<typeof createReplicaBlobResultSchema>;
 
-// repository
+/* repository types */
+
 export type ListPartReplicaVerificationCandidatesRepositoryInput = z.infer<
   typeof listPartReplicaVerificationCandidatesRepositoryInputSchema
 >;

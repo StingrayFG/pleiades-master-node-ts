@@ -10,9 +10,8 @@ import {
   userUsernameSchema
 } from './user.domain';
 
-/* schemas */
+/* service schemas */
 
-// service
 export const createUserInputSchema = z.object({
   username: userUsernameSchema,
   password: z.string()
@@ -54,7 +53,8 @@ export const revokeUserApiKeyInputSchema = z.object({
   apiKeyId: userApiKeyIdSchema
 });
 
-// repository
+/* repository schemas */
+
 export const findAuthenticationByUsernameRepositoryResultSchema = z.object({
   user: userSchema,
 
@@ -123,9 +123,8 @@ export const revokeUserApiKeyRepositoryInputSchema = z.object({
   apiKeyId: userApiKeyIdSchema
 });
 
-/* types */
+/* service types */
 
-// service
 export type CreateUserInput = z.infer<typeof createUserInputSchema>;
 export type CreateUserApiKeyInput = z.infer<typeof createUserApiKeyInputSchema>;
 export type CreateApiKeyResult = z.infer<typeof createApiKeyResultSchema>;
@@ -134,7 +133,8 @@ export type ApiKeyAuthenticationPrincipal = z.infer<typeof apiKeyAuthenticationP
 export type RefreshAuthenticationResult = z.infer<typeof refreshAuthenticationResultSchema>;
 export type RevokeUserApiKeyInput = z.infer<typeof revokeUserApiKeyInputSchema>;
 
-// repository
+/* repository types */
+
 export type FindAuthenticationByUsernameRepositoryResult = z.infer<
   typeof findAuthenticationByUsernameRepositoryResultSchema
 >;

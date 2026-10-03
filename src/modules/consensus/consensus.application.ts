@@ -12,13 +12,30 @@ import {
   type ConsensusSequence
 } from './consensus.domain';
 
-/* schemas */
+/* service schemas */
 
 // leadership context
 export const consensusLeadershipContextSchema = z.object({
   epoch: consensusEpochSchema,
   leaderMasterId: masterNodeIdSchema
 });
+
+// election
+export const requestConsensusVoteInputSchema = z.object({
+  epoch: consensusEpochSchema,
+  electionStarterMasterNodeId: masterNodeIdSchema,
+  electionStarterLastLogEpoch: consensusEpochSchema,
+  electionStarterLastLogSequence: consensusLastSequenceSchema,
+  localLastLogEpoch: consensusEpochSchema,
+  localLastLogSequence: consensusLastSequenceSchema
+});
+
+export const consensusVoteResultSchema = z.object({
+  state: consensusStateSchema,
+  voteGranted: z.boolean()
+});
+
+/* repository schemas */
 
 // sequence
 export const advanceSequenceRepositoryInputSchema = z.object({
@@ -80,37 +97,12 @@ export const applyVoteRequestRepositoryInputSchema = z.object({
   electionStarterLogIsUpToDate: z.boolean()
 });
 
-export const requestConsensusVoteInputSchema = z.object({
-  epoch: consensusEpochSchema,
-  electionStarterMasterNodeId: masterNodeIdSchema,
-  electionStarterLastLogEpoch: consensusEpochSchema,
-  electionStarterLastLogSequence: consensusLastSequenceSchema,
-  localLastLogEpoch: consensusEpochSchema,
-  localLastLogSequence: consensusLastSequenceSchema
-});
-
-export const consensusVoteResultSchema = z.object({
-  state: consensusStateSchema,
-  voteGranted: z.boolean()
-});
-
-/* types */
+/* service types */
 
 // leadership context
 export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
 
 // sequence
-export type AdvanceSequenceRepositoryInput = z.infer<typeof advanceSequenceRepositoryInputSchema>;
-export type AdvanceLeadershipSequenceRepositoryInput = z.infer<typeof advanceLeadershipSequenceRepositoryInputSchema>;
-export type AdvanceLeadershipLastSequenceRepositoryInput = z.infer<
-  typeof advanceLeadershipLastSequenceRepositoryInputSchema
->;
-export type WithAdvancedLastAllocatedSequenceRepositoryInput = z.infer<
-  typeof withAdvancedLastAllocatedSequenceRepositoryInputSchema
->;
-export type WithRewoundLastAllocatedSequenceRepositoryInput = z.infer<
-  typeof withRewoundLastAllocatedSequenceRepositoryInputSchema
->;
 
 // transaction action callbacks use direct types because their Prisma transaction client cannot be schema-derived.
 
@@ -126,6 +118,25 @@ export type RewoundSequenceTransactionAction<TResult> = (
   rewoundSequence: ConsensusLastSequence
 ) => Promise<TResult>;
 
+// election
+export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
+export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;
+
+/* repository types */
+
+// sequence
+export type AdvanceSequenceRepositoryInput = z.infer<typeof advanceSequenceRepositoryInputSchema>;
+export type AdvanceLeadershipSequenceRepositoryInput = z.infer<typeof advanceLeadershipSequenceRepositoryInputSchema>;
+export type AdvanceLeadershipLastSequenceRepositoryInput = z.infer<
+  typeof advanceLeadershipLastSequenceRepositoryInputSchema
+>;
+export type WithAdvancedLastAllocatedSequenceRepositoryInput = z.infer<
+  typeof withAdvancedLastAllocatedSequenceRepositoryInputSchema
+>;
+export type WithRewoundLastAllocatedSequenceRepositoryInput = z.infer<
+  typeof withRewoundLastAllocatedSequenceRepositoryInputSchema
+>;
+
 // leadership
 export type ClaimLeadershipRepositoryInput = z.infer<typeof claimLeadershipRepositoryInputSchema>;
 export type AcceptFollowershipRepositoryInput = z.infer<typeof acceptFollowershipRepositoryInputSchema>;
@@ -135,5 +146,3 @@ export type ReleaseLeadershipRepositoryInput = z.infer<typeof releaseLeadershipR
 export type StartElectionRepositoryInput = z.infer<typeof startElectionRepositoryInputSchema>;
 export type AdoptNewerEpochRepositoryInput = z.infer<typeof adoptNewerEpochRepositoryInputSchema>;
 export type ApplyVoteRequestRepositoryInput = z.infer<typeof applyVoteRequestRepositoryInputSchema>;
-export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
-export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;

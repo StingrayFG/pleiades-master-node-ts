@@ -25,4 +25,5 @@ export const createBucketRepositoryInputSchema = z.object({
 /* types */
 
 export type EnsureBucketExistsResult = z.infer<typeof ensureBucketExistsResultSchema>;
+
 export type CreateBucketRepositoryInput = z.infer<typeof createBucketRepositoryInputSchema>;
