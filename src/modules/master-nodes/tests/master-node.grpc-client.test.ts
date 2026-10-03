@@ -82,19 +82,16 @@ const heartbeatResponse: RecordLeaderHeartbeatResponse = {
 };
 
 const clusterMembershipSnapshotResponse: FetchClusterMembershipSnapshotResponse = {
-  snapshot: Buffer.from(
-    JSON.stringify({
-      cluster: {
-        id: 'self',
-        clusterId: masterInfoResponse.cluster_id,
-        membershipRevision: '3',
-        createdAt: createdAt.toISOString(),
-        updatedAt: createdAt.toISOString()
-      },
-      masterNodes: [],
-      dataNodes: []
-    })
-  )
+  snapshot: {
+    cluster: {
+      cluster_id: masterInfoResponse.cluster_id,
+      membership_revision: '3',
+      created_at: createdAt,
+      updated_at: createdAt
+    },
+    master_nodes: [],
+    data_nodes: []
+  }
 };
 
 /* mocks */

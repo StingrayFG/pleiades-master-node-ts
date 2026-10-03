@@ -99,7 +99,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
 /* tests */
 
 describe('MasterNodeGrpcController', () => {
-  test('returns a serialized authenticated cluster membership snapshot', async () => {
+  test('returns an authenticated cluster membership snapshot', async () => {
     const service = createInternodeServiceMock();
     const controller = new MasterNodeGrpcController(service);
     const callback = jest.fn<sendUnaryData<FetchClusterMembershipSnapshotResponse>>();
@@ -118,7 +118,16 @@ describe('MasterNodeGrpcController', () => {
       callerCertificateFingerprint
     });
     expect(callback).toHaveBeenCalledWith(null, {
-      snapshot: expect.any(Buffer)
+      snapshot: {
+        cluster: {
+          cluster_id: clusterMembershipSnapshot.cluster.clusterId,
+          membership_revision: '3',
+          created_at: createdAt,
+          updated_at: createdAt
+        },
+        master_nodes: [],
+        data_nodes: []
+      }
     });
   });
 

@@ -4,13 +4,16 @@ import type { MasterNode as PrismaMasterNode } from '@prisma/client';
 import { describe, expect, test } from '@jest/globals';
 
 import { GenericMapperError } from '@/errors/application.errors';
-import { TaskExecutionScope } from '@/gen/proto/master/v1/master';
+import { FetchClusterMembershipSnapshotResponse, TaskExecutionScope } from '@/gen/proto/master/v1/master';
+import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 
 import type { InternodeTaskEntry } from '../master-node.application';
 import type { MasterNode } from '../master-node.domain';
 import {
   mapDomainMasterNodeToHttpMasterNodeResponse,
   mapDomainMasterNodesToHttpMasterNodesResponse,
+  mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot,
+  mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot,
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
@@ -84,6 +87,43 @@ const taskEntry: InternodeTaskEntry = {
 
 const callerCertificateFingerprint = domainMasterNode.certificateFingerprint;
 
+const clusterMembershipSnapshot: ClusterMembershipSnapshot = {
+  cluster: {
+    id: 'self',
+    clusterId: '00000000-0000-4000-8000-000000000010',
+    membershipRevision: 3n,
+    createdAt: taskEntry.createdAt,
+    updatedAt: taskEntry.createdAt
+  },
+  masterNodes: [domainMasterNode],
+  dataNodes: [
+    {
+      id: 'data-node-a',
+
+      certificateFingerprint: 'cd'.repeat(32),
+      sessionId: '00000000-0000-4000-8000-000000000011',
+      lastHeartbeatSequence: 5n,
+      state: 'active',
+      mode: 'serving',
+
+      hostname: 'data-node-a.internal',
+      port: 50052,
+      scheme: 'grpcs',
+
+      storageTotalBytes: 1_000n,
+      storageFreeBytes: 400n,
+
+      registeredAt: taskEntry.createdAt,
+      lastContactAt: taskEntry.createdAt,
+      lastHealthCheckAt: null,
+      lastHeartbeatAt: taskEntry.createdAt,
+      updatedAt: taskEntry.createdAt,
+
+      revision: 4n
+    }
+  ]
+};
+
 /* tests */
 
 describe('master node mappers', () => {
@@ -132,6 +172,29 @@ describe('master node mappers', () => {
 
     expect(mapDomainMasterNodeToHttpMasterNodeResponse(domainMasterNode)).toEqual(response);
     expect(mapDomainMasterNodesToHttpMasterNodesResponse([domainMasterNode])).toEqual([response]);
+  });
+
+  test('round-trips cluster membership snapshots through their protobuf representation', () => {
+    const grpcSnapshot = mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot(clusterMembershipSnapshot);
+    const bytes = FetchClusterMembershipSnapshotResponse.encode({ snapshot: grpcSnapshot }).finish();
+    const response = FetchClusterMembershipSnapshotResponse.decode(bytes);
+
+    expect(mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot(response.snapshot)).toEqual(
+      clusterMembershipSnapshot
+    );
+  });
+
+  test('rejects an invalid application cluster membership snapshot', () => {
+    expect(() =>
+      mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot({
+        ...clusterMembershipSnapshot,
+        masterNodes: [domainMasterNode, domainMasterNode]
+      })
+    ).toThrow(GenericMapperError);
+  });
+
+  test('rejects a missing gRPC cluster membership snapshot', () => {
+    expect(() => mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot(undefined)).toThrow(GenericMapperError);
   });
 
   test('maps task-entry and payload gRPC requests to internode inputs', () => {

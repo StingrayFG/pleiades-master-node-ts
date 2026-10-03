@@ -7,120 +7,6 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "app/internal/gen/master/v1;masterv1";
 
-enum TaskExecutionScope {
-  TASK_EXECUTION_SCOPE_UNSPECIFIED = 0;
-  TASK_EXECUTION_SCOPE_LOCAL = 1;
-  TASK_EXECUTION_SCOPE_CLUSTER = 2;
-}
-
-message TaskEntry {
-  string id = 1 [(buf.validate.field).string.uuid = true];
-  string origin_master_id = 2;
-  int64 epoch = 3;
-  int64 sequence = 4;
-  string type = 5;
-  TaskExecutionScope execution_scope = 6;
-  bytes data = 7;
-  optional string payload_id = 8 [(buf.validate.field).string.uuid = true];
-  google.protobuf.Timestamp created_at = 9;
-}
-
-message FetchTaskEntriesRequest {
-  int64 after_sequence = 1 [(buf.validate.field).int64.gte = -1];
-  uint32 limit = 2 [(buf.validate.field).uint32 = {
-    gt: 0
-    lte: 128
-  }];
-  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
-}
-
-message FetchTaskEntriesResponse {
-  int64 epoch = 1;
-  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
-  repeated TaskEntry entries = 3;
-  int64 cluster_membership_revision = 4 [(buf.validate.field).int64.gte = 0];
-}
-
-message FetchTaskPayloadRequest {
-  string payload_id = 1 [(buf.validate.field).string.uuid = true];
-  string caller_master_id = 2 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 3 [(buf.validate.field).string.uuid = true];
-}
-
-message FetchTaskPayloadResponse {
-  bytes payload = 1;
-}
-
-message FetchMasterInfoRequest {}
-
-message FetchMasterInfoResponse {
-  string master_id = 1;
-  string session_id = 2 [(buf.validate.field).string.uuid = true];
-  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
-  int64 epoch = 4;
-}
-
-message RegisterMasterNodeRequest {
-  string master_id = 1 [(buf.validate.field).string.min_len = 1];
-  string session_id = 2 [(buf.validate.field).string.uuid = true];
-  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
-  string hostname = 4 [(buf.validate.field).string.min_len = 1];
-  uint32 port = 5 [(buf.validate.field).uint32 = {
-    gt: 0
-    lte: 65535
-  }];
-  string scheme = 6 [(buf.validate.field).string.min_len = 1];
-}
-
-message RegisterMasterNodeResponse {}
-
-message FetchClusterMembershipSnapshotRequest {
-  string caller_master_id = 1 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 2 [(buf.validate.field).string.uuid = true];
-}
-
-message FetchClusterMembershipSnapshotResponse {
-  bytes snapshot = 1;
-}
-
-message ForwardTaskRequest {
-  string type = 1 [(buf.validate.field).string.min_len = 1];
-  bytes data = 2;
-  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
-}
-
-message ForwardTaskResponse {
-  optional bytes result = 1;
-}
-
-message RequestVoteRequest {
-  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
-  int64 last_log_sequence = 2 [(buf.validate.field).int64.gte = -1];
-  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
-  int64 last_log_epoch = 5 [(buf.validate.field).int64.gte = 0];
-}
-
-message RequestVoteResponse {
-  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
-  bool vote_granted = 2;
-}
-
-message RecordLeaderHeartbeatRequest {
-  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
-  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
-  string caller_master_id = 3 [(buf.validate.field).string.min_len = 1];
-  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
-}
-
-message RecordLeaderHeartbeatResponse {
-  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
-  bool accepted = 2;
-  int64 last_matched_sequence = 3 [(buf.validate.field).int64.gte = -1];
-}
-
 service Master {
   rpc FetchMasterInfo(FetchMasterInfoRequest) returns (FetchMasterInfoResponse);
   rpc RegisterMasterNode(RegisterMasterNodeRequest) returns (RegisterMasterNodeResponse);
@@ -130,4 +16,224 @@ service Master {
   rpc ForwardTask(ForwardTaskRequest) returns (ForwardTaskResponse);
   rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse);
   rpc RecordLeaderHeartbeat(RecordLeaderHeartbeatRequest) returns (RecordLeaderHeartbeatResponse);
+}
+
+// bootstrap
+
+message FetchMasterInfoRequest {}
+
+message FetchMasterInfoResponse {
+  string master_id = 1 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string session_id = 2 [(buf.validate.field).string.uuid = true];
+  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
+  int64 epoch = 4 [(buf.validate.field).int64.gte = 0];
+}
+
+message RegisterMasterNodeRequest {
+  string master_id = 1 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string session_id = 2 [(buf.validate.field).string.uuid = true];
+  string cluster_id = 3 [(buf.validate.field).string.uuid = true];
+  string hostname = 4 [(buf.validate.field).string.min_len = 1];
+  uint32 port = 5 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+  string scheme = 6 [(buf.validate.field).string.const = "grpcs"];
+}
+
+message RegisterMasterNodeResponse {}
+
+// membership
+
+message ClusterMembershipSnapshot {
+  ClusterSnapshot cluster = 1 [(buf.validate.field).required = true];
+  repeated MasterNodeSnapshot master_nodes = 2;
+  repeated DataNodeSnapshot data_nodes = 3;
+}
+
+message ClusterSnapshot {
+  string cluster_id = 1 [(buf.validate.field).string.uuid = true];
+  int64 membership_revision = 2 [(buf.validate.field).int64.gte = 0];
+  google.protobuf.Timestamp created_at = 3 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp updated_at = 4 [(buf.validate.field).required = true];
+}
+
+message MasterNodeSnapshot {
+  string id = 1 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+
+  string certificate_fingerprint = 2 [(buf.validate.field).string.pattern = "^[0-9a-f]{64}$"];
+  string session_id = 3 [(buf.validate.field).string.uuid = true];
+  string state = 4 [(buf.validate.field).string = {
+    in: [
+      "joining",
+      "active",
+      "offline",
+      "failed"
+    ]
+  }];
+  string mode = 5 [(buf.validate.field).string = {
+    in: [
+      "serving",
+      "draining"
+    ]
+  }];
+
+  string hostname = 6 [(buf.validate.field).string.min_len = 1];
+  uint32 port = 7 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+  string scheme = 8 [(buf.validate.field).string.const = "grpcs"];
+
+  google.protobuf.Timestamp registered_at = 9 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp last_contact_at = 10 [(buf.validate.field).required = true];
+  optional google.protobuf.Timestamp last_health_check_at = 11;
+  optional google.protobuf.Timestamp last_heartbeat_at = 12;
+  google.protobuf.Timestamp updated_at = 13 [(buf.validate.field).required = true];
+
+  int64 revision = 14 [(buf.validate.field).int64.gte = 0];
+}
+
+message DataNodeSnapshot {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+
+  string certificate_fingerprint = 2 [(buf.validate.field).string.min_len = 1];
+  string session_id = 3 [(buf.validate.field).string.uuid = true];
+  int64 last_heartbeat_sequence = 4 [(buf.validate.field).int64.gte = 0];
+  string state = 5 [(buf.validate.field).string = {
+    in: [
+      "joining",
+      "active",
+      "offline",
+      "failed"
+    ]
+  }];
+  string mode = 6 [(buf.validate.field).string = {
+    in: [
+      "serving",
+      "draining"
+    ]
+  }];
+
+  string hostname = 7 [(buf.validate.field).string.min_len = 1];
+  uint32 port = 8 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+  string scheme = 9 [(buf.validate.field).string.const = "grpcs"];
+
+  int64 storage_total_bytes = 10 [(buf.validate.field).int64.gte = 0];
+  int64 storage_free_bytes = 11 [(buf.validate.field).int64.gte = 0];
+
+  google.protobuf.Timestamp registered_at = 12 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp last_contact_at = 13 [(buf.validate.field).required = true];
+  optional google.protobuf.Timestamp last_health_check_at = 14;
+  optional google.protobuf.Timestamp last_heartbeat_at = 15;
+  google.protobuf.Timestamp updated_at = 16 [(buf.validate.field).required = true];
+
+  int64 revision = 17 [(buf.validate.field).int64.gte = 0];
+}
+
+message FetchClusterMembershipSnapshotRequest {
+  string caller_master_id = 1 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message FetchClusterMembershipSnapshotResponse {
+  ClusterMembershipSnapshot snapshot = 1 [(buf.validate.field).required = true];
+}
+
+// task replication
+
+enum TaskExecutionScope {
+  TASK_EXECUTION_SCOPE_UNSPECIFIED = 0;
+  TASK_EXECUTION_SCOPE_LOCAL = 1;
+  TASK_EXECUTION_SCOPE_CLUSTER = 2;
+}
+
+message TaskEntry {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string origin_master_id = 2 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  int64 epoch = 3 [(buf.validate.field).int64.gte = 0];
+  int64 sequence = 4 [(buf.validate.field).int64.gte = 0];
+  string type = 5 [(buf.validate.field).string.min_len = 1];
+  TaskExecutionScope execution_scope = 6 [(buf.validate.field).enum = {
+    in: [
+      1,
+      2
+    ]
+  }];
+  bytes data = 7;
+  optional string payload_id = 8 [(buf.validate.field).string.uuid = true];
+  google.protobuf.Timestamp created_at = 9 [(buf.validate.field).required = true];
+}
+
+message FetchTaskEntriesRequest {
+  int64 after_sequence = 1 [(buf.validate.field).int64.gte = -1];
+  uint32 limit = 2 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 128
+  }];
+  string caller_master_id = 3 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+}
+
+message FetchTaskEntriesResponse {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  repeated TaskEntry entries = 3;
+  int64 cluster_membership_revision = 4 [(buf.validate.field).int64.gte = 0];
+}
+
+message FetchTaskPayloadRequest {
+  string payload_id = 1 [(buf.validate.field).string.uuid = true];
+  string caller_master_id = 2 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message FetchTaskPayloadResponse {
+  bytes payload = 1;
+}
+
+// task forwarding
+
+message ForwardTaskRequest {
+  string type = 1 [(buf.validate.field).string.min_len = 1];
+  bytes data = 2;
+  string caller_master_id = 3 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+}
+
+message ForwardTaskResponse {
+  optional bytes result = 1;
+}
+
+// election
+
+message RequestVoteRequest {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_log_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  string caller_master_id = 3 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+  int64 last_log_epoch = 5 [(buf.validate.field).int64.gte = 0];
+}
+
+message RequestVoteResponse {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  bool vote_granted = 2;
+}
+
+// leadership
+
+message RecordLeaderHeartbeatRequest {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
+  string caller_master_id = 3 [(buf.validate.field).string.pattern = "^master-node-[0-9a-f]{12}$"];
+  string caller_session_id = 4 [(buf.validate.field).string.uuid = true];
+}
+
+message RecordLeaderHeartbeatResponse {
+  int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  bool accepted = 2;
+  int64 last_matched_sequence = 3 [(buf.validate.field).int64.gte = -1];
 }

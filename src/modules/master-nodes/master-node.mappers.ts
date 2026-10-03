@@ -6,6 +6,7 @@ import { withMapperError } from '@/common/mappers/mappers';
 import { GenericMapperError } from '@/errors/application.errors';
 import {
   TaskExecutionScope as GrpcTaskExecutionScope,
+  type ClusterMembershipSnapshot as GrpcClusterMembershipSnapshot,
   type FetchMasterInfoResponse,
   type RegisterMasterNodeRequest,
   type FetchClusterMembershipSnapshotRequest,
@@ -18,6 +19,11 @@ import {
   type RecordLeaderHeartbeatResponse,
   type TaskEntry as GrpcTaskEntry
 } from '@/gen/proto/master/v1/master';
+import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
+import {
+  clusterMembershipSnapshotSchema,
+  type ClusterMembershipSnapshot
+} from '@/modules/cluster/cluster.membership-snapshot';
 import { requestVoteResultSchema, type RequestVoteResult } from '@/modules/election/election.application';
 import {
   recordLeaderHeartbeatResultSchema,
@@ -173,6 +179,68 @@ export const mapGrpcFetchClusterMembershipSnapshotRequestToFetchClusterMembershi
   });
 };
 
+export const mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot = (
+  snapshot: GrpcClusterMembershipSnapshot | undefined
+): ClusterMembershipSnapshot => {
+  return withMapperError('Failed to map gRPC cluster membership snapshot', () => {
+    return clusterMembershipSnapshotSchema.parse({
+      cluster: snapshot?.cluster
+        ? {
+            id: CLUSTER_RECORD_ID,
+            clusterId: snapshot.cluster.cluster_id,
+            membershipRevision: BigInt(snapshot.cluster.membership_revision),
+            createdAt: snapshot.cluster.created_at,
+            updatedAt: snapshot.cluster.updated_at
+          }
+        : undefined,
+      masterNodes: snapshot?.master_nodes.map((masterNode) => ({
+        id: masterNode.id,
+
+        certificateFingerprint: masterNode.certificate_fingerprint,
+        sessionId: masterNode.session_id,
+        state: masterNode.state,
+        mode: masterNode.mode,
+
+        hostname: masterNode.hostname,
+        port: masterNode.port,
+        scheme: masterNode.scheme,
+
+        registeredAt: masterNode.registered_at,
+        lastContactAt: masterNode.last_contact_at,
+        lastHealthCheckAt: masterNode.last_health_check_at ?? null,
+        lastHeartbeatAt: masterNode.last_heartbeat_at ?? null,
+        updatedAt: masterNode.updated_at,
+
+        revision: BigInt(masterNode.revision)
+      })),
+      dataNodes: snapshot?.data_nodes.map((dataNode) => ({
+        id: dataNode.id,
+
+        certificateFingerprint: dataNode.certificate_fingerprint,
+        sessionId: dataNode.session_id,
+        lastHeartbeatSequence: BigInt(dataNode.last_heartbeat_sequence),
+        state: dataNode.state,
+        mode: dataNode.mode,
+
+        hostname: dataNode.hostname,
+        port: dataNode.port,
+        scheme: dataNode.scheme,
+
+        storageTotalBytes: BigInt(dataNode.storage_total_bytes),
+        storageFreeBytes: BigInt(dataNode.storage_free_bytes),
+
+        registeredAt: dataNode.registered_at,
+        lastContactAt: dataNode.last_contact_at,
+        lastHealthCheckAt: dataNode.last_health_check_at ?? null,
+        lastHeartbeatAt: dataNode.last_heartbeat_at ?? null,
+        updatedAt: dataNode.updated_at,
+
+        revision: BigInt(dataNode.revision)
+      }))
+    });
+  });
+};
+
 export const mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput = (
   request: FetchTaskEntriesRequest,
   callerCertificateFingerprint: MasterNodeCertificateFingerprint
@@ -306,6 +374,67 @@ export const mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult =
 };
 
 /* application -> grpc */
+
+export const mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot = (
+  snapshot: ClusterMembershipSnapshot
+): GrpcClusterMembershipSnapshot => {
+  return withMapperError('Failed to map cluster membership snapshot to gRPC', () => {
+    const parsedSnapshot = clusterMembershipSnapshotSchema.parse(snapshot);
+
+    return {
+      cluster: {
+        cluster_id: parsedSnapshot.cluster.clusterId,
+        membership_revision: parsedSnapshot.cluster.membershipRevision.toString(),
+        created_at: parsedSnapshot.cluster.createdAt,
+        updated_at: parsedSnapshot.cluster.updatedAt
+      },
+      master_nodes: parsedSnapshot.masterNodes.map((masterNode) => ({
+        id: masterNode.id,
+
+        certificate_fingerprint: masterNode.certificateFingerprint,
+        session_id: masterNode.sessionId,
+        state: masterNode.state,
+        mode: masterNode.mode,
+
+        hostname: masterNode.hostname,
+        port: masterNode.port,
+        scheme: masterNode.scheme,
+
+        registered_at: masterNode.registeredAt,
+        last_contact_at: masterNode.lastContactAt,
+        last_health_check_at: masterNode.lastHealthCheckAt ?? undefined,
+        last_heartbeat_at: masterNode.lastHeartbeatAt ?? undefined,
+        updated_at: masterNode.updatedAt,
+
+        revision: masterNode.revision.toString()
+      })),
+      data_nodes: parsedSnapshot.dataNodes.map((dataNode) => ({
+        id: dataNode.id,
+
+        certificate_fingerprint: dataNode.certificateFingerprint,
+        session_id: dataNode.sessionId,
+        last_heartbeat_sequence: dataNode.lastHeartbeatSequence.toString(),
+        state: dataNode.state,
+        mode: dataNode.mode,
+
+        hostname: dataNode.hostname,
+        port: dataNode.port,
+        scheme: dataNode.scheme,
+
+        storage_total_bytes: dataNode.storageTotalBytes.toString(),
+        storage_free_bytes: dataNode.storageFreeBytes.toString(),
+
+        registered_at: dataNode.registeredAt,
+        last_contact_at: dataNode.lastContactAt,
+        last_health_check_at: dataNode.lastHealthCheckAt ?? undefined,
+        last_heartbeat_at: dataNode.lastHeartbeatAt ?? undefined,
+        updated_at: dataNode.updatedAt,
+
+        revision: dataNode.revision.toString()
+      }))
+    };
+  });
+};
 
 export const mapTaskExecutionScopeToGrpcTaskExecutionScope = (scope: TaskExecutionScope): GrpcTaskExecutionScope => {
   switch (scope) {

@@ -21,13 +21,13 @@ import type {
   RecordLeaderHeartbeatRequest,
   RecordLeaderHeartbeatResponse
 } from '@/gen/proto/master/v1/master';
-import { serializeClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot.serializer';
 import { getGrpcPeerCertificateFingerprint } from '@/transports/grpc/server/auth/grpc-peer-auth';
 
 import type { MasterNodeInternodeServiceContract } from './master-node.internode-service';
 import {
   mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
   mapGrpcFetchClusterMembershipSnapshotRequestToFetchClusterMembershipSnapshotInternodeInput,
+  mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot,
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
   mapInternodeTaskEntryToGrpcTaskEntry,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
@@ -139,7 +139,7 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
     const snapshot = await this.internodeService.fetchClusterMembershipSnapshot(input);
 
     callback(null, {
-      snapshot: serializeClusterMembershipSnapshot(snapshot)
+      snapshot: mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot(snapshot)
     });
   }
 

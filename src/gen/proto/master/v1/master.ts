@@ -61,6 +61,87 @@ export function taskExecutionScopeToJSON(object: TaskExecutionScope): string {
   }
 }
 
+export interface FetchMasterInfoRequest {
+}
+
+export interface FetchMasterInfoResponse {
+  master_id: string;
+  session_id: string;
+  cluster_id: string;
+  epoch: string;
+}
+
+export interface RegisterMasterNodeRequest {
+  master_id: string;
+  session_id: string;
+  cluster_id: string;
+  hostname: string;
+  port: number;
+  scheme: string;
+}
+
+export interface RegisterMasterNodeResponse {
+}
+
+export interface ClusterMembershipSnapshot {
+  cluster: ClusterSnapshot | undefined;
+  master_nodes: MasterNodeSnapshot[];
+  data_nodes: DataNodeSnapshot[];
+}
+
+export interface ClusterSnapshot {
+  cluster_id: string;
+  membership_revision: string;
+  created_at: Date | undefined;
+  updated_at: Date | undefined;
+}
+
+export interface MasterNodeSnapshot {
+  id: string;
+  certificate_fingerprint: string;
+  session_id: string;
+  state: string;
+  mode: string;
+  hostname: string;
+  port: number;
+  scheme: string;
+  registered_at: Date | undefined;
+  last_contact_at: Date | undefined;
+  last_health_check_at?: Date | undefined;
+  last_heartbeat_at?: Date | undefined;
+  updated_at: Date | undefined;
+  revision: string;
+}
+
+export interface DataNodeSnapshot {
+  id: string;
+  certificate_fingerprint: string;
+  session_id: string;
+  last_heartbeat_sequence: string;
+  state: string;
+  mode: string;
+  hostname: string;
+  port: number;
+  scheme: string;
+  storage_total_bytes: string;
+  storage_free_bytes: string;
+  registered_at: Date | undefined;
+  last_contact_at: Date | undefined;
+  last_health_check_at?: Date | undefined;
+  last_heartbeat_at?: Date | undefined;
+  updated_at: Date | undefined;
+  revision: string;
+}
+
+export interface FetchClusterMembershipSnapshotRequest {
+  caller_master_id: string;
+  caller_session_id: string;
+}
+
+export interface FetchClusterMembershipSnapshotResponse {
+  snapshot: ClusterMembershipSnapshot | undefined;
+}
+
 export interface TaskEntry {
   id: string;
   origin_master_id: string;
@@ -95,37 +176,6 @@ export interface FetchTaskPayloadRequest {
 
 export interface FetchTaskPayloadResponse {
   payload: Buffer;
-}
-
-export interface FetchMasterInfoRequest {
-}
-
-export interface FetchMasterInfoResponse {
-  master_id: string;
-  session_id: string;
-  cluster_id: string;
-  epoch: string;
-}
-
-export interface RegisterMasterNodeRequest {
-  master_id: string;
-  session_id: string;
-  cluster_id: string;
-  hostname: string;
-  port: number;
-  scheme: string;
-}
-
-export interface RegisterMasterNodeResponse {
-}
-
-export interface FetchClusterMembershipSnapshotRequest {
-  caller_master_id: string;
-  caller_session_id: string;
-}
-
-export interface FetchClusterMembershipSnapshotResponse {
-  snapshot: Buffer;
 }
 
 export interface ForwardTaskRequest {
@@ -164,6 +214,1427 @@ export interface RecordLeaderHeartbeatResponse {
   accepted: boolean;
   last_matched_sequence: string;
 }
+
+function createBaseFetchMasterInfoRequest(): FetchMasterInfoRequest {
+  return {};
+}
+
+export const FetchMasterInfoRequest: MessageFns<FetchMasterInfoRequest> = {
+  encode(_: FetchMasterInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchMasterInfoRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): FetchMasterInfoRequest {
+    return {};
+  },
+
+  toJSON(_: FetchMasterInfoRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(base?: I): FetchMasterInfoRequest {
+    return FetchMasterInfoRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(_: I): FetchMasterInfoRequest {
+    const message = createBaseFetchMasterInfoRequest();
+    return message;
+  },
+};
+
+function createBaseFetchMasterInfoResponse(): FetchMasterInfoResponse {
+  return { master_id: "", session_id: "", cluster_id: "", epoch: "0" };
+}
+
+export const FetchMasterInfoResponse: MessageFns<FetchMasterInfoResponse> = {
+  encode(message: FetchMasterInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.master_id !== "") {
+      writer.uint32(10).string(message.master_id);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(18).string(message.session_id);
+    }
+    if (message.cluster_id !== "") {
+      writer.uint32(26).string(message.cluster_id);
+    }
+    if (message.epoch !== "0") {
+      writer.uint32(32).int64(message.epoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchMasterInfoResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cluster_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.epoch = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchMasterInfoResponse {
+    return {
+      master_id: isSet(object.masterId)
+        ? globalThis.String(object.masterId)
+        : isSet(object.master_id)
+        ? globalThis.String(object.master_id)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      cluster_id: isSet(object.clusterId)
+        ? globalThis.String(object.clusterId)
+        : isSet(object.cluster_id)
+        ? globalThis.String(object.cluster_id)
+        : "",
+      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+    };
+  },
+
+  toJSON(message: FetchMasterInfoResponse): unknown {
+    const obj: any = {};
+    if (message.master_id !== "") {
+      obj.masterId = message.master_id;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.cluster_id !== "") {
+      obj.clusterId = message.cluster_id;
+    }
+    if (message.epoch !== "0") {
+      obj.epoch = message.epoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(base?: I): FetchMasterInfoResponse {
+    return FetchMasterInfoResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(object: I): FetchMasterInfoResponse {
+    const message = createBaseFetchMasterInfoResponse();
+    message.master_id = object.master_id ?? "";
+    message.session_id = object.session_id ?? "";
+    message.cluster_id = object.cluster_id ?? "";
+    message.epoch = object.epoch ?? "0";
+    return message;
+  },
+};
+
+function createBaseRegisterMasterNodeRequest(): RegisterMasterNodeRequest {
+  return { master_id: "", session_id: "", cluster_id: "", hostname: "", port: 0, scheme: "" };
+}
+
+export const RegisterMasterNodeRequest: MessageFns<RegisterMasterNodeRequest> = {
+  encode(message: RegisterMasterNodeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.master_id !== "") {
+      writer.uint32(10).string(message.master_id);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(18).string(message.session_id);
+    }
+    if (message.cluster_id !== "") {
+      writer.uint32(26).string(message.cluster_id);
+    }
+    if (message.hostname !== "") {
+      writer.uint32(34).string(message.hostname);
+    }
+    if (message.port !== 0) {
+      writer.uint32(40).uint32(message.port);
+    }
+    if (message.scheme !== "") {
+      writer.uint32(50).string(message.scheme);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterMasterNodeRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.cluster_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.hostname = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.port = reader.uint32();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.scheme = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RegisterMasterNodeRequest {
+    return {
+      master_id: isSet(object.masterId)
+        ? globalThis.String(object.masterId)
+        : isSet(object.master_id)
+        ? globalThis.String(object.master_id)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      cluster_id: isSet(object.clusterId)
+        ? globalThis.String(object.clusterId)
+        : isSet(object.cluster_id)
+        ? globalThis.String(object.cluster_id)
+        : "",
+      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
+      port: isSet(object.port) ? globalThis.Number(object.port) : 0,
+      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
+    };
+  },
+
+  toJSON(message: RegisterMasterNodeRequest): unknown {
+    const obj: any = {};
+    if (message.master_id !== "") {
+      obj.masterId = message.master_id;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.cluster_id !== "") {
+      obj.clusterId = message.cluster_id;
+    }
+    if (message.hostname !== "") {
+      obj.hostname = message.hostname;
+    }
+    if (message.port !== 0) {
+      obj.port = Math.round(message.port);
+    }
+    if (message.scheme !== "") {
+      obj.scheme = message.scheme;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(base?: I): RegisterMasterNodeRequest {
+    return RegisterMasterNodeRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(object: I): RegisterMasterNodeRequest {
+    const message = createBaseRegisterMasterNodeRequest();
+    message.master_id = object.master_id ?? "";
+    message.session_id = object.session_id ?? "";
+    message.cluster_id = object.cluster_id ?? "";
+    message.hostname = object.hostname ?? "";
+    message.port = object.port ?? 0;
+    message.scheme = object.scheme ?? "";
+    return message;
+  },
+};
+
+function createBaseRegisterMasterNodeResponse(): RegisterMasterNodeResponse {
+  return {};
+}
+
+export const RegisterMasterNodeResponse: MessageFns<RegisterMasterNodeResponse> = {
+  encode(_: RegisterMasterNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterMasterNodeResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): RegisterMasterNodeResponse {
+    return {};
+  },
+
+  toJSON(_: RegisterMasterNodeResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(base?: I): RegisterMasterNodeResponse {
+    return RegisterMasterNodeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(_: I): RegisterMasterNodeResponse {
+    const message = createBaseRegisterMasterNodeResponse();
+    return message;
+  },
+};
+
+function createBaseClusterMembershipSnapshot(): ClusterMembershipSnapshot {
+  return { cluster: undefined, master_nodes: [], data_nodes: [] };
+}
+
+export const ClusterMembershipSnapshot: MessageFns<ClusterMembershipSnapshot> = {
+  encode(message: ClusterMembershipSnapshot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cluster !== undefined) {
+      ClusterSnapshot.encode(message.cluster, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.master_nodes) {
+      MasterNodeSnapshot.encode(v!, writer.uint32(18).fork()).join();
+    }
+    for (const v of message.data_nodes) {
+      DataNodeSnapshot.encode(v!, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ClusterMembershipSnapshot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClusterMembershipSnapshot();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.cluster = ClusterSnapshot.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.master_nodes.push(MasterNodeSnapshot.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.data_nodes.push(DataNodeSnapshot.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ClusterMembershipSnapshot {
+    return {
+      cluster: isSet(object.cluster) ? ClusterSnapshot.fromJSON(object.cluster) : undefined,
+      master_nodes: globalThis.Array.isArray(object?.masterNodes)
+        ? object.masterNodes.map((e: any) => MasterNodeSnapshot.fromJSON(e))
+        : globalThis.Array.isArray(object?.master_nodes)
+        ? object.master_nodes.map((e: any) => MasterNodeSnapshot.fromJSON(e))
+        : [],
+      data_nodes: globalThis.Array.isArray(object?.dataNodes)
+        ? object.dataNodes.map((e: any) => DataNodeSnapshot.fromJSON(e))
+        : globalThis.Array.isArray(object?.data_nodes)
+        ? object.data_nodes.map((e: any) => DataNodeSnapshot.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: ClusterMembershipSnapshot): unknown {
+    const obj: any = {};
+    if (message.cluster !== undefined) {
+      obj.cluster = ClusterSnapshot.toJSON(message.cluster);
+    }
+    if (message.master_nodes?.length) {
+      obj.masterNodes = message.master_nodes.map((e) => MasterNodeSnapshot.toJSON(e));
+    }
+    if (message.data_nodes?.length) {
+      obj.dataNodes = message.data_nodes.map((e) => DataNodeSnapshot.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ClusterMembershipSnapshot>, I>>(base?: I): ClusterMembershipSnapshot {
+    return ClusterMembershipSnapshot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ClusterMembershipSnapshot>, I>>(object: I): ClusterMembershipSnapshot {
+    const message = createBaseClusterMembershipSnapshot();
+    message.cluster = (object.cluster !== undefined && object.cluster !== null)
+      ? ClusterSnapshot.fromPartial(object.cluster)
+      : undefined;
+    message.master_nodes = object.master_nodes?.map((e) => MasterNodeSnapshot.fromPartial(e)) || [];
+    message.data_nodes = object.data_nodes?.map((e) => DataNodeSnapshot.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseClusterSnapshot(): ClusterSnapshot {
+  return { cluster_id: "", membership_revision: "0", created_at: undefined, updated_at: undefined };
+}
+
+export const ClusterSnapshot: MessageFns<ClusterSnapshot> = {
+  encode(message: ClusterSnapshot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.cluster_id !== "") {
+      writer.uint32(10).string(message.cluster_id);
+    }
+    if (message.membership_revision !== "0") {
+      writer.uint32(16).int64(message.membership_revision);
+    }
+    if (message.created_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.created_at), writer.uint32(26).fork()).join();
+    }
+    if (message.updated_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.updated_at), writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ClusterSnapshot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClusterSnapshot();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.cluster_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.membership_revision = reader.int64().toString();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.created_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.updated_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ClusterSnapshot {
+    return {
+      cluster_id: isSet(object.clusterId)
+        ? globalThis.String(object.clusterId)
+        : isSet(object.cluster_id)
+        ? globalThis.String(object.cluster_id)
+        : "",
+      membership_revision: isSet(object.membershipRevision)
+        ? globalThis.String(object.membershipRevision)
+        : isSet(object.membership_revision)
+        ? globalThis.String(object.membership_revision)
+        : "0",
+      created_at: isSet(object.createdAt)
+        ? fromJsonTimestamp(object.createdAt)
+        : isSet(object.created_at)
+        ? fromJsonTimestamp(object.created_at)
+        : undefined,
+      updated_at: isSet(object.updatedAt)
+        ? fromJsonTimestamp(object.updatedAt)
+        : isSet(object.updated_at)
+        ? fromJsonTimestamp(object.updated_at)
+        : undefined,
+    };
+  },
+
+  toJSON(message: ClusterSnapshot): unknown {
+    const obj: any = {};
+    if (message.cluster_id !== "") {
+      obj.clusterId = message.cluster_id;
+    }
+    if (message.membership_revision !== "0") {
+      obj.membershipRevision = message.membership_revision;
+    }
+    if (message.created_at !== undefined) {
+      obj.createdAt = message.created_at.toISOString();
+    }
+    if (message.updated_at !== undefined) {
+      obj.updatedAt = message.updated_at.toISOString();
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ClusterSnapshot>, I>>(base?: I): ClusterSnapshot {
+    return ClusterSnapshot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ClusterSnapshot>, I>>(object: I): ClusterSnapshot {
+    const message = createBaseClusterSnapshot();
+    message.cluster_id = object.cluster_id ?? "";
+    message.membership_revision = object.membership_revision ?? "0";
+    message.created_at = object.created_at ?? undefined;
+    message.updated_at = object.updated_at ?? undefined;
+    return message;
+  },
+};
+
+function createBaseMasterNodeSnapshot(): MasterNodeSnapshot {
+  return {
+    id: "",
+    certificate_fingerprint: "",
+    session_id: "",
+    state: "",
+    mode: "",
+    hostname: "",
+    port: 0,
+    scheme: "",
+    registered_at: undefined,
+    last_contact_at: undefined,
+    last_health_check_at: undefined,
+    last_heartbeat_at: undefined,
+    updated_at: undefined,
+    revision: "0",
+  };
+}
+
+export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
+  encode(message: MasterNodeSnapshot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.certificate_fingerprint !== "") {
+      writer.uint32(18).string(message.certificate_fingerprint);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(26).string(message.session_id);
+    }
+    if (message.state !== "") {
+      writer.uint32(34).string(message.state);
+    }
+    if (message.mode !== "") {
+      writer.uint32(42).string(message.mode);
+    }
+    if (message.hostname !== "") {
+      writer.uint32(50).string(message.hostname);
+    }
+    if (message.port !== 0) {
+      writer.uint32(56).uint32(message.port);
+    }
+    if (message.scheme !== "") {
+      writer.uint32(66).string(message.scheme);
+    }
+    if (message.registered_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.registered_at), writer.uint32(74).fork()).join();
+    }
+    if (message.last_contact_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_contact_at), writer.uint32(82).fork()).join();
+    }
+    if (message.last_health_check_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_health_check_at), writer.uint32(90).fork()).join();
+    }
+    if (message.last_heartbeat_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_heartbeat_at), writer.uint32(98).fork()).join();
+    }
+    if (message.updated_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.updated_at), writer.uint32(106).fork()).join();
+    }
+    if (message.revision !== "0") {
+      writer.uint32(112).int64(message.revision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MasterNodeSnapshot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMasterNodeSnapshot();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.certificate_fingerprint = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.state = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.mode = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.hostname = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 56) {
+            break;
+          }
+
+          message.port = reader.uint32();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.scheme = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.registered_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.last_contact_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.last_health_check_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.last_heartbeat_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 13: {
+          if (tag !== 106) {
+            break;
+          }
+
+          message.updated_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 14: {
+          if (tag !== 112) {
+            break;
+          }
+
+          message.revision = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): MasterNodeSnapshot {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      certificate_fingerprint: isSet(object.certificateFingerprint)
+        ? globalThis.String(object.certificateFingerprint)
+        : isSet(object.certificate_fingerprint)
+        ? globalThis.String(object.certificate_fingerprint)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      state: isSet(object.state) ? globalThis.String(object.state) : "",
+      mode: isSet(object.mode) ? globalThis.String(object.mode) : "",
+      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
+      port: isSet(object.port) ? globalThis.Number(object.port) : 0,
+      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
+      registered_at: isSet(object.registeredAt)
+        ? fromJsonTimestamp(object.registeredAt)
+        : isSet(object.registered_at)
+        ? fromJsonTimestamp(object.registered_at)
+        : undefined,
+      last_contact_at: isSet(object.lastContactAt)
+        ? fromJsonTimestamp(object.lastContactAt)
+        : isSet(object.last_contact_at)
+        ? fromJsonTimestamp(object.last_contact_at)
+        : undefined,
+      last_health_check_at: isSet(object.lastHealthCheckAt)
+        ? fromJsonTimestamp(object.lastHealthCheckAt)
+        : isSet(object.last_health_check_at)
+        ? fromJsonTimestamp(object.last_health_check_at)
+        : undefined,
+      last_heartbeat_at: isSet(object.lastHeartbeatAt)
+        ? fromJsonTimestamp(object.lastHeartbeatAt)
+        : isSet(object.last_heartbeat_at)
+        ? fromJsonTimestamp(object.last_heartbeat_at)
+        : undefined,
+      updated_at: isSet(object.updatedAt)
+        ? fromJsonTimestamp(object.updatedAt)
+        : isSet(object.updated_at)
+        ? fromJsonTimestamp(object.updated_at)
+        : undefined,
+      revision: isSet(object.revision) ? globalThis.String(object.revision) : "0",
+    };
+  },
+
+  toJSON(message: MasterNodeSnapshot): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.certificate_fingerprint !== "") {
+      obj.certificateFingerprint = message.certificate_fingerprint;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.state !== "") {
+      obj.state = message.state;
+    }
+    if (message.mode !== "") {
+      obj.mode = message.mode;
+    }
+    if (message.hostname !== "") {
+      obj.hostname = message.hostname;
+    }
+    if (message.port !== 0) {
+      obj.port = Math.round(message.port);
+    }
+    if (message.scheme !== "") {
+      obj.scheme = message.scheme;
+    }
+    if (message.registered_at !== undefined) {
+      obj.registeredAt = message.registered_at.toISOString();
+    }
+    if (message.last_contact_at !== undefined) {
+      obj.lastContactAt = message.last_contact_at.toISOString();
+    }
+    if (message.last_health_check_at !== undefined) {
+      obj.lastHealthCheckAt = message.last_health_check_at.toISOString();
+    }
+    if (message.last_heartbeat_at !== undefined) {
+      obj.lastHeartbeatAt = message.last_heartbeat_at.toISOString();
+    }
+    if (message.updated_at !== undefined) {
+      obj.updatedAt = message.updated_at.toISOString();
+    }
+    if (message.revision !== "0") {
+      obj.revision = message.revision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<MasterNodeSnapshot>, I>>(base?: I): MasterNodeSnapshot {
+    return MasterNodeSnapshot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MasterNodeSnapshot>, I>>(object: I): MasterNodeSnapshot {
+    const message = createBaseMasterNodeSnapshot();
+    message.id = object.id ?? "";
+    message.certificate_fingerprint = object.certificate_fingerprint ?? "";
+    message.session_id = object.session_id ?? "";
+    message.state = object.state ?? "";
+    message.mode = object.mode ?? "";
+    message.hostname = object.hostname ?? "";
+    message.port = object.port ?? 0;
+    message.scheme = object.scheme ?? "";
+    message.registered_at = object.registered_at ?? undefined;
+    message.last_contact_at = object.last_contact_at ?? undefined;
+    message.last_health_check_at = object.last_health_check_at ?? undefined;
+    message.last_heartbeat_at = object.last_heartbeat_at ?? undefined;
+    message.updated_at = object.updated_at ?? undefined;
+    message.revision = object.revision ?? "0";
+    return message;
+  },
+};
+
+function createBaseDataNodeSnapshot(): DataNodeSnapshot {
+  return {
+    id: "",
+    certificate_fingerprint: "",
+    session_id: "",
+    last_heartbeat_sequence: "0",
+    state: "",
+    mode: "",
+    hostname: "",
+    port: 0,
+    scheme: "",
+    storage_total_bytes: "0",
+    storage_free_bytes: "0",
+    registered_at: undefined,
+    last_contact_at: undefined,
+    last_health_check_at: undefined,
+    last_heartbeat_at: undefined,
+    updated_at: undefined,
+    revision: "0",
+  };
+}
+
+export const DataNodeSnapshot: MessageFns<DataNodeSnapshot> = {
+  encode(message: DataNodeSnapshot, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.certificate_fingerprint !== "") {
+      writer.uint32(18).string(message.certificate_fingerprint);
+    }
+    if (message.session_id !== "") {
+      writer.uint32(26).string(message.session_id);
+    }
+    if (message.last_heartbeat_sequence !== "0") {
+      writer.uint32(32).int64(message.last_heartbeat_sequence);
+    }
+    if (message.state !== "") {
+      writer.uint32(42).string(message.state);
+    }
+    if (message.mode !== "") {
+      writer.uint32(50).string(message.mode);
+    }
+    if (message.hostname !== "") {
+      writer.uint32(58).string(message.hostname);
+    }
+    if (message.port !== 0) {
+      writer.uint32(64).uint32(message.port);
+    }
+    if (message.scheme !== "") {
+      writer.uint32(74).string(message.scheme);
+    }
+    if (message.storage_total_bytes !== "0") {
+      writer.uint32(80).int64(message.storage_total_bytes);
+    }
+    if (message.storage_free_bytes !== "0") {
+      writer.uint32(88).int64(message.storage_free_bytes);
+    }
+    if (message.registered_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.registered_at), writer.uint32(98).fork()).join();
+    }
+    if (message.last_contact_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_contact_at), writer.uint32(106).fork()).join();
+    }
+    if (message.last_health_check_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_health_check_at), writer.uint32(114).fork()).join();
+    }
+    if (message.last_heartbeat_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.last_heartbeat_at), writer.uint32(122).fork()).join();
+    }
+    if (message.updated_at !== undefined) {
+      Timestamp.encode(toTimestamp(message.updated_at), writer.uint32(130).fork()).join();
+    }
+    if (message.revision !== "0") {
+      writer.uint32(136).int64(message.revision);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DataNodeSnapshot {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDataNodeSnapshot();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.certificate_fingerprint = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.session_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.last_heartbeat_sequence = reader.int64().toString();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.state = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.mode = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.hostname = reader.string();
+          continue;
+        }
+        case 8: {
+          if (tag !== 64) {
+            break;
+          }
+
+          message.port = reader.uint32();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.scheme = reader.string();
+          continue;
+        }
+        case 10: {
+          if (tag !== 80) {
+            break;
+          }
+
+          message.storage_total_bytes = reader.int64().toString();
+          continue;
+        }
+        case 11: {
+          if (tag !== 88) {
+            break;
+          }
+
+          message.storage_free_bytes = reader.int64().toString();
+          continue;
+        }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.registered_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 13: {
+          if (tag !== 106) {
+            break;
+          }
+
+          message.last_contact_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 14: {
+          if (tag !== 114) {
+            break;
+          }
+
+          message.last_health_check_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 15: {
+          if (tag !== 122) {
+            break;
+          }
+
+          message.last_heartbeat_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 16: {
+          if (tag !== 130) {
+            break;
+          }
+
+          message.updated_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 17: {
+          if (tag !== 136) {
+            break;
+          }
+
+          message.revision = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DataNodeSnapshot {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      certificate_fingerprint: isSet(object.certificateFingerprint)
+        ? globalThis.String(object.certificateFingerprint)
+        : isSet(object.certificate_fingerprint)
+        ? globalThis.String(object.certificate_fingerprint)
+        : "",
+      session_id: isSet(object.sessionId)
+        ? globalThis.String(object.sessionId)
+        : isSet(object.session_id)
+        ? globalThis.String(object.session_id)
+        : "",
+      last_heartbeat_sequence: isSet(object.lastHeartbeatSequence)
+        ? globalThis.String(object.lastHeartbeatSequence)
+        : isSet(object.last_heartbeat_sequence)
+        ? globalThis.String(object.last_heartbeat_sequence)
+        : "0",
+      state: isSet(object.state) ? globalThis.String(object.state) : "",
+      mode: isSet(object.mode) ? globalThis.String(object.mode) : "",
+      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
+      port: isSet(object.port) ? globalThis.Number(object.port) : 0,
+      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
+      storage_total_bytes: isSet(object.storageTotalBytes)
+        ? globalThis.String(object.storageTotalBytes)
+        : isSet(object.storage_total_bytes)
+        ? globalThis.String(object.storage_total_bytes)
+        : "0",
+      storage_free_bytes: isSet(object.storageFreeBytes)
+        ? globalThis.String(object.storageFreeBytes)
+        : isSet(object.storage_free_bytes)
+        ? globalThis.String(object.storage_free_bytes)
+        : "0",
+      registered_at: isSet(object.registeredAt)
+        ? fromJsonTimestamp(object.registeredAt)
+        : isSet(object.registered_at)
+        ? fromJsonTimestamp(object.registered_at)
+        : undefined,
+      last_contact_at: isSet(object.lastContactAt)
+        ? fromJsonTimestamp(object.lastContactAt)
+        : isSet(object.last_contact_at)
+        ? fromJsonTimestamp(object.last_contact_at)
+        : undefined,
+      last_health_check_at: isSet(object.lastHealthCheckAt)
+        ? fromJsonTimestamp(object.lastHealthCheckAt)
+        : isSet(object.last_health_check_at)
+        ? fromJsonTimestamp(object.last_health_check_at)
+        : undefined,
+      last_heartbeat_at: isSet(object.lastHeartbeatAt)
+        ? fromJsonTimestamp(object.lastHeartbeatAt)
+        : isSet(object.last_heartbeat_at)
+        ? fromJsonTimestamp(object.last_heartbeat_at)
+        : undefined,
+      updated_at: isSet(object.updatedAt)
+        ? fromJsonTimestamp(object.updatedAt)
+        : isSet(object.updated_at)
+        ? fromJsonTimestamp(object.updated_at)
+        : undefined,
+      revision: isSet(object.revision) ? globalThis.String(object.revision) : "0",
+    };
+  },
+
+  toJSON(message: DataNodeSnapshot): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.certificate_fingerprint !== "") {
+      obj.certificateFingerprint = message.certificate_fingerprint;
+    }
+    if (message.session_id !== "") {
+      obj.sessionId = message.session_id;
+    }
+    if (message.last_heartbeat_sequence !== "0") {
+      obj.lastHeartbeatSequence = message.last_heartbeat_sequence;
+    }
+    if (message.state !== "") {
+      obj.state = message.state;
+    }
+    if (message.mode !== "") {
+      obj.mode = message.mode;
+    }
+    if (message.hostname !== "") {
+      obj.hostname = message.hostname;
+    }
+    if (message.port !== 0) {
+      obj.port = Math.round(message.port);
+    }
+    if (message.scheme !== "") {
+      obj.scheme = message.scheme;
+    }
+    if (message.storage_total_bytes !== "0") {
+      obj.storageTotalBytes = message.storage_total_bytes;
+    }
+    if (message.storage_free_bytes !== "0") {
+      obj.storageFreeBytes = message.storage_free_bytes;
+    }
+    if (message.registered_at !== undefined) {
+      obj.registeredAt = message.registered_at.toISOString();
+    }
+    if (message.last_contact_at !== undefined) {
+      obj.lastContactAt = message.last_contact_at.toISOString();
+    }
+    if (message.last_health_check_at !== undefined) {
+      obj.lastHealthCheckAt = message.last_health_check_at.toISOString();
+    }
+    if (message.last_heartbeat_at !== undefined) {
+      obj.lastHeartbeatAt = message.last_heartbeat_at.toISOString();
+    }
+    if (message.updated_at !== undefined) {
+      obj.updatedAt = message.updated_at.toISOString();
+    }
+    if (message.revision !== "0") {
+      obj.revision = message.revision;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<DataNodeSnapshot>, I>>(base?: I): DataNodeSnapshot {
+    return DataNodeSnapshot.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<DataNodeSnapshot>, I>>(object: I): DataNodeSnapshot {
+    const message = createBaseDataNodeSnapshot();
+    message.id = object.id ?? "";
+    message.certificate_fingerprint = object.certificate_fingerprint ?? "";
+    message.session_id = object.session_id ?? "";
+    message.last_heartbeat_sequence = object.last_heartbeat_sequence ?? "0";
+    message.state = object.state ?? "";
+    message.mode = object.mode ?? "";
+    message.hostname = object.hostname ?? "";
+    message.port = object.port ?? 0;
+    message.scheme = object.scheme ?? "";
+    message.storage_total_bytes = object.storage_total_bytes ?? "0";
+    message.storage_free_bytes = object.storage_free_bytes ?? "0";
+    message.registered_at = object.registered_at ?? undefined;
+    message.last_contact_at = object.last_contact_at ?? undefined;
+    message.last_health_check_at = object.last_health_check_at ?? undefined;
+    message.last_heartbeat_at = object.last_heartbeat_at ?? undefined;
+    message.updated_at = object.updated_at ?? undefined;
+    message.revision = object.revision ?? "0";
+    return message;
+  },
+};
+
+function createBaseFetchClusterMembershipSnapshotRequest(): FetchClusterMembershipSnapshotRequest {
+  return { caller_master_id: "", caller_session_id: "" };
+}
+
+export const FetchClusterMembershipSnapshotRequest: MessageFns<FetchClusterMembershipSnapshotRequest> = {
+  encode(message: FetchClusterMembershipSnapshotRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.caller_master_id !== "") {
+      writer.uint32(10).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(18).string(message.caller_session_id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchClusterMembershipSnapshotRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchClusterMembershipSnapshotRequest {
+    return {
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+    };
+  },
+
+  toJSON(message: FetchClusterMembershipSnapshotRequest): unknown {
+    const obj: any = {};
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
+    base?: I,
+  ): FetchClusterMembershipSnapshotRequest {
+    return FetchClusterMembershipSnapshotRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
+    object: I,
+  ): FetchClusterMembershipSnapshotRequest {
+    const message = createBaseFetchClusterMembershipSnapshotRequest();
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    return message;
+  },
+};
+
+function createBaseFetchClusterMembershipSnapshotResponse(): FetchClusterMembershipSnapshotResponse {
+  return { snapshot: undefined };
+}
+
+export const FetchClusterMembershipSnapshotResponse: MessageFns<FetchClusterMembershipSnapshotResponse> = {
+  encode(message: FetchClusterMembershipSnapshotResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.snapshot !== undefined) {
+      ClusterMembershipSnapshot.encode(message.snapshot, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFetchClusterMembershipSnapshotResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.snapshot = ClusterMembershipSnapshot.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FetchClusterMembershipSnapshotResponse {
+    return { snapshot: isSet(object.snapshot) ? ClusterMembershipSnapshot.fromJSON(object.snapshot) : undefined };
+  },
+
+  toJSON(message: FetchClusterMembershipSnapshotResponse): unknown {
+    const obj: any = {};
+    if (message.snapshot !== undefined) {
+      obj.snapshot = ClusterMembershipSnapshot.toJSON(message.snapshot);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
+    base?: I,
+  ): FetchClusterMembershipSnapshotResponse {
+    return FetchClusterMembershipSnapshotResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
+    object: I,
+  ): FetchClusterMembershipSnapshotResponse {
+    const message = createBaseFetchClusterMembershipSnapshotResponse();
+    message.snapshot = (object.snapshot !== undefined && object.snapshot !== null)
+      ? ClusterMembershipSnapshot.fromPartial(object.snapshot)
+      : undefined;
+    return message;
+  },
+};
 
 function createBaseTaskEntry(): TaskEntry {
   return {
@@ -773,514 +2244,6 @@ export const FetchTaskPayloadResponse: MessageFns<FetchTaskPayloadResponse> = {
   fromPartial<I extends Exact<DeepPartial<FetchTaskPayloadResponse>, I>>(object: I): FetchTaskPayloadResponse {
     const message = createBaseFetchTaskPayloadResponse();
     message.payload = object.payload ?? Buffer.alloc(0);
-    return message;
-  },
-};
-
-function createBaseFetchMasterInfoRequest(): FetchMasterInfoRequest {
-  return {};
-}
-
-export const FetchMasterInfoRequest: MessageFns<FetchMasterInfoRequest> = {
-  encode(_: FetchMasterInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFetchMasterInfoRequest();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): FetchMasterInfoRequest {
-    return {};
-  },
-
-  toJSON(_: FetchMasterInfoRequest): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(base?: I): FetchMasterInfoRequest {
-    return FetchMasterInfoRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoRequest>, I>>(_: I): FetchMasterInfoRequest {
-    const message = createBaseFetchMasterInfoRequest();
-    return message;
-  },
-};
-
-function createBaseFetchMasterInfoResponse(): FetchMasterInfoResponse {
-  return { master_id: "", session_id: "", cluster_id: "", epoch: "0" };
-}
-
-export const FetchMasterInfoResponse: MessageFns<FetchMasterInfoResponse> = {
-  encode(message: FetchMasterInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.master_id !== "") {
-      writer.uint32(10).string(message.master_id);
-    }
-    if (message.session_id !== "") {
-      writer.uint32(18).string(message.session_id);
-    }
-    if (message.cluster_id !== "") {
-      writer.uint32(26).string(message.cluster_id);
-    }
-    if (message.epoch !== "0") {
-      writer.uint32(32).int64(message.epoch);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): FetchMasterInfoResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFetchMasterInfoResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.master_id = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.session_id = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.cluster_id = reader.string();
-          continue;
-        }
-        case 4: {
-          if (tag !== 32) {
-            break;
-          }
-
-          message.epoch = reader.int64().toString();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): FetchMasterInfoResponse {
-    return {
-      master_id: isSet(object.masterId)
-        ? globalThis.String(object.masterId)
-        : isSet(object.master_id)
-        ? globalThis.String(object.master_id)
-        : "",
-      session_id: isSet(object.sessionId)
-        ? globalThis.String(object.sessionId)
-        : isSet(object.session_id)
-        ? globalThis.String(object.session_id)
-        : "",
-      cluster_id: isSet(object.clusterId)
-        ? globalThis.String(object.clusterId)
-        : isSet(object.cluster_id)
-        ? globalThis.String(object.cluster_id)
-        : "",
-      epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
-    };
-  },
-
-  toJSON(message: FetchMasterInfoResponse): unknown {
-    const obj: any = {};
-    if (message.master_id !== "") {
-      obj.masterId = message.master_id;
-    }
-    if (message.session_id !== "") {
-      obj.sessionId = message.session_id;
-    }
-    if (message.cluster_id !== "") {
-      obj.clusterId = message.cluster_id;
-    }
-    if (message.epoch !== "0") {
-      obj.epoch = message.epoch;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(base?: I): FetchMasterInfoResponse {
-    return FetchMasterInfoResponse.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<FetchMasterInfoResponse>, I>>(object: I): FetchMasterInfoResponse {
-    const message = createBaseFetchMasterInfoResponse();
-    message.master_id = object.master_id ?? "";
-    message.session_id = object.session_id ?? "";
-    message.cluster_id = object.cluster_id ?? "";
-    message.epoch = object.epoch ?? "0";
-    return message;
-  },
-};
-
-function createBaseRegisterMasterNodeRequest(): RegisterMasterNodeRequest {
-  return { master_id: "", session_id: "", cluster_id: "", hostname: "", port: 0, scheme: "" };
-}
-
-export const RegisterMasterNodeRequest: MessageFns<RegisterMasterNodeRequest> = {
-  encode(message: RegisterMasterNodeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.master_id !== "") {
-      writer.uint32(10).string(message.master_id);
-    }
-    if (message.session_id !== "") {
-      writer.uint32(18).string(message.session_id);
-    }
-    if (message.cluster_id !== "") {
-      writer.uint32(26).string(message.cluster_id);
-    }
-    if (message.hostname !== "") {
-      writer.uint32(34).string(message.hostname);
-    }
-    if (message.port !== 0) {
-      writer.uint32(40).uint32(message.port);
-    }
-    if (message.scheme !== "") {
-      writer.uint32(50).string(message.scheme);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseRegisterMasterNodeRequest();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.master_id = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.session_id = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.cluster_id = reader.string();
-          continue;
-        }
-        case 4: {
-          if (tag !== 34) {
-            break;
-          }
-
-          message.hostname = reader.string();
-          continue;
-        }
-        case 5: {
-          if (tag !== 40) {
-            break;
-          }
-
-          message.port = reader.uint32();
-          continue;
-        }
-        case 6: {
-          if (tag !== 50) {
-            break;
-          }
-
-          message.scheme = reader.string();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): RegisterMasterNodeRequest {
-    return {
-      master_id: isSet(object.masterId)
-        ? globalThis.String(object.masterId)
-        : isSet(object.master_id)
-        ? globalThis.String(object.master_id)
-        : "",
-      session_id: isSet(object.sessionId)
-        ? globalThis.String(object.sessionId)
-        : isSet(object.session_id)
-        ? globalThis.String(object.session_id)
-        : "",
-      cluster_id: isSet(object.clusterId)
-        ? globalThis.String(object.clusterId)
-        : isSet(object.cluster_id)
-        ? globalThis.String(object.cluster_id)
-        : "",
-      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
-      port: isSet(object.port) ? globalThis.Number(object.port) : 0,
-      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
-    };
-  },
-
-  toJSON(message: RegisterMasterNodeRequest): unknown {
-    const obj: any = {};
-    if (message.master_id !== "") {
-      obj.masterId = message.master_id;
-    }
-    if (message.session_id !== "") {
-      obj.sessionId = message.session_id;
-    }
-    if (message.cluster_id !== "") {
-      obj.clusterId = message.cluster_id;
-    }
-    if (message.hostname !== "") {
-      obj.hostname = message.hostname;
-    }
-    if (message.port !== 0) {
-      obj.port = Math.round(message.port);
-    }
-    if (message.scheme !== "") {
-      obj.scheme = message.scheme;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(base?: I): RegisterMasterNodeRequest {
-    return RegisterMasterNodeRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeRequest>, I>>(object: I): RegisterMasterNodeRequest {
-    const message = createBaseRegisterMasterNodeRequest();
-    message.master_id = object.master_id ?? "";
-    message.session_id = object.session_id ?? "";
-    message.cluster_id = object.cluster_id ?? "";
-    message.hostname = object.hostname ?? "";
-    message.port = object.port ?? 0;
-    message.scheme = object.scheme ?? "";
-    return message;
-  },
-};
-
-function createBaseRegisterMasterNodeResponse(): RegisterMasterNodeResponse {
-  return {};
-}
-
-export const RegisterMasterNodeResponse: MessageFns<RegisterMasterNodeResponse> = {
-  encode(_: RegisterMasterNodeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): RegisterMasterNodeResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseRegisterMasterNodeResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): RegisterMasterNodeResponse {
-    return {};
-  },
-
-  toJSON(_: RegisterMasterNodeResponse): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(base?: I): RegisterMasterNodeResponse {
-    return RegisterMasterNodeResponse.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<RegisterMasterNodeResponse>, I>>(_: I): RegisterMasterNodeResponse {
-    const message = createBaseRegisterMasterNodeResponse();
-    return message;
-  },
-};
-
-function createBaseFetchClusterMembershipSnapshotRequest(): FetchClusterMembershipSnapshotRequest {
-  return { caller_master_id: "", caller_session_id: "" };
-}
-
-export const FetchClusterMembershipSnapshotRequest: MessageFns<FetchClusterMembershipSnapshotRequest> = {
-  encode(message: FetchClusterMembershipSnapshotRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.caller_master_id !== "") {
-      writer.uint32(10).string(message.caller_master_id);
-    }
-    if (message.caller_session_id !== "") {
-      writer.uint32(18).string(message.caller_session_id);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFetchClusterMembershipSnapshotRequest();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.caller_master_id = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.caller_session_id = reader.string();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): FetchClusterMembershipSnapshotRequest {
-    return {
-      caller_master_id: isSet(object.callerMasterId)
-        ? globalThis.String(object.callerMasterId)
-        : isSet(object.caller_master_id)
-        ? globalThis.String(object.caller_master_id)
-        : "",
-      caller_session_id: isSet(object.callerSessionId)
-        ? globalThis.String(object.callerSessionId)
-        : isSet(object.caller_session_id)
-        ? globalThis.String(object.caller_session_id)
-        : "",
-    };
-  },
-
-  toJSON(message: FetchClusterMembershipSnapshotRequest): unknown {
-    const obj: any = {};
-    if (message.caller_master_id !== "") {
-      obj.callerMasterId = message.caller_master_id;
-    }
-    if (message.caller_session_id !== "") {
-      obj.callerSessionId = message.caller_session_id;
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
-    base?: I,
-  ): FetchClusterMembershipSnapshotRequest {
-    return FetchClusterMembershipSnapshotRequest.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotRequest>, I>>(
-    object: I,
-  ): FetchClusterMembershipSnapshotRequest {
-    const message = createBaseFetchClusterMembershipSnapshotRequest();
-    message.caller_master_id = object.caller_master_id ?? "";
-    message.caller_session_id = object.caller_session_id ?? "";
-    return message;
-  },
-};
-
-function createBaseFetchClusterMembershipSnapshotResponse(): FetchClusterMembershipSnapshotResponse {
-  return { snapshot: Buffer.alloc(0) };
-}
-
-export const FetchClusterMembershipSnapshotResponse: MessageFns<FetchClusterMembershipSnapshotResponse> = {
-  encode(message: FetchClusterMembershipSnapshotResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.snapshot.length !== 0) {
-      writer.uint32(10).bytes(message.snapshot);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): FetchClusterMembershipSnapshotResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseFetchClusterMembershipSnapshotResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.snapshot = Buffer.from(reader.bytes());
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): FetchClusterMembershipSnapshotResponse {
-    return { snapshot: isSet(object.snapshot) ? Buffer.from(bytesFromBase64(object.snapshot)) : Buffer.alloc(0) };
-  },
-
-  toJSON(message: FetchClusterMembershipSnapshotResponse): unknown {
-    const obj: any = {};
-    if (message.snapshot.length !== 0) {
-      obj.snapshot = base64FromBytes(message.snapshot);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
-    base?: I,
-  ): FetchClusterMembershipSnapshotResponse {
-    return FetchClusterMembershipSnapshotResponse.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<FetchClusterMembershipSnapshotResponse>, I>>(
-    object: I,
-  ): FetchClusterMembershipSnapshotResponse {
-    const message = createBaseFetchClusterMembershipSnapshotResponse();
-    message.snapshot = object.snapshot ?? Buffer.alloc(0);
     return message;
   },
 };

@@ -14,7 +14,6 @@ import {
   type RecordLeaderHeartbeatResponse
 } from '@/gen/proto/master/v1/master';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
-import { parseClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot.serializer';
 import type { RequestVoteResult } from '@/modules/election/election.application';
 import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
@@ -37,6 +36,7 @@ import type {
 import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
+  mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot,
   mapGrpcTaskEntryToInternodeTaskEntry,
   mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult
@@ -144,7 +144,7 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
       );
     });
 
-    return parseClusterMembershipSnapshot(response.snapshot);
+    return mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot(response.snapshot);
   }
 
   async fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult> {
