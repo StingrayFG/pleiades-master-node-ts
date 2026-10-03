@@ -53,7 +53,8 @@ class TaskPayloadCleanupHandler {
       return;
     }
 
-    // delete the payload first: a crash here keeps the reference, so the next sweep retries
+    // delete the payload before clearing its task reference so
+    // a failed deletion never leaves unreferenced bytes.
     await this.byteStorageService.delete(task.payloadId);
 
     await this.repository.clearPayloadId({

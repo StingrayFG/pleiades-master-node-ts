@@ -40,10 +40,7 @@ type TaskServiceContract = {
 
   // replication
   replicateTask(input: ReplicateTaskInput, leadershipContext: ConsensusLeadershipContext): Promise<PersistedTask>;
-  deleteTasksFromSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<number>;
+  deleteTasksFromSequence(sequence: TaskSequence, leadershipContext: ConsensusLeadershipContext): Promise<number>;
 
   // registration
   registerHandler<TDefinition extends TaskDefinition>(
@@ -159,12 +156,12 @@ class TaskService implements TaskServiceContract {
       throw new GenericFailedPreconditionError('Replicated task sequence is not the next allocatable sequence');
     }
 
-    // the payload lands before the entry so the allocated sequence never covers
-    // an entry whose bytes are missing
+    // the payload gets stored before the task entry itself so the allocated sequence never covers
+    // a task entry whose bytes are missing.
     await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
 
-    // the leader-assigned sequence is claimed and the entry is inserted in one
-    // transaction, so the allocated pointer never covers a missing row either
+    // the leader-assigned sequence is claimed and the task entry is inserted in one
+    // transaction, so the allocated pointer never covers a missing row either.
     const task = await this.consensusService.withAdvancedLastAllocatedSequence(leadershipContext, (tx, sequence) => {
       if (sequence !== input.sequence) {
         throw new GenericAbortedError('Replicated task sequence is no longer the next allocatable sequence');
@@ -253,8 +250,6 @@ class TaskService implements TaskServiceContract {
   ): Promise<PersistedTask> {
     const id = randomUUID();
 
-    // the task becomes visible to executions once a quorum of master nodes holds it;
-    // the election module advances the committed sequence
     return this.submitTaskWithId(definition, data, id);
   }
 
@@ -318,11 +313,12 @@ class TaskService implements TaskServiceContract {
     }
 
     // trigger an immediate apply attempt to reduce latency;
-    // the background sweep remains responsible for recovery.
+    // the periodic apply cycle will remain responsible for recovery.
     try {
       await this.applyHandler.run();
     } catch {
-      // ignore transient sweep failures here; execution state is recovered through the regular apply cycle.
+      // ignore transient apply failures here;
+      // committed tasks remain available for the periodic apply cycle.
     }
 
     return resultPromise;
@@ -420,7 +416,6 @@ class TaskService implements TaskServiceContract {
       throw new GenericInternalServerError('Dehydrated task data is missing its payload');
     }
 
-    // always called after the task row is created, so a failed store never leaves an unreferenced payload behind
     await this.byteStorageService.store(payloadId, payload);
   }
 
@@ -464,6 +459,7 @@ class TaskService implements TaskServiceContract {
         )
     );
 
+    // store the payload after task creation so a failed store never leaves unreferenced bytes.
     await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
 
     return task;
@@ -529,6 +525,7 @@ class TaskService implements TaskServiceContract {
       }
     );
 
+    // store the payload after task creation so a failed store never leaves unreferenced bytes.
     await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
 
     return task;

@@ -56,8 +56,6 @@ class UncommittedTaskCleanupHandler {
       return;
     }
 
-    // the submission that created this row never finished, so the task is failed
-    // without executions; a concurrent change means someone else got to it first
     try {
       await this.repository.updateTaskState({
         id: task.id,

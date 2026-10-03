@@ -58,6 +58,8 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
   private async runPendingTasks(): Promise<void> {
     const consensusState = await this.consensusService.getConsensusState();
 
+    // the task becomes eligible for execution only after a quorum replicates it
+    // and the committed sequence advances past it.
     const tasks = await this.repository.listTasksInSequenceRange({
       afterSequence: consensusState.lastAppliedSequence,
       upToSequence: consensusState.lastCommittedSequence,
@@ -100,8 +102,8 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       executions.length === 0 ||
       executions.some((execution) => execution.state !== 'completed' && execution.state !== 'failed');
 
-    // hydration may fetch a payload from storage, so skip it when every execution is already finalized;
-    // it runs before execution creation so a task that cannot be decoded never spawns executions
+    // skip hydration once every execution is finalized because it may retrieve a stored payload.
+    // hydrate before creating executions so invalid task data never produces executions.
     let data: unknown;
 
     if (hasRunnableExecutions) {
@@ -165,8 +167,8 @@ class TaskApplyHandler implements TaskApplyHandlerContract {
       at: new Date()
     });
 
-    // result delivery is best-effort and only applies to in-memory waiters
-    // completed task state is the durable source of truth
+    // outcome delivery is best-effort and only serves in-memory waiters.
+    // the persisted terminal task state remains the durable source of truth.
     this.deliverOutcome(task.id, state, outcomes);
 
     await this.consensusService.advanceLastAppliedSequence(task.sequence);

@@ -12,17 +12,17 @@ type SimpleTaskDefinition<TType extends string, TScope extends TaskExecutionScop
 
   dataSchema: z.ZodType<TData>;
 
-  // no persisted data and payload split; persisted data is the full data,
-  // so TData must always be inferred from dataSchema instead of this schema
+  // simple definitions persist the full task data without a separate payload,
+  // so TData must be inferred from dataSchema rather than persistedDataSchema.
   persistedDataSchema: z.ZodType<NoInfer<TData>>;
 
   taskSchema: TaskSchema<TType, TScope, TData>;
 
-  // wire schema for the handler result; required for definitions whose results
-  // must survive being forwarded from a follower to the leader
+  // defines the wire schema for handler results returned from the leader
+  // to the forwarding follower.
   resultSchema?: z.ZodType<TResult>;
 
-  // compile-time only marker that associates this definition with the handler result type
+  // associates this definition with its handler result type at compile time only.
   readonly __resultType?: TResult;
 };
 
@@ -48,11 +48,11 @@ type DehydratedTaskDefinition<
 
   taskSchema: TaskSchema<TType, TScope, TData>;
 
-  // wire schema for the handler result; required for definitions whose results
-  // must survive being forwarded from a follower to the leader
+  // defines the wire schema for handler results returned from the leader
+  // to the forwarding follower.
   resultSchema?: z.ZodType<TResult>;
 
-  // compile-time only marker that associates this definition with the handler result type
+  // associates this definition with its handler result type at compile time only.
   readonly __resultType?: TResult;
 };
 
@@ -100,8 +100,8 @@ type TaskDefinitionResult<TDefinition extends { __resultType?: unknown }> = Excl
 
 type TaskDefinitionTask<TDefinition extends { taskSchema: z.ZodTypeAny }> = z.output<TDefinition['taskSchema']>;
 
-// task handlers may be invoked more than once for the same task,
-// therefore implementations must be idempotent and safe to retry
+// task handlers may run more than once for the same task, so they must be
+// idempotent and safe to retry.
 type TaskDefinitionHandler<TDefinition extends { __resultType?: unknown; taskSchema: z.ZodTypeAny }> = (
   task: TaskDefinitionTask<TDefinition>
 ) => Promise<TaskDefinitionResult<TDefinition>>;

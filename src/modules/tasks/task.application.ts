@@ -19,8 +19,43 @@ import {
   type TaskPayloadId
 } from './task.domain';
 
-/* schemas */
+/* service schemas */
 
+// query
+export const listTasksInSequenceRangeInputSchema = z.object({
+  afterSequence: taskSequenceSchema,
+  upToSequence: taskSequenceSchema,
+  limit: z.number().int().positive()
+});
+
+// replication
+export const replicateTaskInputSchema = taskBaseSchema
+  .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
+  .extend(taskDefinitionSchema.shape)
+  .extend({
+    payloadId: taskPayloadIdSchema.nullable(),
+    payload: z.instanceof(Buffer).optional(),
+
+    createdAt: z.date()
+  });
+
+/* repository schemas */
+
+// list
+export const listTasksInSequenceRangeRepositoryInputSchema = listTasksInSequenceRangeInputSchema;
+
+export const listPayloadCleanupCandidatesRepositoryInputSchema = z.object({
+  updatedBefore: z.date(),
+  limit: z.number().int().positive()
+});
+
+export const listUncommittedCleanupCandidatesRepositoryInputSchema = z.object({
+  afterSequence: taskSequenceSchema,
+  updatedBefore: z.date(),
+  limit: z.number().int().positive()
+});
+
+// create
 export const createTaskRepositoryInputSchema = taskBaseSchema
   .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
   .extend(taskDefinitionSchema.shape)
@@ -41,6 +76,7 @@ export const createTaskExecutionRepositoryInputSchema = z.object({
   updatedAt: z.date()
 });
 
+// execution
 export const transitionTaskExecutionRepositoryInputSchema = z.object({
   id: taskExecutionIdSchema,
   revision: taskRevisionSchema,
@@ -51,6 +87,7 @@ export const failTaskExecutionRepositoryInputSchema = transitionTaskExecutionRep
   failureReason: z.string()
 });
 
+// update
 export const updateTaskStateRepositoryInputSchema = z.object({
   id: taskIdSchema,
   revision: taskRevisionSchema,
@@ -58,40 +95,31 @@ export const updateTaskStateRepositoryInputSchema = z.object({
   at: z.date()
 });
 
-export const listTasksInSequenceRangeRepositoryInputSchema = z.object({
-  afterSequence: taskSequenceSchema,
-  upToSequence: taskSequenceSchema,
-  limit: z.number().int().positive()
-});
-
-export const replicateTaskInputSchema = taskBaseSchema
-  .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
-  .extend(taskDefinitionSchema.shape)
-  .extend({
-    payloadId: taskPayloadIdSchema.nullable(),
-    payload: z.instanceof(Buffer).optional(),
-
-    createdAt: z.date()
-  });
-
-export const listPayloadCleanupCandidatesRepositoryInputSchema = z.object({
-  updatedBefore: z.date(),
-  limit: z.number().int().positive()
-});
-
-export const listUncommittedCleanupCandidatesRepositoryInputSchema = z.object({
-  afterSequence: taskSequenceSchema,
-  updatedBefore: z.date(),
-  limit: z.number().int().positive()
-});
-
 export const clearTaskPayloadIdRepositoryInputSchema = z.object({
   id: taskIdSchema,
   revision: taskRevisionSchema
 });
 
-/* types */
+/* service types */
 
+// query
+export type ListTasksInSequenceRangeInput = z.infer<typeof listTasksInSequenceRangeInputSchema>;
+
+// replication
+export type ReplicateTaskInput = z.infer<typeof replicateTaskInputSchema>;
+
+/* repository types */
+
+// list
+export type ListTasksInSequenceRangeRepositoryInput = z.infer<typeof listTasksInSequenceRangeRepositoryInputSchema>;
+export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<
+  typeof listPayloadCleanupCandidatesRepositoryInputSchema
+>;
+export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<
+  typeof listUncommittedCleanupCandidatesRepositoryInputSchema
+>;
+
+// create
 export type CreateTaskRepositoryInput<
   TType extends string = string,
   TScope extends TaskExecutionScope = TaskExecutionScope
@@ -108,23 +136,10 @@ export type CreateTaskRepositoryInput<
 
 export type CreateTaskExecutionRepositoryInput = z.infer<typeof createTaskExecutionRepositoryInputSchema>;
 
+// execution
 export type TransitionTaskExecutionRepositoryInput = z.infer<typeof transitionTaskExecutionRepositoryInputSchema>;
 export type FailTaskExecutionRepositoryInput = z.infer<typeof failTaskExecutionRepositoryInputSchema>;
 
+// update
 export type UpdateTaskStateRepositoryInput = z.infer<typeof updateTaskStateRepositoryInputSchema>;
-
-export type ListTasksInSequenceRangeRepositoryInput = z.infer<typeof listTasksInSequenceRangeRepositoryInputSchema>;
-
-export type ListTasksInSequenceRangeInput = ListTasksInSequenceRangeRepositoryInput;
-
-export type ReplicateTaskInput = z.infer<typeof replicateTaskInputSchema>;
-
-export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<
-  typeof listPayloadCleanupCandidatesRepositoryInputSchema
->;
-
-export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<
-  typeof listUncommittedCleanupCandidatesRepositoryInputSchema
->;
-
 export type ClearTaskPayloadIdRepositoryInput = z.infer<typeof clearTaskPayloadIdRepositoryInputSchema>;
