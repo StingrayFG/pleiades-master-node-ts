@@ -2,7 +2,6 @@ import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 
-import type { ListPayloadCleanupCandidatesRepositoryInput } from '../task.application';
 import type { TaskConfig } from '../task.config';
 import type { PersistedTask } from '../task.domain';
 import type { TaskRepositoryContract } from '../task.repository';
@@ -19,12 +18,10 @@ class TaskPayloadCleanupHandler {
   async run(now: Date): Promise<void> {
     const updatedBefore = new Date(now.getTime() - this.taskConfig.lifecycle.payloadCleanup.afterMs);
 
-    const listCandidatesInput: ListPayloadCleanupCandidatesRepositoryInput = {
+    const tasks = await this.repository.listPayloadCleanupCandidates({
       updatedBefore,
       limit: this.taskConfig.lifecycle.payloadCleanup.batchSize
-    };
-
-    const tasks = await this.repository.listPayloadCleanupCandidates(listCandidatesInput);
+    });
 
     const results = await Promise.allSettled(tasks.map((task) => this.cleanupPayload(task)));
 

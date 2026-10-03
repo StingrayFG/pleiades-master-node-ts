@@ -8,9 +8,7 @@ import { mapDataNodeToDataNodeEndpoint } from '../data-node.mappers';
 import type { DataNodeRepositoryContract } from '../data-node.repository';
 import {
   recordDataNodeHealthCheckTaskDefinition,
-  updateDataNodeStateTaskDefinition,
-  type RecordDataNodeHealthCheckTaskData,
-  type UpdateDataNodeStateTaskData
+  updateDataNodeStateTaskDefinition
 } from '../data-node.tasks';
 import { resolveDataNodeStateFromContactSilence, shouldCheckDataNodeHealth } from './data-node.lifecycle-policies';
 
@@ -43,17 +41,15 @@ class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
     let expectedRevision = dataNode.revision;
 
     if (shouldCheckDataNodeHealth(dataNode, now)) {
-      const taskData: RecordDataNodeHealthCheckTaskData = {
-        id: dataNode.id,
-
-        lastHealthCheckAt: now,
-
-        expectedRevision
-      };
-
       const healthCheckResult = await this.taskService.executeTaskByDefinition(
         recordDataNodeHealthCheckTaskDefinition,
-        taskData
+        {
+          id: dataNode.id,
+
+          lastHealthCheckAt: now,
+
+          expectedRevision
+        }
       );
 
       if (healthCheckResult === false) {
@@ -69,15 +65,13 @@ class DataNodeLifecycleHandler implements DataNodeLifecycleHandlerContract {
       return;
     }
 
-    const taskData: UpdateDataNodeStateTaskData = {
+    await this.taskService.executeTaskByDefinition(updateDataNodeStateTaskDefinition, {
       id: dataNode.id,
 
       state: nextState,
 
       expectedRevision
-    };
-
-    await this.taskService.executeTaskByDefinition(updateDataNodeStateTaskDefinition, taskData);
+    });
   }
 
   private async resolveSilentDataNodeStateFromHealthCheck(dataNode: DataNode): Promise<DataNodeState> {

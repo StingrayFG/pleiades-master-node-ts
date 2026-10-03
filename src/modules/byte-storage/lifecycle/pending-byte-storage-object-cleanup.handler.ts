@@ -1,7 +1,6 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
-import type { ListPendingCleanupCandidatesRepositoryInput } from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';
 import type { ByteStorageObject } from '../byte-storage.domain';
 import type { ByteStorageRepositoryContract } from '../byte-storage.repository';
@@ -17,12 +16,10 @@ class PendingByteStorageObjectCleanupHandler {
   async run(now: Date): Promise<void> {
     const updatedBefore = new Date(now.getTime() - this.byteStorageConfig.lifecycle.pendingCleanup.afterMs);
 
-    const listCandidatesInput: ListPendingCleanupCandidatesRepositoryInput = {
+    const objects = await this.repository.listPendingCleanupCandidates({
       updatedBefore,
       limit: this.byteStorageConfig.lifecycle.pendingCleanup.batchSize
-    };
-
-    const objects = await this.repository.listPendingCleanupCandidates(listCandidatesInput);
+    });
 
     const results = await Promise.allSettled(objects.map((object) => this.cleanupObject(object)));
 

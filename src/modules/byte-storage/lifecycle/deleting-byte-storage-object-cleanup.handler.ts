@@ -1,10 +1,6 @@
 import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
-import type {
-  ListDeletingCleanupCandidatesRepositoryInput,
-  TouchByteStorageObjectDeletionCandidateRepositoryInput
-} from '../byte-storage.application';
 import type { ByteStorageConfig } from '../byte-storage.config';
 import type { ByteStorageObject } from '../byte-storage.domain';
 import { mapByteStorageObjectToByteStorageReference } from '../byte-storage.mappers';
@@ -23,12 +19,10 @@ class DeletingByteStorageObjectCleanupHandler {
   async run(now: Date): Promise<void> {
     const updatedBefore = new Date(now.getTime() - this.byteStorageConfig.lifecycle.deletion.afterMs);
 
-    const listCandidatesInput: ListDeletingCleanupCandidatesRepositoryInput = {
+    const objects = await this.repository.listDeletingCleanupCandidates({
       updatedBefore,
       limit: this.byteStorageConfig.lifecycle.deletion.batchSize
-    };
-
-    const objects = await this.repository.listDeletingCleanupCandidates(listCandidatesInput);
+    });
 
     const results = await Promise.allSettled(objects.map((object) => this.cleanupObject(object)));
 
@@ -61,13 +55,11 @@ class DeletingByteStorageObjectCleanupHandler {
       await this.diskService.delete(mapByteStorageObjectToByteStorageReference(object));
       await this.repository.deleteByIdIfState(object.id, 'deleting');
     } catch (err) {
-      const touchDeletionCandidateInput: TouchByteStorageObjectDeletionCandidateRepositoryInput = {
-        id: object.id
-      };
-
       // refresh the failed candidate's timestamp so that it gets processed again only
       // after the older candidates are handled and the configured delay has passed
-      await this.repository.touchDeletionCandidate(touchDeletionCandidateInput);
+      await this.repository.touchDeletionCandidate({
+        id: object.id
+      });
 
       throw err;
     }

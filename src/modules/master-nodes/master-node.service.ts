@@ -7,7 +7,7 @@ import {
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
-import type { ApplyMasterNodeRegistrationRepositoryInput, RegisterMasterNodeInput } from './master-node.application';
+import type { RegisterMasterNodeInput } from './master-node.application';
 import type { MasterNode, MasterNodeId, MasterNodeMode } from './master-node.domain';
 import type { MasterNodeRepositoryContract } from './master-node.repository';
 
@@ -51,21 +51,22 @@ class MasterNodeService implements MasterNodeServiceContract {
       throw new GenericConflictError('Master node certificate does not match the registered certificate');
     }
 
-    const repositoryInput: ApplyMasterNodeRegistrationRepositoryInput = {
-      id: input.id,
-
-      certificateFingerprint: input.certificateFingerprint,
-      sessionId: input.sessionId,
-      state: input.state,
-      mode: input.mode,
-
-      endpoint: input.endpoint,
-
-      lastContactAt: new Date()
-    };
-
     return this.clusterService.withAdvancedMembershipRevision((tx) =>
-      this.repository.applyRegistration(repositoryInput, tx)
+      this.repository.applyRegistration(
+        {
+          id: input.id,
+
+          certificateFingerprint: input.certificateFingerprint,
+          sessionId: input.sessionId,
+          state: input.state,
+          mode: input.mode,
+
+          endpoint: input.endpoint,
+
+          lastContactAt: new Date()
+        },
+        tx
+      )
     );
   }
 

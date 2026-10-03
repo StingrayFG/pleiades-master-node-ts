@@ -11,9 +11,7 @@ import { mapDataNodeToDataNodeEndpoint } from './data-node.mappers';
 import type { DataNodeRepositoryContract } from './data-node.repository';
 import {
   applyDataNodeHeartbeatTaskDefinition,
-  registerDataNodeTaskDefinition,
-  type ApplyDataNodeHeartbeatTaskData,
-  type RegisterDataNodeTaskData
+  registerDataNodeTaskDefinition
 } from './data-node.tasks';
 
 /* contract */
@@ -58,11 +56,13 @@ class DataNodeService implements DataNodeServiceContract {
       throw new GenericForbiddenError('Data node certificate does not match the registered certificate');
     }
 
-    const taskData: RegisterDataNodeTaskData = {
+    const sessionId = randomUUID();
+
+    await this.taskService.executeTaskByDefinition(registerDataNodeTaskDefinition, {
       id: input.id,
 
       certificateFingerprint: input.certificateFingerprint,
-      sessionId: randomUUID(),
+      sessionId,
       state: 'joining',
 
       endpoint: input.endpoint,
@@ -73,11 +73,9 @@ class DataNodeService implements DataNodeServiceContract {
       lastContactAt: new Date(),
 
       expectedRevision: currentDataNode?.revision ?? null
-    };
+    });
 
-    await this.taskService.executeTaskByDefinition(registerDataNodeTaskDefinition, taskData);
-
-    return taskData.sessionId;
+    return sessionId;
   }
 
   async applyDataNodeHeartbeat(input: HeartbeatDataNodeInput): Promise<void> {
@@ -101,7 +99,7 @@ class DataNodeService implements DataNodeServiceContract {
 
     const now = new Date();
 
-    const taskData: ApplyDataNodeHeartbeatTaskData = {
+    await this.taskService.executeTaskByDefinition(applyDataNodeHeartbeatTaskDefinition, {
       id: input.id,
 
       certificateFingerprint: input.certificateFingerprint,
@@ -114,9 +112,7 @@ class DataNodeService implements DataNodeServiceContract {
 
       lastContactAt: now,
       lastHeartbeatAt: now
-    };
-
-    await this.taskService.executeTaskByDefinition(applyDataNodeHeartbeatTaskDefinition, taskData);
+    });
   }
 
   async checkDataNodeHealth(id: DataNodeId): Promise<DataNodeHealthSnapshot> {

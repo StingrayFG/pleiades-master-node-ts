@@ -8,7 +8,6 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 
-import type { CreateByteStorageObjectRepositoryInput } from './byte-storage.application';
 import {
   BYTE_STORAGE_CHECKSUM_ALGORITHM,
   type ByteStorageId,
@@ -51,13 +50,11 @@ class ByteStorageService implements ByteStorageServiceContract {
     let object = await this.repository.findById(id);
 
     if (!object) {
-      const repositoryInput: CreateByteStorageObjectRepositoryInput = {
-        ...reference,
-        state: 'pending'
-      };
-
       try {
-        object = await this.repository.create(repositoryInput);
+        object = await this.repository.create({
+          ...reference,
+          state: 'pending'
+        });
       } catch (err) {
         if (!(err instanceof GenericAlreadyExistsError)) {
           throw err;

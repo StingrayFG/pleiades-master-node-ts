@@ -33,13 +33,7 @@ import {
   createUserTaskDefinition,
   revokeUserApiKeyTaskDefinition,
   revokeUserRefreshTokenTaskDefinition,
-  rotateUserRefreshTokenTaskDefinition,
-  type CreateUserApiKeyTaskData,
-  type CreateUserRefreshTokenTaskData,
-  type CreateUserTaskData,
-  type RevokeUserApiKeyTaskData,
-  type RevokeUserRefreshTokenTaskData,
-  type RotateUserRefreshTokenTaskData
+  rotateUserRefreshTokenTaskDefinition
 } from './user.tasks';
 
 /* contract */
@@ -75,20 +69,18 @@ class UserService implements UserServiceContract {
 
     const passwordHash = await hashUserPassword(input.password);
 
-    const taskData: CreateUserTaskData = {
+    return this.taskService.executeTaskByDefinition(createUserTaskDefinition, {
       userId: randomUUID(),
       username,
 
       passwordHash
-    };
-
-    return this.taskService.executeTaskByDefinition(createUserTaskDefinition, taskData);
+    });
   }
 
   async createApiKey(input: CreateUserApiKeyInput): Promise<CreateApiKeyResult> {
     const apiKeyCredentials = createUserApiKeyCredentials(this.apiKeyHashKey);
 
-    const taskData: CreateUserApiKeyTaskData = {
+    const apiKey = await this.taskService.executeTaskByDefinition(createUserApiKeyTaskDefinition, {
       apiKeyId: apiKeyCredentials.id,
 
       userId: input.userId,
@@ -98,9 +90,7 @@ class UserService implements UserServiceContract {
       name: input.name,
 
       expiresAt: input.expiresAt
-    };
-
-    const apiKey = await this.taskService.executeTaskByDefinition(createUserApiKeyTaskDefinition, taskData);
+    });
 
     return {
       apiKey,
@@ -111,7 +101,7 @@ class UserService implements UserServiceContract {
   async createRefreshToken(userId: UserId): Promise<string> {
     const credentials = createUserRefreshTokenCredentials(this.refreshTokenHashKey);
 
-    const taskData: CreateUserRefreshTokenTaskData = {
+    await this.taskService.executeTaskByDefinition(createUserRefreshTokenTaskDefinition, {
       refreshTokenId: credentials.id,
 
       userId,
@@ -119,9 +109,7 @@ class UserService implements UserServiceContract {
       secretHash: credentials.secretHash,
 
       expiresAt: new Date(Date.now() + userConfig.refreshToken.ttlMs)
-    };
-
-    await this.taskService.executeTaskByDefinition(createUserRefreshTokenTaskDefinition, taskData);
+    });
 
     return credentials.token;
   }
@@ -220,7 +208,7 @@ class UserService implements UserServiceContract {
 
     const credentials = createUserRefreshTokenCredentials(this.refreshTokenHashKey);
 
-    const taskData: RotateUserRefreshTokenTaskData = {
+    await this.taskService.executeTaskByDefinition(rotateUserRefreshTokenTaskDefinition, {
       currentRefreshTokenId: storedRefreshToken.id,
       newRefreshTokenId: credentials.id,
 
@@ -229,9 +217,7 @@ class UserService implements UserServiceContract {
       secretHash: credentials.secretHash,
 
       expiresAt: new Date(Date.now() + userConfig.refreshToken.ttlMs)
-    };
-
-    await this.taskService.executeTaskByDefinition(rotateUserRefreshTokenTaskDefinition, taskData);
+    });
 
     return {
       userId: user.id,
@@ -241,12 +227,10 @@ class UserService implements UserServiceContract {
   }
 
   async revokeApiKey(input: RevokeUserApiKeyInput): Promise<UserApiKey> {
-    const taskData: RevokeUserApiKeyTaskData = {
+    return this.taskService.executeTaskByDefinition(revokeUserApiKeyTaskDefinition, {
       userId: input.userId,
       apiKeyId: input.apiKeyId
-    };
-
-    return this.taskService.executeTaskByDefinition(revokeUserApiKeyTaskDefinition, taskData);
+    });
   }
 
   async revokeRefreshToken(refreshToken: string): Promise<UserRefreshToken> {
@@ -274,11 +258,9 @@ class UserService implements UserServiceContract {
       throw new GenericUnauthorizedError('Invalid refresh token');
     }
 
-    const taskData: RevokeUserRefreshTokenTaskData = {
+    return this.taskService.executeTaskByDefinition(revokeUserRefreshTokenTaskDefinition, {
       refreshTokenId: authentication.refreshToken.id
-    };
-
-    return this.taskService.executeTaskByDefinition(revokeUserRefreshTokenTaskDefinition, taskData);
+    });
   }
 }
 

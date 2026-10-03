@@ -1,12 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import type {
-  AuthenticatePasswordInput,
-  CreateUserApiKeyInput,
-  CreateUserInput,
-  RevokeUserApiKeyInput
-} from './user.application';
-import type {
   CreateApiKeyHttpRoute,
   ListApiKeysHttpRoute,
   LoginHttpRoute,
@@ -44,12 +38,10 @@ class UserController implements UserHttpControllerContract {
   constructor(private readonly service: UserServiceContract) {}
 
   async signup(req: FastifyRequest<SignupHttpRoute>, reply: FastifyReply<SignupHttpRoute>): Promise<void> {
-    const serviceInput: CreateUserInput = {
+    const createdUser = await this.service.createUser({
       username: req.body.username,
       password: req.body.password
-    };
-
-    const createdUser = await this.service.createUser(serviceInput);
+    });
 
     const res = mapDomainUserToHttpUserResponse(createdUser);
 
@@ -57,12 +49,10 @@ class UserController implements UserHttpControllerContract {
   }
 
   async login(req: FastifyRequest<LoginHttpRoute>, reply: FastifyReply<LoginHttpRoute>): Promise<void> {
-    const serviceInput: AuthenticatePasswordInput = {
+    const authenticatedUser = await this.service.authenticatePassword({
       username: req.body.username,
       password: req.body.password
-    };
-
-    const authenticatedUser = await this.service.authenticatePassword(serviceInput);
+    });
 
     const refreshToken = await this.service.createRefreshToken(authenticatedUser.id);
 
@@ -113,15 +103,13 @@ class UserController implements UserHttpControllerContract {
     req: FastifyRequest<CreateApiKeyHttpRoute>,
     reply: FastifyReply<CreateApiKeyHttpRoute>
   ): Promise<void> {
-    const serviceInput: CreateUserApiKeyInput = {
+    const apiKeyCreation = await this.service.createApiKey({
       userId: req.auth.userId,
 
       name: req.body.name,
 
       expiresAt: req.body.expiresAt
-    };
-
-    const apiKeyCreation = await this.service.createApiKey(serviceInput);
+    });
 
     const res = mapCreateApiKeyResultToHttpCreateApiKeyResponse(apiKeyCreation);
 
@@ -132,13 +120,11 @@ class UserController implements UserHttpControllerContract {
     req: FastifyRequest<RevokeApiKeyHttpRoute>,
     reply: FastifyReply<RevokeApiKeyHttpRoute>
   ): Promise<void> {
-    const serviceInput: RevokeUserApiKeyInput = {
+    const revokedApiKey = await this.service.revokeApiKey({
       userId: req.auth.userId,
 
       apiKeyId: req.params.apiKeyId
-    };
-
-    const revokedApiKey = await this.service.revokeApiKey(serviceInput);
+    });
 
     const res = mapDomainUserApiKeyToHttpUserApiKeyResponse(revokedApiKey);
 
