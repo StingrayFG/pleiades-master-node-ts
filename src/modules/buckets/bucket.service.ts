@@ -7,12 +7,7 @@ import type { UserId } from '@/modules/users/user.domain';
 import type { EnsureBucketExistsResult } from './bucket.application';
 import type { Bucket, BucketName } from './bucket.domain';
 import type { BucketRepositoryContract } from './bucket.repository';
-import {
-  createBucketTaskDefinition,
-  deleteBucketTaskDefinition,
-  type CreateBucketTaskData,
-  type DeleteBucketTaskData
-} from './bucket.tasks';
+import { createBucketTaskDefinition, deleteBucketTaskDefinition } from './bucket.tasks';
 
 /* contract */
 
@@ -57,7 +52,7 @@ class BucketService implements BucketServiceContract {
       };
     }
 
-    const taskData: CreateBucketTaskData = {
+    const bucket = await this.taskService.executeTaskByDefinition(createBucketTaskDefinition, {
       bucketId: randomUUID(),
       bucketName,
 
@@ -66,9 +61,7 @@ class BucketService implements BucketServiceContract {
       state: 'active',
 
       revision: 0n
-    };
-
-    const bucket = await this.taskService.executeTaskByDefinition(createBucketTaskDefinition, taskData);
+    });
 
     return {
       bucket,
@@ -83,14 +76,12 @@ class BucketService implements BucketServiceContract {
       throw new GenericNotFoundError();
     }
 
-    const taskData: DeleteBucketTaskData = {
+    await this.taskService.executeTaskByDefinition(deleteBucketTaskDefinition, {
       bucketId: existingBucket.id,
       bucketName,
 
       userId
-    };
-
-    await this.taskService.executeTaskByDefinition(deleteBucketTaskDefinition, taskData);
+    });
 
     return existingBucket;
   }

@@ -5,11 +5,6 @@ import type { BlobServiceContract } from '@/modules/blobs/blob.service';
 import { mapDataNodeToDataNodeEndpoint } from '@/modules/data-nodes/data-node.mappers';
 import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.service';
 
-import type {
-  ApplyPartReplicaVerificationRepositoryInput,
-  ListPartReplicaVerificationCandidatesRepositoryInput,
-  TouchPartReplicaVerificationCandidateRepositoryInput
-} from '../object-version-part.application';
 import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { resolveFailedGetPartReplicaState } from '../object-version-part.replica-state-resolvers';
@@ -29,12 +24,10 @@ class PartReplicaVerificationHandler {
   async run(now: Date): Promise<void> {
     const verifiedBefore = new Date(now.getTime() - this.partConfig.lifecycle.verification.afterMs);
 
-    const listVerificationCandidatesInput: ListPartReplicaVerificationCandidatesRepositoryInput = {
+    const partReplicas = await this.repository.listPartReplicaVerificationCandidates({
       verifiedBefore,
       limit: this.partConfig.lifecycle.verification.batchSize
-    };
-
-    const partReplicas = await this.repository.listPartReplicaVerificationCandidates(listVerificationCandidatesInput);
+    });
 
     await Promise.all(partReplicas.map((partReplica) => this.verifyCommittedPartReplica(partReplica, now)));
   }
@@ -81,7 +74,7 @@ class PartReplicaVerificationHandler {
       state = failedState;
     }
 
-    const verificationInput: ApplyPartReplicaVerificationRepositoryInput = {
+    await this.repository.applyPartReplicaVerification({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
 
@@ -92,18 +85,14 @@ class PartReplicaVerificationHandler {
             verifiedAt
           }
         : {})
-    };
-
-    await this.repository.applyPartReplicaVerification(verificationInput);
+    });
   }
 
   private async touchVerificationCandidate(partReplica: PartReplica): Promise<void> {
-    const touchVerificationCandidateInput: TouchPartReplicaVerificationCandidateRepositoryInput = {
+    await this.repository.touchPartReplicaVerificationCandidate({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId
-    };
-
-    await this.repository.touchPartReplicaVerificationCandidate(touchVerificationCandidateInput);
+    });
   }
 }
 

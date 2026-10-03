@@ -1,7 +1,6 @@
 import { GenericInternalServerError, GenericNotFoundError } from '@/errors/application.errors';
 import { InternodeApplicationError } from '@/errors/internode.errors';
 
-import type { DataNodeBlobInput } from '@/modules/blobs/blob.application';
 import type { BlobId, BlobMetadataWithBytes } from '@/modules/blobs/blob.domain';
 import type { BlobServiceContract } from '@/modules/blobs/blob.service';
 import type { DataNode } from '@/modules/data-nodes/data-node.domain';
@@ -10,8 +9,7 @@ import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.ser
 
 import type {
   GetReplicaBlobResult,
-  ListPartsByObjectVersionInput,
-  UpdatePartReplicaStatesRepositoryInput
+  ListPartsByObjectVersionInput
 } from './object-version-part.application';
 import type { Part, PartReplica } from './object-version-part.domain';
 import { type GetPartBlobError, resolveFailedGetPartBlobError } from './object-version-part.error-resolvers';
@@ -105,13 +103,11 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
 
   private async getReplicaBlob(part: Part, dataNode: DataNode): Promise<GetReplicaBlobResult> {
     try {
-      const getBlobInput: DataNodeBlobInput = {
+      const blob = await this.blobService.getBlob({
         blobId: part.blobId,
 
         dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
-      };
-
-      const blob = await this.blobService.getBlob(getBlobInput);
+      });
 
       verifyPartBlob(part, blob);
 
@@ -146,7 +142,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
       return;
     }
 
-    const updateStatesInput: UpdatePartReplicaStatesRepositoryInput = [
+    await this.repository.updatePartReplicaStates([
       {
         blobId,
         dataNodeId: getReplicaBlobResult.dataNodeId,
@@ -154,9 +150,7 @@ class ObjectVersionPartService implements ObjectVersionPartServiceContract {
         expectedState: 'committed',
         state
       }
-    ];
-
-    await this.repository.updatePartReplicaStates(updateStatesInput);
+    ]);
   }
 }
 

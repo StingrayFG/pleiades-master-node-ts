@@ -9,7 +9,6 @@ import {
 } from '@/errors/application.errors';
 
 import type { BucketServiceContract } from '@/modules/buckets/bucket.service';
-import type { ListPartsByObjectVersionInput } from '@/modules/object-version-parts/object-version-part.application';
 import type { Part } from '@/modules/object-version-parts/object-version-part.domain';
 import type { ObjectVersionPartServiceContract } from '@/modules/object-version-parts/object-version-part.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
@@ -23,7 +22,7 @@ import type {
 } from './object.application';
 import type { ObjectVersion } from './object.domain';
 import type { ObjectRepositoryContract } from './object.repository';
-import { createObjectTaskDefinition, type CreateObjectTaskData } from './object.tasks';
+import { createObjectTaskDefinition } from './object.tasks';
 import { verifyObjectVersionParts } from './object.verifiers';
 
 /* contract */
@@ -73,21 +72,17 @@ class ObjectService implements ObjectServiceContract {
   }
 
   async getObject(input: GetObjectInput): Promise<GetObjectResult> {
-    const getObjectMetadataInput: GetObjectMetadataInput = {
+    const objectVersion = await this.getObjectMetadata({
       userId: input.userId,
 
       bucketName: input.bucketName,
       objectKey: input.objectKey
-    };
+    });
 
-    const objectVersion = await this.getObjectMetadata(getObjectMetadataInput);
-
-    const listPartsInput: ListPartsByObjectVersionInput = {
+    const parts = await this.objectVersionPartService.listPartsByObjectVersion({
       objectId: objectVersion.objectId,
       version: objectVersion.version
-    };
-
-    const parts = await this.objectVersionPartService.listPartsByObjectVersion(listPartsInput);
+    });
 
     verifyObjectVersionParts(objectVersion, parts);
 
@@ -108,7 +103,7 @@ class ObjectService implements ObjectServiceContract {
       throw new GenericFailedPreconditionError('Bucket is not active');
     }
 
-    const taskData: CreateObjectTaskData = {
+    return this.taskService.executeTaskByDefinition(createObjectTaskDefinition, {
       objectKey: input.objectKey,
       bucketId: bucket.id,
 
@@ -116,9 +111,7 @@ class ObjectService implements ObjectServiceContract {
       contentType: input.contentType,
 
       data: await buffer(input.data)
-    };
-
-    return this.taskService.executeTaskByDefinition(createObjectTaskDefinition, taskData);
+    });
   }
 
   /* private */

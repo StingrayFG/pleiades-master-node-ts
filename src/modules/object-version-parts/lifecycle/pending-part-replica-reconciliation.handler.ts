@@ -5,10 +5,6 @@ import type { BlobServiceContract } from '@/modules/blobs/blob.service';
 import { mapDataNodeToDataNodeEndpoint } from '@/modules/data-nodes/data-node.mappers';
 import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.service';
 
-import type {
-  ApplyPendingPartReplicaReconciliationRepositoryInput,
-  ListPendingPartReplicaReconciliationCandidatesRepositoryInput
-} from '../object-version-part.application';
 import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { resolveFailedGetPartReplicaState } from '../object-version-part.replica-state-resolvers';
@@ -30,13 +26,10 @@ class PendingPartReplicaReconciliationHandler {
 
     const pendingExpiredBefore = new Date(now.getTime() - this.partConfig.lifecycle.reconciliation.maxAgeMs);
 
-    const listPendingCandidatesInput: ListPendingPartReplicaReconciliationCandidatesRepositoryInput = {
+    const partReplicas = await this.repository.listPendingPartReplicaReconciliationCandidates({
       updatedBefore,
       limit: this.partConfig.lifecycle.reconciliation.batchSize
-    };
-
-    const partReplicas =
-      await this.repository.listPendingPartReplicaReconciliationCandidates(listPendingCandidatesInput);
+    });
 
     await Promise.all(
       partReplicas.map((partReplica) => this.reconcilePendingPartReplica(partReplica, now, pendingExpiredBefore))
@@ -59,14 +52,12 @@ class PendingPartReplicaReconciliationHandler {
     const dataNode = await this.dataNodeService.getDataNodeById(partReplica.dataNodeId);
 
     if (dataNode.state !== 'active') {
-      const reconciliationInput: ApplyPendingPartReplicaReconciliationRepositoryInput = {
+      await this.repository.applyPendingPartReplicaReconciliation({
         blobId: partReplica.blobId,
         dataNodeId: partReplica.dataNodeId,
 
         state: pendingExpired ? 'missing' : 'pending'
-      };
-
-      await this.repository.applyPendingPartReplicaReconciliation(reconciliationInput);
+      });
 
       return;
     }
@@ -101,7 +92,7 @@ class PendingPartReplicaReconciliationHandler {
       state = 'missing';
     }
 
-    const reconciliationInput: ApplyPendingPartReplicaReconciliationRepositoryInput = {
+    await this.repository.applyPendingPartReplicaReconciliation({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
 
@@ -112,9 +103,7 @@ class PendingPartReplicaReconciliationHandler {
             verifiedAt
           }
         : {})
-    };
-
-    await this.repository.applyPendingPartReplicaReconciliation(reconciliationInput);
+    });
   }
 }
 

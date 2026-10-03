@@ -1,14 +1,5 @@
-import type {
-  ApplyObjectVersionDeletionToPartReplicasRepositoryInput,
-  DeleteReplicaFreePartsByObjectVersionRepositoryInput
-} from '@/modules/object-version-parts/object-version-part.application';
 import type { ObjectVersionPartRepositoryContract } from '@/modules/object-version-parts/object-version-part.repository';
 
-import type {
-  DeleteObjectVersionIfDeletingAndPartsGoneRepositoryInput,
-  ListDeletingObjectVersionCleanupCandidatesRepositoryInput,
-  TouchObjectVersionDeletionCandidateRepositoryInput
-} from '../object.application';
 import { objectConfig } from '../object.config';
 import type { ObjectVersion } from '../object.domain';
 import type { ObjectRepositoryContract } from '../object.repository';
@@ -22,12 +13,9 @@ class DeletingObjectVersionCleanupHandler {
   ) {}
 
   async run(): Promise<void> {
-    const listDeletionCandidatesInput: ListDeletingObjectVersionCleanupCandidatesRepositoryInput = {
+    const objectVersions = await this.objectRepository.listDeletingObjectVersionCleanupCandidates({
       limit: objectConfig.lifecycle.deletionCleanupBatchSize
-    };
-
-    const objectVersions =
-      await this.objectRepository.listDeletingObjectVersionCleanupCandidates(listDeletionCandidatesInput);
+    });
 
     await Promise.all(objectVersions.map((objectVersion) => this.cleanupDeletingObjectVersion(objectVersion)));
   }
@@ -37,38 +25,29 @@ class DeletingObjectVersionCleanupHandler {
       return;
     }
 
-    const applyReplicaDeletionInput: ApplyObjectVersionDeletionToPartReplicasRepositoryInput = {
+    await this.objectVersionPartRepository.applyObjectVersionDeletionToPartReplicas({
       objectId: objectVersion.objectId,
       version: objectVersion.version
-    };
+    });
 
-    await this.objectVersionPartRepository.applyObjectVersionDeletionToPartReplicas(applyReplicaDeletionInput);
-
-    const deleteReplicaFreePartsInput: DeleteReplicaFreePartsByObjectVersionRepositoryInput = {
+    await this.objectVersionPartRepository.deleteReplicaFreePartsByObjectVersion({
       objectId: objectVersion.objectId,
       version: objectVersion.version
-    };
+    });
 
-    await this.objectVersionPartRepository.deleteReplicaFreePartsByObjectVersion(deleteReplicaFreePartsInput);
-
-    const deleteObjectVersionInput: DeleteObjectVersionIfDeletingAndPartsGoneRepositoryInput = {
+    const objectVersionDeleted = await this.objectRepository.deleteObjectVersionIfDeletingAndPartsGone({
       objectId: objectVersion.objectId,
       version: objectVersion.version
-    };
-
-    const objectVersionDeleted =
-      await this.objectRepository.deleteObjectVersionIfDeletingAndPartsGone(deleteObjectVersionInput);
+    });
 
     if (objectVersionDeleted) {
       return;
     }
 
-    const touchDeletionCandidateInput: TouchObjectVersionDeletionCandidateRepositoryInput = {
+    await this.objectRepository.touchObjectVersionDeletionCandidate({
       objectId: objectVersion.objectId,
       version: objectVersion.version
-    };
-
-    await this.objectRepository.touchObjectVersionDeletionCandidate(touchDeletionCandidateInput);
+    });
   }
 }
 

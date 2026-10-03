@@ -8,14 +8,6 @@ import type { DataNode } from '@/modules/data-nodes/data-node.domain';
 import { mapDataNodeToDataNodeEndpoint } from '@/modules/data-nodes/data-node.mappers';
 import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.service';
 
-import type {
-  ApplyPartReplicaRepairRepositoryInput,
-  ApplyPartReplicaVerificationRepositoryInput,
-  ApplyRedundantPartReplicaDeletionRepositoryInput,
-  ClaimPartReplicaRepairRepositoryInput,
-  ListPartReplicaRepairCandidatesRepositoryInput,
-  TouchPartReplicaRepairCandidateRepositoryInput
-} from '../object-version-part.application';
 import type { PartConfig } from '../object-version-part.config';
 import type { Part, PartReplica, PartReplicaState } from '../object-version-part.domain';
 import { selectResponsibleDataNodes } from '../object-version-part.policies';
@@ -39,12 +31,10 @@ class PartReplicaRepairHandler {
   async run(now: Date): Promise<void> {
     const updatedBefore = new Date(now.getTime() - this.partConfig.lifecycle.repair.afterMs);
 
-    const listRepairCandidatesInput: ListPartReplicaRepairCandidatesRepositoryInput = {
+    const partReplicas = await this.repository.listPartReplicaRepairCandidates({
       updatedBefore,
       limit: this.partConfig.lifecycle.repair.batchSize
-    };
-
-    const partReplicas = await this.repository.listPartReplicaRepairCandidates(listRepairCandidatesInput);
+    });
 
     const errors: ErrorCauseEntry[] = [];
 
@@ -114,15 +104,13 @@ class PartReplicaRepairHandler {
       return;
     }
 
-    const claimRepairInput: ClaimPartReplicaRepairRepositoryInput = {
+    const claimRepairResult = await this.repository.claimPartReplicaRepair({
       blobId: partReplica.blobId,
       failedDataNodeId: partReplica.dataNodeId,
       replacementDataNodeId: replacementDataNode.id,
 
       expectedState: partReplica.state
-    };
-
-    const claimRepairResult = await this.repository.claimPartReplicaRepair(claimRepairInput);
+    });
 
     if (!claimRepairResult) {
       return;
@@ -152,7 +140,7 @@ class PartReplicaRepairHandler {
       }
     }
 
-    const applyRepairInput: ApplyPartReplicaRepairRepositoryInput = {
+    await this.repository.applyPartReplicaRepair({
       blobId: partReplica.blobId,
       dataNodeId: replacementDataNode.id,
 
@@ -163,9 +151,7 @@ class PartReplicaRepairHandler {
             verifiedAt
           }
         : {})
-    };
-
-    await this.repository.applyPartReplicaRepair(applyRepairInput);
+    });
   }
 
   private async findReplacementDataNode(part: Part, partReplicas: readonly PartReplica[]): Promise<DataNode | null> {
@@ -201,15 +187,13 @@ class PartReplicaRepairHandler {
 
         verifyPartBlob(part, blob);
 
-        const verificationInput: ApplyPartReplicaVerificationRepositoryInput = {
+        await this.repository.applyPartReplicaVerification({
           blobId: partReplica.blobId,
           dataNodeId: partReplica.dataNodeId,
 
           state: 'committed',
           verifiedAt
-        };
-
-        await this.repository.applyPartReplicaVerification(verificationInput);
+        });
 
         return blob;
       } catch (err) {
@@ -223,14 +207,12 @@ class PartReplicaRepairHandler {
           continue;
         }
 
-        const verificationInput: ApplyPartReplicaVerificationRepositoryInput = {
+        await this.repository.applyPartReplicaVerification({
           blobId: partReplica.blobId,
           dataNodeId: partReplica.dataNodeId,
 
           state: failedState
-        };
-
-        await this.repository.applyPartReplicaVerification(verificationInput);
+        });
       }
     }
 
@@ -242,14 +224,12 @@ class PartReplicaRepairHandler {
       return;
     }
 
-    const redundantReplicaDeletionInput: ApplyRedundantPartReplicaDeletionRepositoryInput = {
+    await this.repository.applyRedundantPartReplicaDeletion({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
 
       expectedState: partReplica.state
-    };
-
-    await this.repository.applyRedundantPartReplicaDeletion(redundantReplicaDeletionInput);
+    });
   }
 
   private async touchRepairCandidate(partReplica: PartReplica): Promise<void> {
@@ -257,14 +237,12 @@ class PartReplicaRepairHandler {
       return;
     }
 
-    const touchRepairCandidateInput: TouchPartReplicaRepairCandidateRepositoryInput = {
+    await this.repository.touchPartReplicaRepairCandidate({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId,
 
       state: partReplica.state
-    };
-
-    await this.repository.touchPartReplicaRepairCandidate(touchRepairCandidateInput);
+    });
   }
 }
 

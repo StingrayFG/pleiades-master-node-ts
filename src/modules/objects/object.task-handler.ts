@@ -4,7 +4,7 @@ import { GenericFailedPreconditionError } from '@/errors/application.errors';
 import type { ObjectVersionPartTaskHandlerContract } from '@/modules/object-version-parts/object-version-part.task-handler';
 import type { TaskDefinitionHandler, TaskDefinitionTask } from '@/modules/tasks/task.definition';
 
-import type { CreateObjectResult, UpsertObjectAndCreateVersionRepositoryInput } from './object.application';
+import type { CreateObjectResult } from './object.application';
 import type { ObjectRepositoryContract } from './object.repository';
 import type { createObjectTaskDefinition } from './object.tasks';
 
@@ -23,15 +23,13 @@ class ObjectTaskHandler implements ObjectTaskHandlerContract {
   ) {}
 
   async createObject(task: TaskDefinitionTask<typeof createObjectTaskDefinition>): Promise<CreateObjectResult> {
-    const upsertObjectInput: UpsertObjectAndCreateVersionRepositoryInput = {
+    const objectVersionAllocation = await this.repository.upsertObjectAndCreateVersion({
       objectKey: task.data.objectKey,
       bucketId: task.data.bucketId,
 
       totalSizeBytes: task.data.totalSizeBytes,
       contentType: task.data.contentType
-    };
-
-    const objectVersionAllocation = await this.repository.upsertObjectAndCreateVersion(upsertObjectInput);
+    });
 
     await this.objectVersionPartTaskHandler.createPartsFromData({
       objectId: objectVersionAllocation.object.id,

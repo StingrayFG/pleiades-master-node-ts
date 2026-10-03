@@ -15,7 +15,6 @@ import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.ser
 import type {
   CreatePartInput,
   CreatePartResult,
-  CreatePartWithReplicasRepositoryInput,
   CreatePartsInput,
   CreateReplicaBlobResult,
   UpdatePartReplicaStatesRepositoryInput
@@ -118,7 +117,7 @@ class ObjectVersionPartTaskHandler implements ObjectVersionPartTaskHandlerContra
       candidateDataNodes
     );
 
-    const createPartRepositoryInput: CreatePartWithReplicasRepositoryInput = {
+    const part = await this.repository.createPartWithReplicas({
       part: {
         objectId: partInput.objectId,
         version: partInput.version,
@@ -133,9 +132,7 @@ class ObjectVersionPartTaskHandler implements ObjectVersionPartTaskHandlerContra
         checksumValue
       },
       replicaDataNodeIds: responsibleDataNodes.map((dataNode) => dataNode.id)
-    };
-
-    const part = await this.repository.createPartWithReplicas(createPartRepositoryInput);
+    });
 
     const blob: BlobMetadataWithBytes = {
       blobId,
@@ -187,14 +184,12 @@ class ObjectVersionPartTaskHandler implements ObjectVersionPartTaskHandlerContra
   }
 
   private async createReplicaBlob(blob: BlobMetadataWithBytes, dataNode: DataNode): Promise<CreateReplicaBlobResult> {
-    const putBlobInput: DataNodeBlobWithBytesInput = {
-      blob,
-
-      dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
-    };
-
     try {
-      await this.putBlobWithAttempts(putBlobInput);
+      await this.putBlobWithAttempts({
+        blob,
+
+        dataNodeEndpoint: mapDataNodeToDataNodeEndpoint(dataNode)
+      });
 
       return {
         dataNodeId: dataNode.id,

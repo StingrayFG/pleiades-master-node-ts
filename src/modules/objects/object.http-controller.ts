@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
-import type { CreateObjectInput, GetObjectInput, GetObjectMetadataInput } from './object.application';
 import type { GetObjectHttpRoute, HeadObjectHttpRoute, PutObjectHttpRoute } from './object.http-contracts';
 import type { ObjectServiceContract } from './object.service';
 
@@ -22,14 +21,12 @@ class ObjectController implements ObjectHttpControllerContract {
     const bucketName = req.params.bucketName;
     const objectKey = req.params['*'];
 
-    const serviceInput: GetObjectInput = {
+    const objectRead = await this.service.getObject({
       userId,
 
       bucketName,
       objectKey
-    };
-
-    const objectRead = await this.service.getObject(serviceInput);
+    });
 
     reply.header('content-length', objectRead.objectVersion.totalSizeBytes.toString());
     reply.header('content-type', objectRead.objectVersion.contentType);
@@ -47,14 +44,12 @@ class ObjectController implements ObjectHttpControllerContract {
     const bucketName = req.params.bucketName;
     const objectKey = req.params['*'];
 
-    const serviceInput: GetObjectMetadataInput = {
+    const objectVersion = await this.service.getObjectMetadata({
       userId,
 
       bucketName,
       objectKey
-    };
-
-    const objectVersion = await this.service.getObjectMetadata(serviceInput);
+    });
 
     reply.header('content-length', objectVersion.totalSizeBytes.toString());
     reply.header('content-type', objectVersion.contentType);
@@ -75,7 +70,7 @@ class ObjectController implements ObjectHttpControllerContract {
     const contentType = req.headers['content-type'];
     const data = req.raw;
 
-    const serviceInput: CreateObjectInput = {
+    const objectCreation = await this.service.createObject({
       userId,
 
       bucketName,
@@ -85,9 +80,7 @@ class ObjectController implements ObjectHttpControllerContract {
       contentType,
 
       data
-    };
-
-    const objectCreation = await this.service.createObject(serviceInput);
+    });
 
     reply.header('x-object-version', String(objectCreation.objectVersion.version));
 

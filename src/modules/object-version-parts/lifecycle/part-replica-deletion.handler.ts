@@ -4,11 +4,6 @@ import type { BlobServiceContract } from '@/modules/blobs/blob.service';
 import { mapDataNodeToDataNodeEndpoint } from '@/modules/data-nodes/data-node.mappers';
 import type { DataNodeServiceContract } from '@/modules/data-nodes/data-node.service';
 
-import type {
-  DeletePartReplicaIfDeletingRepositoryInput,
-  ListPartReplicaDeletionCandidatesRepositoryInput,
-  TouchPartReplicaDeletionCandidateRepositoryInput
-} from '../object-version-part.application';
 import type { PartConfig } from '../object-version-part.config';
 import type { PartReplica } from '../object-version-part.domain';
 import type { ObjectVersionPartRepositoryContract } from '../object-version-part.repository';
@@ -26,12 +21,10 @@ class PartReplicaDeletionHandler {
   async run(now: Date): Promise<void> {
     const updatedBefore = new Date(now.getTime() - this.partConfig.lifecycle.deletion.afterMs);
 
-    const listDeletionCandidatesInput: ListPartReplicaDeletionCandidatesRepositoryInput = {
+    const partReplicas = await this.repository.listPartReplicaDeletionCandidates({
       updatedBefore,
       limit: this.partConfig.lifecycle.deletion.batchSize
-    };
-
-    const partReplicas = await this.repository.listPartReplicaDeletionCandidates(listDeletionCandidatesInput);
+    });
 
     await Promise.all(partReplicas.map((partReplica) => this.deletePartReplica(partReplica)));
   }
@@ -65,21 +58,17 @@ class PartReplicaDeletionHandler {
       }
     }
 
-    const deleteReplicaInput: DeletePartReplicaIfDeletingRepositoryInput = {
+    await this.repository.deletePartReplicaIfDeleting({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId
-    };
-
-    await this.repository.deletePartReplicaIfDeleting(deleteReplicaInput);
+    });
   }
 
   private async touchDeletionCandidate(partReplica: PartReplica): Promise<void> {
-    const touchDeletionCandidateInput: TouchPartReplicaDeletionCandidateRepositoryInput = {
+    await this.repository.touchPartReplicaDeletionCandidate({
       blobId: partReplica.blobId,
       dataNodeId: partReplica.dataNodeId
-    };
-
-    await this.repository.touchPartReplicaDeletionCandidate(touchDeletionCandidateInput);
+    });
   }
 }
 
