@@ -22,6 +22,8 @@ class MasterNodeTaskForwarder implements TaskForwarderContract {
     private readonly masterNodeService: MasterNodeServiceContract
   ) {}
 
+  // used only by followers to forward task execution to the current leader
+  // and decode the returned result.
   async forwardTask<TDefinition extends TaskDefinition>(
     definition: TDefinition,
     data: TaskDefinitionData<TDefinition>,

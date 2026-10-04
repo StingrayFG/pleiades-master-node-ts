@@ -38,15 +38,26 @@ import type { MasterNodeServiceContract } from './master-node.service';
 /* contract */
 
 type MasterNodeInternodeServiceContract = {
+  // bootstrap
   fetchMasterInfo(): Promise<FetchMasterInfoInternodeResult>;
   registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void>;
+
+  // membership synchronization
   fetchClusterMembershipSnapshot(
     input: FetchClusterMembershipSnapshotInternodeInput
   ): Promise<ClusterMembershipSnapshot>;
+
+  // task replication
   fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer>;
+
+  // task forwarding
   forwardTask(input: ForwardTaskInternodeInput): Promise<unknown>;
+
+  // election
   requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult>;
+
+  // leadership
   recordLeaderHeartbeat(input: RecordLeaderHeartbeatInternodeInput): Promise<RecordLeaderHeartbeatResult>;
 };
 
@@ -66,8 +77,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
   /* public methods */
 
-  // used by a bootstrapping follower to learn the leader's identity, session,
-  // cluster id, and epoch before registering.
+  /* bootstrap methods */
+
+  // provides a bootstrapping follower with the leader identity, session,
+  // cluster id, and epoch required for registration.
   async fetchMasterInfo(): Promise<FetchMasterInfoInternodeResult> {
     const consensusState = await this.requireLeadershipState();
     const cluster = await this.clusterService.getCluster();
@@ -81,9 +94,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     };
   }
 
-  // used by a joining master node registering itself with the leader.
-  // the node is recorded as an active serving member and the membership revision advances so
-  // followers pick it up in the next snapshot.
+  // registers a joining master node as an active serving member and advances
+  // the membership revision so followers receive it in later snapshots.
   async registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void> {
     await this.requireLeadershipState();
 
@@ -105,8 +117,9 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     });
   }
 
-  // used by a follower whose membership revision fell behind the leader's to sync
-  // the cluster membership before continuing replication.
+  /* membership synchronization methods */
+
+  // provides a follower with the leader's current cluster membership snapshot.
   async fetchClusterMembershipSnapshot(
     input: FetchClusterMembershipSnapshotInternodeInput
   ): Promise<ClusterMembershipSnapshot> {
@@ -116,9 +129,9 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return this.clusterService.captureMembershipSnapshot();
   }
 
-  // used by followers to replicate the leader's task entries.
-  // entries can be uncommitted; the response's committed sequence tells the
-  // follower how far they can be applied.
+  /* task replication methods */
+
+  // returns the next batch of leader task entries and the current committed sequence.
   async fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult> {
     const consensusState = await this.requireLeadershipState();
     await this.requireAuthenticatedMasterNodeCaller(input);
@@ -154,7 +167,6 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     };
   }
 
-  // used by followers to fetch the byte payload of a dehydrated task entry.
   async fetchTaskPayload(input: FetchTaskPayloadInternodeInput): Promise<Buffer> {
     await this.requireLeadershipState();
     await this.requireAuthenticatedMasterNodeCaller(input);
@@ -162,7 +174,9 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return this.taskService.retrieveTaskPayload(input.payloadId);
   }
 
-  // used by followers to hand a task over to the leader for execution.
+  /* task forwarding methods */
+
+  // executes a task forwarded by a follower and encodes its result for transport.
   async forwardTask(input: ForwardTaskInternodeInput): Promise<unknown> {
     await this.requireLeadershipState();
     await this.requireAuthenticatedMasterNodeCaller(input);
@@ -184,8 +198,9 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return z.encode(definition.resultSchema, result);
   }
 
-  // used by an election starter asking for this node's vote.
-  // the caller must be a serving member to be eligible for leadership.
+  /* election methods */
+
+  // handles a vote request from an election starter.
   async requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult> {
     const electionStarter = await this.requireAuthenticatedMasterNodeCaller(input);
 
@@ -201,8 +216,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     });
   }
 
-  // used by the leader to prove it is alive and authoritative.
-  // the follower's answer carries its matched sequence back to the leader.
+  /* leadership methods */
+
+  // handles a heartbeat from a serving leader and returns this follower's
+  // matched sequence progress.
   async recordLeaderHeartbeat(input: RecordLeaderHeartbeatInternodeInput): Promise<RecordLeaderHeartbeatResult> {
     const leader = await this.requireAuthenticatedMasterNodeCaller(input);
 
@@ -223,8 +240,9 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
   /* private methods */
 
-  // accepts only registered, active members calling with their registered
-  // certificate and current session.
+  /* authentication methods */
+
+  // authenticates a registered active master node by its certificate and current session.
   private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<MasterNode> {
     let masterNode;
 
@@ -253,7 +271,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     return masterNode;
   }
 
-  // gates rpcs that only the current cluster leader may serve.
+  /* leadership methods */
+
   private async requireLeadershipState(): Promise<ConsensusState> {
     const consensusState = await this.consensusService.getConsensusState();
 

@@ -13,9 +13,12 @@ import { mapPrismaMasterNodeToDomainMasterNode } from './master-node.mappers';
 /* contract */
 
 type MasterNodeRepositoryContract = {
+  // queries
   listAll(): Promise<MasterNode[]>;
   findById(id: MasterNodeId): Promise<MasterNode | null>;
   findMemberById(id: MasterNodeId): Promise<MasterNode | null>;
+
+  // membership
   applyRegistration(
     input: ApplyMasterNodeRegistrationRepositoryInput,
     tx?: Prisma.TransactionClient
@@ -29,6 +32,8 @@ const errorMap: PrismaErrorMapperOverrides = {};
 
 class MasterNodeRepository implements MasterNodeRepositoryContract {
   constructor(private readonly prisma: PrismaClient) {}
+
+  /* query methods */
 
   async listAll(): Promise<MasterNode[]> {
     let masterNodes;
@@ -83,6 +88,8 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
 
     return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
   }
+
+  /* membership methods */
 
   async applyRegistration(
     input: ApplyMasterNodeRegistrationRepositoryInput,

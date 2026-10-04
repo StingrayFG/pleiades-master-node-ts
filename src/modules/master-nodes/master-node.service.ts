@@ -14,8 +14,11 @@ import type { MasterNodeRepositoryContract } from './master-node.repository';
 /* contract */
 
 type MasterNodeServiceContract = {
+  // queries
   listMasterNodes(): Promise<MasterNode[]>;
   getMasterNodeById(id: MasterNodeId): Promise<MasterNode>;
+
+  // membership
   registerMasterNode(input: RegisterMasterNodeInput): Promise<MasterNode>;
   transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode>;
 };
@@ -30,6 +33,8 @@ class MasterNodeService implements MasterNodeServiceContract {
     private readonly selfMasterNodeId: MasterNodeId
   ) {}
 
+  /* query methods */
+
   async listMasterNodes(): Promise<MasterNode[]> {
     return this.repository.listAll();
   }
@@ -43,6 +48,8 @@ class MasterNodeService implements MasterNodeServiceContract {
 
     return masterNode;
   }
+
+  /* membership methods */
 
   async registerMasterNode(input: RegisterMasterNodeInput): Promise<MasterNode> {
     const currentMasterNode = await this.repository.findById(input.id);
