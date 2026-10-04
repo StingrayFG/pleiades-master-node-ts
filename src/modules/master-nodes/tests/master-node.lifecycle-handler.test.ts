@@ -7,7 +7,7 @@ import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecy
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 
 import { MasterNodeLifecycleHandler } from '../lifecycle/master-node.lifecycle-handler';
-import type { MasterNodeReplicationHandlerContract } from '../master-node.replication-handler';
+import type { MasterNodeTaskReplicationHandlerContract } from '../lifecycle/master-node.task-replication-handler';
 
 /* fixtures */
 
@@ -35,7 +35,7 @@ describe('MasterNodeLifecycleHandler', () => {
   let consensusService: jest.Mocked<ConsensusServiceContract>;
   let leadershipService: jest.Mocked<LeadershipServiceContract>;
   let electionLifecycleHandler: jest.Mocked<ElectionLifecycleHandlerContract>;
-  let replicationHandler: jest.Mocked<MasterNodeReplicationHandlerContract>;
+  let taskReplicationHandler: jest.Mocked<MasterNodeTaskReplicationHandlerContract>;
   let handler: MasterNodeLifecycleHandler;
 
   beforeEach(() => {
@@ -48,15 +48,15 @@ describe('MasterNodeLifecycleHandler', () => {
     electionLifecycleHandler = {
       run: jest.fn<ElectionLifecycleHandlerContract['run']>()
     };
-    replicationHandler = {
-      run: jest.fn<MasterNodeReplicationHandlerContract['run']>()
+    taskReplicationHandler = {
+      run: jest.fn<MasterNodeTaskReplicationHandlerContract['run']>()
     };
 
     handler = new MasterNodeLifecycleHandler(
       consensusService,
       leadershipService,
       electionLifecycleHandler,
-      replicationHandler,
+      taskReplicationHandler,
       selfMasterNodeId
     );
   });
@@ -71,14 +71,14 @@ describe('MasterNodeLifecycleHandler', () => {
     await handler.run(now);
 
     expect(leadershipService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
-    expect(replicationHandler.run).not.toHaveBeenCalled();
+    expect(taskReplicationHandler.run).not.toHaveBeenCalled();
     expect(electionLifecycleHandler.run).not.toHaveBeenCalled();
   });
 
   test('replicates before checking the election deadline while following another master', async () => {
     const calls: string[] = [];
 
-    replicationHandler.run.mockImplementation(async () => {
+    taskReplicationHandler.run.mockImplementation(async () => {
       calls.push('replication');
     });
     electionLifecycleHandler.run.mockImplementation(async () => {
@@ -103,7 +103,7 @@ describe('MasterNodeLifecycleHandler', () => {
 
     await handler.run(now);
 
-    expect(replicationHandler.run).toHaveBeenCalled();
+    expect(taskReplicationHandler.run).toHaveBeenCalled();
     expect(electionLifecycleHandler.run).toHaveBeenCalledWith(now);
     expect(leadershipService.broadcastLeaderHeartbeat).toHaveBeenCalledWith(now);
   });
@@ -111,7 +111,7 @@ describe('MasterNodeLifecycleHandler', () => {
   test('checks the election deadline even when follower replication fails', async () => {
     const replicationError = new Error('Replication unavailable');
 
-    replicationHandler.run.mockRejectedValue(replicationError);
+    taskReplicationHandler.run.mockRejectedValue(replicationError);
 
     let thrown: unknown;
 
@@ -133,7 +133,7 @@ describe('MasterNodeLifecycleHandler', () => {
     const replicationError = new Error('Replication unavailable');
     const electionError = new Error('Election unavailable');
 
-    replicationHandler.run.mockRejectedValue(replicationError);
+    taskReplicationHandler.run.mockRejectedValue(replicationError);
     electionLifecycleHandler.run.mockRejectedValue(electionError);
 
     let thrown: unknown;

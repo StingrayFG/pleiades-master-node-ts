@@ -1,5 +1,4 @@
 import { GenericAbortedError, GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
-import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
 import type { ConsensusLastSequence } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
@@ -9,30 +8,30 @@ import type {
   ReconcileTaskHistoryInput,
   ReplicateTaskEntriesInput,
   ReplicateTaskEntryInput,
-  SynchronizeClusterMembershipInput,
   VerifyTaskEntriesFetchResultInput
-} from './master-node.application';
-import type { MasterNodeConfig } from './master-node.config';
-import type { MasterNodeId } from './master-node.domain';
-import type { MasterNodeGrpcClientContract } from './master-node.grpc-client';
-import { mapMasterNodeToMasterNodeEndpoint } from './master-node.mappers';
-import type { MasterNodeServiceContract } from './master-node.service';
+} from '../master-node.application';
+import type { MasterNodeConfig } from '../master-node.config';
+import type { MasterNodeId } from '../master-node.domain';
+import type { MasterNodeGrpcClientContract } from '../master-node.grpc-client';
+import { mapMasterNodeToMasterNodeEndpoint } from '../master-node.mappers';
+import type { MasterNodeServiceContract } from '../master-node.service';
+import type { MasterNodeClusterSynchronizationHandlerContract } from './master-node.cluster-synchronization-handler';
 
 /* contract */
 
-type MasterNodeReplicationHandlerContract = {
+type MasterNodeTaskReplicationHandlerContract = {
   run(): Promise<void>;
 };
 
 /* handler */
 
-class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContract {
+class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandlerContract {
   constructor(
     private readonly masterNodeGrpcClient: MasterNodeGrpcClientContract,
     private readonly masterNodeService: MasterNodeServiceContract,
     private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
-    private readonly clusterService: ClusterServiceContract,
+    private readonly clusterSynchronizationHandler: MasterNodeClusterSynchronizationHandlerContract,
     private readonly selfMasterNodeId: MasterNodeId,
     private readonly masterNodeConfig: MasterNodeConfig
   ) {}
@@ -62,7 +61,7 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       fetchResult
     });
 
-    await this.synchronizeClusterMembership({
+    await this.clusterSynchronizationHandler.synchronize({
       masterNodeEndpoint: leaderEndpoint,
       expectedCertificateFingerprint: leader.certificateFingerprint,
       leaderMembershipRevision: fetchResult.clusterMembershipRevision
@@ -121,34 +120,10 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
     }
   }
 
-  private async synchronizeClusterMembership(input: SynchronizeClusterMembershipInput): Promise<void> {
-    const cluster = await this.clusterService.getCluster();
-
-    if (input.leaderMembershipRevision < cluster.membershipRevision) {
-      throw new GenericFailedPreconditionError('The leader returned a regressed cluster membership revision');
-    }
-
-    if (input.leaderMembershipRevision === cluster.membershipRevision) {
-      return;
-    }
-
-    // apply newer leader membership before accepting its leadership context.
-    const snapshot = await this.masterNodeGrpcClient.fetchClusterMembershipSnapshot({
-      masterNodeEndpoint: input.masterNodeEndpoint,
-      expectedCertificateFingerprint: input.expectedCertificateFingerprint
-    });
-
-    if (snapshot.cluster.membershipRevision < input.leaderMembershipRevision) {
-      throw new GenericFailedPreconditionError('The leader returned a stale cluster membership snapshot');
-    }
-
-    await this.clusterService.applyMembershipSnapshot(snapshot);
-  }
-
   private async replicateTaskEntries(input: ReplicateTaskEntriesInput): Promise<ConsensusLastSequence> {
     let replicatedThroughSequence = input.initialSequence;
 
-    // replicate task entries in sequence, replacing the local tail when a leader entry
+    // replicate task entries in sequence, replacing the local entry tail when a leader entry
     // differs from the entry already stored at the same sequence locally.
     for (const entry of input.entries) {
       if (entry.sequence !== replicatedThroughSequence + 1n) {
@@ -207,10 +182,7 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
       input.replicatedThroughSequence === input.leaderLastCommittedSequence &&
       input.consensusState.lastAllocatedSequence > input.leaderLastCommittedSequence
     ) {
-      await this.taskService.deleteTasksFromSequence(
-        input.leaderLastCommittedSequence + 1n,
-        input.leadershipContext
-      );
+      await this.taskService.deleteTasksFromSequence(input.leaderLastCommittedSequence + 1n, input.leadershipContext);
     }
 
     const nextCommittedSequence =
@@ -227,5 +199,5 @@ class MasterNodeReplicationHandler implements MasterNodeReplicationHandlerContra
 
 /* exports */
 
-export { MasterNodeReplicationHandler };
-export type { MasterNodeReplicationHandlerContract };
+export { MasterNodeTaskReplicationHandler };
+export type { MasterNodeTaskReplicationHandlerContract };

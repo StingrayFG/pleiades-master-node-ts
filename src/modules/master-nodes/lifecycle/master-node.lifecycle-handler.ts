@@ -5,7 +5,7 @@ import type { ElectionLifecycleHandlerContract } from '@/modules/election/lifecy
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 
 import type { MasterNodeId } from '../master-node.domain';
-import type { MasterNodeReplicationHandlerContract } from '../master-node.replication-handler';
+import type { MasterNodeTaskReplicationHandlerContract } from './master-node.task-replication-handler';
 
 /* contract */
 
@@ -20,7 +20,7 @@ class MasterNodeLifecycleHandler implements MasterNodeLifecycleHandlerContract {
     private readonly consensusService: ConsensusServiceContract,
     private readonly leadershipService: LeadershipServiceContract,
     private readonly electionLifecycleHandler: ElectionLifecycleHandlerContract,
-    private readonly replicationHandler: MasterNodeReplicationHandlerContract,
+    private readonly taskReplicationHandler: MasterNodeTaskReplicationHandlerContract,
     private readonly selfMasterNodeId: MasterNodeId
   ) {}
 
@@ -34,8 +34,8 @@ class MasterNodeLifecycleHandler implements MasterNodeLifecycleHandlerContract {
 
     await this.runFollowerLifecycle(now);
 
-    // a successful election inside the follower lifecycle makes this node the leader;
-    // announce it immediately instead of waiting for the next tick
+    // re-read consensus after the follower lifecycle and announce newly elected
+    // leadership without waiting for the next lifecycle tick.
     const updatedState = await this.consensusService.getConsensusState();
 
     if (updatedState.leaderMasterId === this.selfMasterNodeId) {
@@ -47,7 +47,7 @@ class MasterNodeLifecycleHandler implements MasterNodeLifecycleHandlerContract {
     const errors: ErrorCauseEntry[] = [];
 
     try {
-      await this.replicationHandler.run();
+      await this.taskReplicationHandler.run();
     } catch (err) {
       errors.push({
         source: 'replication',

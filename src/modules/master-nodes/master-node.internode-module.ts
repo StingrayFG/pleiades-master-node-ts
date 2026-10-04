@@ -9,12 +9,13 @@ import {
   MasterNodeLifecycleHandler,
   type MasterNodeLifecycleHandlerContract
 } from './lifecycle/master-node.lifecycle-handler';
+import { MasterNodeClusterSynchronizationHandler } from './lifecycle/master-node.cluster-synchronization-handler';
+import { MasterNodeTaskReplicationHandler } from './lifecycle/master-node.task-replication-handler';
 import type { MasterNodeConfig } from './master-node.config';
 import type { MasterNodeId, MasterNodeSessionId } from './master-node.domain';
 import type { MasterNodeGrpcClientContract } from './master-node.grpc-client';
 import { MasterNodeGrpcController } from './master-node.grpc-controller';
 import { MasterNodeInternodeService } from './master-node.internode-service';
-import { MasterNodeReplicationHandler } from './master-node.replication-handler';
 import type { MasterNodeServiceContract } from './master-node.service';
 
 /* contract */
@@ -67,12 +68,17 @@ const createMasterNodeInternodeModule = ({
 
   const controller = new MasterNodeGrpcController(internodeService);
 
-  const replicationHandler = new MasterNodeReplicationHandler(
+  const clusterSynchronizationHandler = new MasterNodeClusterSynchronizationHandler(
+    masterNodeGrpcClient,
+    clusterService
+  );
+
+  const taskReplicationHandler = new MasterNodeTaskReplicationHandler(
     masterNodeGrpcClient,
     masterNodeService,
     taskService,
     consensusService,
-    clusterService,
+    clusterSynchronizationHandler,
     selfMasterNodeId,
     masterNodeConfig
   );
@@ -81,7 +87,7 @@ const createMasterNodeInternodeModule = ({
     consensusService,
     leadershipService,
     electionLifecycleHandler,
-    replicationHandler,
+    taskReplicationHandler,
     selfMasterNodeId
   );
 

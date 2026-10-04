@@ -177,15 +177,17 @@ export const recordLeaderHeartbeatClientInputSchema = z.object({
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
-/* replication handler schemas */
+/* cluster synchronization handler schemas */
+
+export const synchronizeClusterMembershipInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
+  leaderMembershipRevision: clusterMembershipRevisionSchema
+});
+
+/* task replication handler schemas */
 
 export const verifyTaskEntriesFetchResultInputSchema = z.object({
   consensusState: consensusStateSchema,
   fetchResult: fetchTaskEntriesInternodeResultSchema
-});
-
-export const synchronizeClusterMembershipInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
-  leaderMembershipRevision: clusterMembershipRevisionSchema
 });
 
 export const replicateTaskEntriesInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
@@ -253,10 +255,13 @@ export type ForwardTaskClientInput = z.infer<typeof forwardTaskClientInputSchema
 export type RequestVoteClientInput = z.infer<typeof requestVoteClientInputSchema>;
 export type RecordLeaderHeartbeatClientInput = z.infer<typeof recordLeaderHeartbeatClientInputSchema>;
 
-/* replication handler types */
+/* cluster synchronization handler types */
+
+export type SynchronizeClusterMembershipInput = z.infer<typeof synchronizeClusterMembershipInputSchema>;
+
+/* task replication handler types */
 
 export type VerifyTaskEntriesFetchResultInput = z.infer<typeof verifyTaskEntriesFetchResultInputSchema>;
-export type SynchronizeClusterMembershipInput = z.infer<typeof synchronizeClusterMembershipInputSchema>;
 export type ReplicateTaskEntriesInput = z.infer<typeof replicateTaskEntriesInputSchema>;
 export type ReplicateTaskEntryInput = z.infer<typeof replicateTaskEntryInputSchema>;
 export type ReconcileTaskHistoryInput = z.infer<typeof reconcileTaskHistoryInputSchema>;

@@ -7,9 +7,6 @@ import {
   GenericConflictError,
   GenericFailedPreconditionError
 } from '@/errors/application.errors';
-import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
-import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
-import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
@@ -19,8 +16,9 @@ import type { InternodeTaskEntry } from '../master-node.application';
 import type { MasterNodeConfig } from '../master-node.config';
 import type { MasterNode } from '../master-node.domain';
 import type { MasterNodeGrpcClientContract } from '../master-node.grpc-client';
-import { MasterNodeReplicationHandler } from '../master-node.replication-handler';
 import type { MasterNodeServiceContract } from '../master-node.service';
+import type { MasterNodeClusterSynchronizationHandlerContract } from '../lifecycle/master-node.cluster-synchronization-handler';
+import { MasterNodeTaskReplicationHandler } from '../lifecycle/master-node.task-replication-handler';
 
 /* fixtures */
 
@@ -29,14 +27,7 @@ const selfMasterNodeId = 'master-node-follower';
 const leaderMasterNodeId = 'master-node-leader';
 const leaderCertificateFingerprint = 'ab'.repeat(32);
 const payloadId = '00000000-0000-4000-8000-000000000002';
-
-const cluster: Cluster = {
-  id: CLUSTER_RECORD_ID,
-  clusterId: '00000000-0000-4000-8000-000000000010',
-  membershipRevision: 2n,
-  createdAt: now,
-  updatedAt: now
-};
+const clusterMembershipRevision = 2n;
 
 const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
@@ -75,15 +66,6 @@ const leader: MasterNode = {
   revision: 1n
 };
 
-const updatedClusterMembershipSnapshot: ClusterMembershipSnapshot = {
-  cluster: {
-    ...cluster,
-    membershipRevision: 3n
-  },
-  masterNodes: [leader],
-  dataNodes: []
-};
-
 const entry: InternodeTaskEntry = {
   id: '00000000-0000-4000-8000-000000000003',
   originMasterNodeId: leaderMasterNodeId,
@@ -114,31 +96,28 @@ const config: MasterNodeConfig = {
 const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContract> => {
   return {
     fetchMasterInfo: jest.fn<MasterNodeGrpcClientContract['fetchMasterInfo']>(),
-    fetchClusterMembershipSnapshot: jest
-      .fn<MasterNodeGrpcClientContract['fetchClusterMembershipSnapshot']>()
-      .mockResolvedValue(updatedClusterMembershipSnapshot),
+    registerMasterNode: jest.fn<MasterNodeGrpcClientContract['registerMasterNode']>(),
+    fetchClusterMembershipSnapshot: jest.fn<MasterNodeGrpcClientContract['fetchClusterMembershipSnapshot']>(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>().mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: 0n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [entry]
     }),
     fetchTaskPayload: jest
       .fn<MasterNodeGrpcClientContract['fetchTaskPayload']>()
       .mockResolvedValue(Buffer.from('payload')),
+    forwardTask: jest.fn<MasterNodeGrpcClientContract['forwardTask']>(),
+    requestVote: jest.fn<MasterNodeGrpcClientContract['requestVote']>(),
+    recordLeaderHeartbeat: jest.fn<MasterNodeGrpcClientContract['recordLeaderHeartbeat']>(),
     close: jest.fn<MasterNodeGrpcClientContract['close']>()
   };
 };
 
-const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
+const createClusterSynchronizationHandlerMock = (): jest.Mocked<MasterNodeClusterSynchronizationHandlerContract> => {
   return {
-    getCluster: jest.fn<ClusterServiceContract['getCluster']>().mockResolvedValue(cluster),
-    captureMembershipSnapshot: jest.fn<ClusterServiceContract['captureMembershipSnapshot']>(),
-    initializeCluster: jest.fn<ClusterServiceContract['initializeCluster']>(),
-    registerCluster: jest.fn<ClusterServiceContract['registerCluster']>(),
-    withAdvancedMembershipRevision: jest.fn<ClusterServiceContract['withAdvancedMembershipRevision']>(),
-    applyMembershipSnapshot: jest.fn<ClusterServiceContract['applyMembershipSnapshot']>()
-  } as unknown as jest.Mocked<ClusterServiceContract>;
+    synchronize: jest.fn<MasterNodeClusterSynchronizationHandlerContract['synchronize']>()
+  };
 };
 
 const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> => {
@@ -174,26 +153,26 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
 
 /* tests */
 
-describe('MasterNodeReplicationHandler', () => {
+describe('MasterNodeTaskReplicationHandler', () => {
   let masterNodeGrpcClient: jest.Mocked<MasterNodeGrpcClientContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let taskService: jest.Mocked<TaskServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
-  let clusterService: jest.Mocked<ClusterServiceContract>;
-  let handler: MasterNodeReplicationHandler;
+  let clusterSynchronizationHandler: jest.Mocked<MasterNodeClusterSynchronizationHandlerContract>;
+  let handler: MasterNodeTaskReplicationHandler;
 
   beforeEach(() => {
     masterNodeGrpcClient = createMasterNodeGrpcClientMock();
     masterNodeService = createMasterNodeServiceMock();
     taskService = createTaskServiceMock();
     consensusService = createConsensusServiceMock();
-    clusterService = createClusterServiceMock();
-    handler = new MasterNodeReplicationHandler(
+    clusterSynchronizationHandler = createClusterSynchronizationHandlerMock();
+    handler = new MasterNodeTaskReplicationHandler(
       masterNodeGrpcClient,
       masterNodeService,
       taskService,
       consensusService,
-      clusterService,
+      clusterSynchronizationHandler,
       selfMasterNodeId,
       config
     );
@@ -250,26 +229,26 @@ describe('MasterNodeReplicationHandler', () => {
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
-  test('installs a newer master membership snapshot before accepting followership', async () => {
+  test('synchronizes cluster membership before accepting followership', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: -1n,
-      clusterMembershipRevision: updatedClusterMembershipSnapshot.cluster.membershipRevision,
+      clusterMembershipRevision: 3n,
       entries: []
     });
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(masterNodeGrpcClient.fetchClusterMembershipSnapshot).toHaveBeenCalledWith({
+    expect(clusterSynchronizationHandler.synchronize).toHaveBeenCalledWith({
       masterNodeEndpoint: {
         hostname: leader.hostname,
         port: leader.port,
         scheme: leader.scheme
       },
-      expectedCertificateFingerprint: leader.certificateFingerprint
+      expectedCertificateFingerprint: leader.certificateFingerprint,
+      leaderMembershipRevision: 3n
     });
-    expect(clusterService.applyMembershipSnapshot).toHaveBeenCalledWith(updatedClusterMembershipSnapshot);
-    expect(clusterService.applyMembershipSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(clusterSynchronizationHandler.synchronize.mock.invocationCallOrder[0]).toBeLessThan(
       consensusService.acceptFollowership.mock.invocationCallOrder[0]
     );
   });
@@ -278,7 +257,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 1n,
       lastCommittedSequence: 0n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [entry]
     });
 
@@ -297,7 +276,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: -1n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: []
     });
 
@@ -311,7 +290,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: 4n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [entry]
     });
 
@@ -339,7 +318,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: 1n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [entry, nextEntry]
     });
     taskService.replicateTask
@@ -361,7 +340,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: 1n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [{ ...entry, sequence: 1n }]
     });
 
@@ -375,7 +354,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: -1n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: [entry]
     });
 
@@ -401,7 +380,7 @@ describe('MasterNodeReplicationHandler', () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
       lastCommittedSequence: -1n,
-      clusterMembershipRevision: cluster.membershipRevision,
+      clusterMembershipRevision,
       entries: []
     });
 
