@@ -177,6 +177,36 @@ export const recordLeaderHeartbeatClientInputSchema = z.object({
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
+/* replication handler schemas */
+
+export const verifyTaskEntriesFetchResultInputSchema = z.object({
+  consensusState: consensusStateSchema,
+  fetchResult: fetchTaskEntriesInternodeResultSchema
+});
+
+export const synchronizeClusterMembershipInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
+  leaderMembershipRevision: clusterMembershipRevisionSchema
+});
+
+export const replicateTaskEntriesInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
+  entries: z.array(internodeTaskEntrySchema),
+  initialSequence: consensusLastSequenceSchema,
+  leaderLastCommittedSequence: consensusLastSequenceSchema,
+  leadershipContext: consensusLeadershipContextSchema
+});
+
+export const replicateTaskEntryInputSchema = fetchClusterMembershipSnapshotClientInputSchema.extend({
+  entry: internodeTaskEntrySchema,
+  leadershipContext: consensusLeadershipContextSchema
+});
+
+export const reconcileTaskHistoryInputSchema = z.object({
+  consensusState: consensusStateSchema,
+  replicatedThroughSequence: consensusLastSequenceSchema,
+  leaderLastCommittedSequence: consensusLastSequenceSchema,
+  leadershipContext: consensusLeadershipContextSchema
+});
+
 /* repository schemas */
 
 export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNodeInputSchema.extend({
