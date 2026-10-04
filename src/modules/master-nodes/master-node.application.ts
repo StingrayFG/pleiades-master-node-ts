@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 import { clusterIdSchema, clusterMembershipRevisionSchema } from '@/modules/cluster/cluster.domain';
-import { consensusEpochSchema, consensusLastSequenceSchema } from '@/modules/consensus/consensus.domain';
+import { consensusLeadershipContextSchema } from '@/modules/consensus/consensus.application';
+import {
+  consensusEpochSchema,
+  consensusLastSequenceSchema,
+  consensusStateSchema
+} from '@/modules/consensus/consensus.domain';
 import {
   taskEpochSchema,
   taskExecutionScopeSchema,
@@ -20,9 +25,8 @@ import {
   masterNodeStateSchema
 } from './master-node.domain';
 
-/* schemas */
+/* service schemas */
 
-// service
 export const registerMasterNodeInputSchema = z.object({
   id: masterNodeIdSchema,
 
@@ -34,7 +38,8 @@ export const registerMasterNodeInputSchema = z.object({
   endpoint: masterNodeEndpointSchema
 });
 
-// internode
+/* internode schemas */
+
 export const authenticatedMasterNodeCallerSchema = z.object({
   callerMasterNodeId: masterNodeIdSchema,
   callerMasterNodeSessionId: masterNodeSessionIdSchema,
@@ -110,7 +115,8 @@ export const recordLeaderHeartbeatInternodeInputSchema = authenticatedMasterNode
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
-// client
+/* client schemas */
+
 export const fetchMasterInfoClientInputSchema = z.object({
   masterNodeEndpoint: masterNodeEndpointSchema,
   expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema
@@ -171,7 +177,8 @@ export const recordLeaderHeartbeatClientInputSchema = z.object({
   lastCommittedSequence: consensusLastSequenceSchema
 });
 
-// repository
+/* repository schemas */
+
 export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNodeInputSchema.extend({
   lastContactAt: z.date()
 });
@@ -185,12 +192,12 @@ export const transitionMasterNodeModeRepositoryInputSchema = z.object({
   expectedRevision: z.bigint().nonnegative()
 });
 
-/* types */
+/* service types */
 
-// service
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
 
-// internode
+/* internode types */
+
 export type AuthenticatedMasterNodeCaller = z.infer<typeof authenticatedMasterNodeCallerSchema>;
 export type InternodeTaskEntry = z.infer<typeof internodeTaskEntrySchema>;
 export type FetchMasterInfoInternodeResult = z.infer<typeof fetchMasterInfoInternodeResultSchema>;
@@ -205,7 +212,8 @@ export type ForwardTaskInternodeInput = z.infer<typeof forwardTaskInternodeInput
 export type RequestVoteInternodeInput = z.infer<typeof requestVoteInternodeInputSchema>;
 export type RecordLeaderHeartbeatInternodeInput = z.infer<typeof recordLeaderHeartbeatInternodeInputSchema>;
 
-// client
+/* client types */
+
 export type FetchMasterInfoClientInput = z.infer<typeof fetchMasterInfoClientInputSchema>;
 export type RegisterMasterNodeClientInput = z.infer<typeof registerMasterNodeClientInputSchema>;
 export type FetchClusterMembershipSnapshotClientInput = z.infer<typeof fetchClusterMembershipSnapshotClientInputSchema>;
@@ -215,7 +223,16 @@ export type ForwardTaskClientInput = z.infer<typeof forwardTaskClientInputSchema
 export type RequestVoteClientInput = z.infer<typeof requestVoteClientInputSchema>;
 export type RecordLeaderHeartbeatClientInput = z.infer<typeof recordLeaderHeartbeatClientInputSchema>;
 
-// repository
+/* replication handler types */
+
+export type VerifyTaskEntriesFetchResultInput = z.infer<typeof verifyTaskEntriesFetchResultInputSchema>;
+export type SynchronizeClusterMembershipInput = z.infer<typeof synchronizeClusterMembershipInputSchema>;
+export type ReplicateTaskEntriesInput = z.infer<typeof replicateTaskEntriesInputSchema>;
+export type ReplicateTaskEntryInput = z.infer<typeof replicateTaskEntryInputSchema>;
+export type ReconcileTaskHistoryInput = z.infer<typeof reconcileTaskHistoryInputSchema>;
+
+/* repository types */
+
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
 >;
