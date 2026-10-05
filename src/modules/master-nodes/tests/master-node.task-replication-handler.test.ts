@@ -267,7 +267,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
-  test('rejects a leader committed sequence that regresses local committed history', async () => {
+  test('tolerates a leader committed sequence behind the local committed history', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
       lastAllocatedSequence: 0n,
@@ -280,10 +280,10 @@ describe('MasterNodeTaskReplicationHandler', () => {
       entries: []
     });
 
-    await expect(handler.run()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+    await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
-    expect(taskService.replicateTask).not.toHaveBeenCalled();
+    expect(consensusService.acceptFollowership).toHaveBeenCalled();
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
   test('only commits through the entries returned in the current batch', async () => {

@@ -52,8 +52,10 @@ class LeadershipService implements LeadershipServiceContract {
 
   /* rpc methods */
 
-  // handles a heartbeat from the current leader by validating its epoch and committed sequence,
+  // handles a heartbeat from the current leader by validating its epoch,
   // refreshing local followership, and returning local matched sequence progress.
+  // the leader's committed sequence may transiently lag the local one after an
+  // election; the local committed sequence never moves backward regardless
   async recordLeaderHeartbeat(input: RecordLeaderHeartbeatInput): Promise<RecordLeaderHeartbeatResult> {
     const consensusState = await this.consensusService.getConsensusState();
 
@@ -61,16 +63,6 @@ class LeadershipService implements LeadershipServiceContract {
       return {
         epoch: consensusState.currentEpoch,
         lastMatchedSequence: consensusState.lastMatchedSequence,
-        accepted: false
-      };
-    }
-
-    if (input.lastCommittedSequence < consensusState.lastCommittedSequence) {
-      const state = await this.consensusService.adoptNewerEpoch(input.epoch);
-
-      return {
-        epoch: state.currentEpoch,
-        lastMatchedSequence: state.lastMatchedSequence,
         accepted: false
       };
     }

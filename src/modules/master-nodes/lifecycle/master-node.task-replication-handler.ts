@@ -111,10 +111,8 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
       throw new GenericFailedPreconditionError('The leader returned a stale consensus epoch');
     }
 
-    if (input.fetchResult.lastCommittedSequence < input.consensusState.lastCommittedSequence) {
-      throw new GenericFailedPreconditionError('The leader returned a regressed committed sequence');
-    }
-
+    // the leader's committed sequence may transiently lag the local one after an
+    // election; the local committed sequence never moves backward regardless
     if (input.fetchResult.entries.length > this.masterNodeConfig.replication.batchSize) {
       throw new GenericFailedPreconditionError('The leader returned more task entries than requested');
     }
