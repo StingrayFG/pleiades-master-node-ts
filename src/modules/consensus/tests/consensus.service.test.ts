@@ -8,7 +8,11 @@ import {
   GenericInternalServerError
 } from '@/errors/application.errors';
 
-import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from '../consensus.application';
+import type {
+  AllocatedSequenceTransactionAction,
+  LeadershipContextTransactionAction,
+  RewoundSequenceTransactionAction
+} from '../consensus.application';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '../consensus.domain';
 import type { ConsensusStateRepositoryContract } from '../consensus.repository';
 import { ConsensusService } from '../consensus.service';
@@ -65,6 +69,7 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
     advanceLastMatchedSequence: jest.fn<ConsensusStateRepositoryContract['advanceLastMatchedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withAdvancedLastAllocatedSequence']>(),
     withRewoundLastAllocatedSequence: jest.fn<ConsensusStateRepositoryContract['withRewoundLastAllocatedSequence']>(),
+    withLeadershipContext: jest.fn<ConsensusStateRepositoryContract['withLeadershipContext']>(),
     claimLeadership: jest.fn<ConsensusStateRepositoryContract['claimLeadership']>(),
     acceptFollowership: jest.fn<ConsensusStateRepositoryContract['acceptFollowership']>(),
     releaseLeadership: jest.fn<ConsensusStateRepositoryContract['releaseLeadership']>(),
@@ -84,6 +89,9 @@ const createRepositoryMock = (): jest.Mocked<ConsensusStateRepositoryContract> =
   });
   repository.withRewoundLastAllocatedSequence.mockImplementation(async (input, action) => {
     return action(transaction, input.sequence);
+  });
+  repository.withLeadershipContext.mockImplementation(async (_leadershipContext, action) => {
+    return action(transaction);
   });
   repository.claimLeadership.mockResolvedValue(true);
   repository.acceptFollowership.mockResolvedValue(true);
@@ -288,6 +296,19 @@ describe('ConsensusService', () => {
 
     await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toThrow(
       'Matched sequence advancement was aborted by a concurrent consensus change'
+    );
+  });
+
+  test('delegates leadership-fenced work with the expected leadership state', async () => {
+    const action = jest.fn<LeadershipContextTransactionAction<string>>().mockResolvedValue('applied');
+
+    await expect(service.withLeadershipContext(leadershipContext, action)).resolves.toBe('applied');
+    expect(repository.withLeadershipContext).toHaveBeenCalledWith(
+      {
+        epoch: 2n,
+        leaderMasterId: selfMasterNodeId
+      },
+      action
     );
   });
 

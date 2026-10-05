@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+
 import {
   GenericAbortedError,
   GenericConflictError,
@@ -5,6 +7,7 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
+import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import type { RegisterMasterNodeInput } from './master-node.application';
@@ -19,7 +22,7 @@ type MasterNodeServiceContract = {
   getMasterNodeById(id: MasterNodeId): Promise<MasterNode>;
 
   // membership
-  registerMasterNode(input: RegisterMasterNodeInput): Promise<MasterNode>;
+  registerMasterNode(input: RegisterMasterNodeInput, tx?: Prisma.TransactionClient): Promise<MasterNode>;
   transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode>;
 };
 
@@ -51,29 +54,31 @@ class MasterNodeService implements MasterNodeServiceContract {
 
   /* membership methods */
 
-  async registerMasterNode(input: RegisterMasterNodeInput): Promise<MasterNode> {
+  async registerMasterNode(input: RegisterMasterNodeInput, tx?: Prisma.TransactionClient): Promise<MasterNode> {
     const currentMasterNode = await this.repository.findById(input.id);
 
     if (currentMasterNode && currentMasterNode.certificateFingerprint !== input.certificateFingerprint) {
       throw new GenericConflictError('Master node certificate does not match the registered certificate');
     }
 
-    return this.clusterService.withAdvancedMembershipRevision((tx) =>
-      this.repository.applyRegistration(
-        {
-          id: input.id,
+    return this.clusterService.withAdvancedMembershipRevision(
+      (membershipTx) =>
+        this.repository.applyRegistration(
+          {
+            id: input.id,
 
-          certificateFingerprint: input.certificateFingerprint,
-          sessionId: input.sessionId,
-          state: input.state,
-          mode: input.mode,
+            certificateFingerprint: input.certificateFingerprint,
+            sessionId: input.sessionId,
+            state: input.state,
+            mode: input.mode,
 
-          endpoint: input.endpoint,
+            endpoint: input.endpoint,
 
-          lastContactAt: new Date()
-        },
-        tx
-      )
+            lastContactAt: new Date()
+          },
+          membershipTx
+        ),
+      tx
     );
   }
 
@@ -92,14 +97,25 @@ class MasterNodeService implements MasterNodeServiceContract {
       return masterNode;
     }
 
-    const transitioned = await this.clusterService.withAdvancedMembershipRevision((tx) =>
-      this.repository.transitionMode(
-        {
-          id,
-          from: masterNode.mode,
-          to: mode,
-          expectedRevision: masterNode.revision
-        },
+    // the transition is fenced on the leadership read above, so a leader deposed
+    // mid-flight cannot land the membership change
+    const leadershipContext: ConsensusLeadershipContext = {
+      epoch: consensusState.currentEpoch,
+      leaderMasterId: this.selfMasterNodeId
+    };
+
+    const transitioned = await this.consensusService.withLeadershipContext(leadershipContext, (tx) =>
+      this.clusterService.withAdvancedMembershipRevision(
+        (membershipTx) =>
+          this.repository.transitionMode(
+            {
+              id,
+              from: masterNode.mode,
+              to: mode,
+              expectedRevision: masterNode.revision
+            },
+            membershipTx
+          ),
         tx
       )
     );

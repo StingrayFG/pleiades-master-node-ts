@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -24,7 +25,10 @@ type ClusterServiceContract = {
   registerCluster(clusterId: ClusterId): Promise<Cluster>;
 
   // membership
-  withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult>;
+  withAdvancedMembershipRevision<TResult>(
+    action: MembershipRevisionTransactionAction<TResult>,
+    tx?: Prisma.TransactionClient
+  ): Promise<TResult>;
   applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
@@ -123,11 +127,12 @@ class ClusterService implements ClusterServiceContract {
 
   // runs the action in the same transaction that advances the membership revision.
   async withAdvancedMembershipRevision<TResult>(
-    action: MembershipRevisionTransactionAction<TResult>
+    action: MembershipRevisionTransactionAction<TResult>,
+    tx?: Prisma.TransactionClient
   ): Promise<TResult> {
     await this.getCluster();
 
-    return this.repository.withAdvancedMembershipRevision(action);
+    return this.repository.withAdvancedMembershipRevision(action, tx);
   }
 
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {

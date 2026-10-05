@@ -97,7 +97,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   // registers a joining master node as an active serving member and advances
   // the membership revision so followers receive it in later snapshots.
   async registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void> {
-    await this.requireLeadershipState();
+    const consensusState = await this.requireLeadershipState();
 
     const cluster = await this.clusterService.getCluster();
 
@@ -105,16 +105,28 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       throw new GenericConflictError('Master node belongs to a different cluster');
     }
 
-    await this.masterNodeService.registerMasterNode({
-      id: input.id,
+    // the registration is fenced on the leadership checked above, so a deposed
+    // leader cannot land a membership change
+    await this.consensusService.withLeadershipContext(
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      },
+      (tx) =>
+        this.masterNodeService.registerMasterNode(
+          {
+            id: input.id,
 
-      certificateFingerprint: input.certificateFingerprint,
-      sessionId: input.sessionId,
-      state: 'active',
-      mode: 'serving',
+            certificateFingerprint: input.certificateFingerprint,
+            sessionId: input.sessionId,
+            state: 'active',
+            mode: 'serving',
 
-      endpoint: input.endpoint
-    });
+            endpoint: input.endpoint
+          },
+          tx
+        )
+    );
   }
 
   /* membership synchronization methods */

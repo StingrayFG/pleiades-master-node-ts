@@ -118,6 +118,9 @@ export type RewoundSequenceTransactionAction<TResult> = (
   rewoundSequence: ConsensusLastSequence
 ) => Promise<TResult>;
 
+// runs within the leadership-guard transaction; all database work must use the provided transaction client.
+export type LeadershipContextTransactionAction<TResult> = (tx: Prisma.TransactionClient) => Promise<TResult>;
+
 // election
 export type RequestConsensusVoteInput = z.infer<typeof requestConsensusVoteInputSchema>;
 export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;

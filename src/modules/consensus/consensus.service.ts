@@ -5,6 +5,7 @@ import type { TaskSequence } from '@/modules/tasks/task.domain';
 import type {
   AllocatedSequenceTransactionAction,
   ConsensusLeadershipContext,
+  LeadershipContextTransactionAction,
   ConsensusVoteResult,
   RequestConsensusVoteInput,
   RewoundSequenceTransactionAction
@@ -58,6 +59,10 @@ type ConsensusServiceContract = {
   ): Promise<TResult>;
 
   // leadership
+  withLeadershipContext<TResult>(
+    leadershipContext: ConsensusLeadershipContext,
+    action: LeadershipContextTransactionAction<TResult>
+  ): Promise<TResult>;
   claimInitialLeadership(selfMasterNodeId: MasterNodeId): Promise<ConsensusState>;
   acceptFollowership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState>;
   releaseLeadership(leadershipContext: ConsensusLeadershipContext): Promise<ConsensusState>;
@@ -245,6 +250,17 @@ class ConsensusService implements ConsensusServiceContract {
   }
 
   /* leadership methods */
+
+  // runs the action in a transaction that only commits while the caller's epoch
+  // and leadership still hold, so a deposed leader cannot land writes
+  async withLeadershipContext<TResult>(
+    leadershipContext: ConsensusLeadershipContext,
+    action: LeadershipContextTransactionAction<TResult>
+  ): Promise<TResult> {
+    await this.getConsensusState();
+
+    return this.repository.withLeadershipContext(leadershipContext, action);
+  }
 
   // used during initial cluster bootstrap to claim leadership before any leader exists.
   // this transition advances the epoch and records the bootstrapping node as leader with its self-vote.

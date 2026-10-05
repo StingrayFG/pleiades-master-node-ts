@@ -188,7 +188,7 @@ describe('ClusterService', () => {
     const action = jest.fn<MembershipRevisionTransactionAction<string>>().mockResolvedValue('applied');
 
     await expect(service.withAdvancedMembershipRevision(action)).resolves.toBe('applied');
-    expect(repository.withAdvancedMembershipRevision).toHaveBeenCalledWith(action);
+    expect(repository.withAdvancedMembershipRevision).toHaveBeenCalledWith(action, undefined);
   });
 
   test('rejects membership revision advancement before initialization', async () => {

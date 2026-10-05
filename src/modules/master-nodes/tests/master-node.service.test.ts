@@ -96,7 +96,10 @@ const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContr
 
 const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => {
   return {
-    getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>().mockResolvedValue(consensusState)
+    getConsensusState: jest.fn<ConsensusServiceContract['getConsensusState']>().mockResolvedValue(consensusState),
+    withLeadershipContext: jest
+      .fn<ConsensusServiceContract['withLeadershipContext']>()
+      .mockImplementation(async (_leadershipContext, action) => action({} as Prisma.TransactionClient))
   } as unknown as jest.Mocked<ConsensusServiceContract>;
 };
 
@@ -224,7 +227,14 @@ describe('MasterNodeService', () => {
       },
       expect.anything()
     );
-    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
+    expect(consensusService.withLeadershipContext).toHaveBeenCalledWith(
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: masterNodeId
+      },
+      expect.any(Function)
+    );
   });
 
   test('returns an already matching master node without another transition', async () => {
@@ -259,7 +269,7 @@ describe('MasterNodeService', () => {
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
-    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
   });
 
   test('rejects a lost mode transition when the requested mode is not present', async () => {
@@ -267,6 +277,6 @@ describe('MasterNodeService', () => {
     repository.transitionMode.mockResolvedValue(false);
 
     await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
-    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
   });
 });

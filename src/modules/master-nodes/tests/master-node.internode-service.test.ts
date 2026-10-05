@@ -2,6 +2,8 @@ import { Buffer } from 'node:buffer';
 
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
+import type { Prisma } from '@prisma/client';
+
 import {
   GenericConflictError,
   GenericFailedPreconditionError,
@@ -120,11 +122,15 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
     advanceLastAppliedSequence: jest.fn<ConsensusServiceContract['advanceLastAppliedSequence']>(),
     advanceLastAllocatedSequence: jest.fn<ConsensusServiceContract['advanceLastAllocatedSequence']>(),
     withAdvancedLastAllocatedSequence: jest.fn<ConsensusServiceContract['withAdvancedLastAllocatedSequence']>(),
+    withLeadershipContext: jest.fn<ConsensusServiceContract['withLeadershipContext']>(),
     claimInitialLeadership: jest.fn<ConsensusServiceContract['claimInitialLeadership']>(),
     acceptFollowership: jest.fn<ConsensusServiceContract['acceptFollowership']>()
   };
 
   service.getConsensusState.mockResolvedValue(consensusState);
+  service.withLeadershipContext.mockImplementation(async (_leadershipContext, action) =>
+    action({} as Prisma.TransactionClient)
+  );
 
   return service as unknown as jest.Mocked<ConsensusServiceContract>;
 };
@@ -224,18 +230,28 @@ describe('MasterNodeInternodeService', () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith({
-      id: callerMasterNodeId,
-      certificateFingerprint: callerCertificateFingerprint,
-      sessionId: callerMasterNodeSessionId,
-      state: 'active',
-      mode: 'serving',
-      endpoint: {
-        hostname: callerMasterNode.hostname,
-        port: callerMasterNode.port,
-        scheme: callerMasterNode.scheme
-      }
-    });
+    expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(
+      {
+        id: callerMasterNodeId,
+        certificateFingerprint: callerCertificateFingerprint,
+        sessionId: callerMasterNodeSessionId,
+        state: 'active',
+        mode: 'serving',
+        endpoint: {
+          hostname: callerMasterNode.hostname,
+          port: callerMasterNode.port,
+          scheme: callerMasterNode.scheme
+        }
+      },
+      expect.anything()
+    );
+    expect(consensusService.withLeadershipContext).toHaveBeenCalledWith(
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: selfMasterNodeId
+      },
+      expect.any(Function)
+    );
   });
 
   test('delegates authenticated vote requests to the election service', async () => {

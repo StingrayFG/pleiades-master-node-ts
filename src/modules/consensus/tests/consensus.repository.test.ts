@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericAbortedError, GenericAlreadyExistsError, GenericMapperError } from '@/errors/application.errors';
 
-import type { AllocatedSequenceTransactionAction, RewoundSequenceTransactionAction } from '../consensus.application';
+import type {
+  AllocatedSequenceTransactionAction,
+  LeadershipContextTransactionAction,
+  RewoundSequenceTransactionAction
+} from '../consensus.application';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '../consensus.domain';
 import { ConsensusStateRepository } from '../consensus.repository';
 
@@ -419,6 +423,49 @@ describe('ConsensusStateRepository', () => {
       )
     ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(delegate.updateMany).toHaveBeenCalledTimes(1);
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  test('runs the action in the transaction while the leadership gate holds', async () => {
+    const action = jest.fn<LeadershipContextTransactionAction<string>>().mockResolvedValue('applied');
+
+    await expect(
+      repository.withLeadershipContext(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
+        },
+        action
+      )
+    ).resolves.toBe('applied');
+
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: CONSENSUS_STATE_ID,
+        current_epoch: 2n,
+        leader_master_id: 'master-node-aaaaaaaaaaaa'
+      },
+      data: {
+        revision: { increment: 1 }
+      }
+    });
+    expect(action).toHaveBeenCalledWith(transactionClient as unknown as Prisma.TransactionClient);
+  });
+
+  test('aborts the action when the leadership gate is lost', async () => {
+    const action = jest.fn<LeadershipContextTransactionAction<void>>();
+
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.withLeadershipContext(
+        {
+          epoch: 2n,
+          leaderMasterId: 'master-node-aaaaaaaaaaaa'
+        },
+        action
+      )
+    ).rejects.toBeInstanceOf(GenericAbortedError);
     expect(action).not.toHaveBeenCalled();
   });
 

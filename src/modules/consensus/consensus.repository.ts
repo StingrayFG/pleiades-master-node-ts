@@ -17,7 +17,9 @@ import type {
   StartElectionRepositoryInput,
   AdoptNewerEpochRepositoryInput,
   ApplyVoteRequestRepositoryInput,
-  ConsensusVoteResult
+  ConsensusVoteResult,
+  ConsensusLeadershipContext,
+  LeadershipContextTransactionAction
 } from './consensus.application';
 import { CONSENSUS_STATE_ID, type ConsensusState } from './consensus.domain';
 import { mapPrismaConsensusStateToDomainConsensusState } from './consensus.mappers';
@@ -44,6 +46,10 @@ type ConsensusStateRepositoryContract = {
   ): Promise<TResult>;
 
   // leadership
+  withLeadershipContext<TResult>(
+    leadershipContext: ConsensusLeadershipContext,
+    action: LeadershipContextTransactionAction<TResult>
+  ): Promise<TResult>;
   claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean>;
   acceptFollowership(input: AcceptFollowershipRepositoryInput): Promise<boolean>;
   releaseLeadership(input: ReleaseLeadershipRepositoryInput): Promise<boolean>;
@@ -363,6 +369,44 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   }
 
   /* leadership methods */
+
+  // fences the action on the caller's leadership: the guarded write only lands
+  // while the epoch and leader still match, and a lost fence aborts the whole
+  // transaction along with anything the action wrote
+  async withLeadershipContext<TResult>(
+    leadershipContext: ConsensusLeadershipContext,
+    action: LeadershipContextTransactionAction<TResult>
+  ): Promise<TResult> {
+    let result;
+
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        const guarded = await tx.consensusState.updateMany({
+          where: {
+            id: CONSENSUS_STATE_ID,
+
+            current_epoch: leadershipContext.epoch,
+            leader_master_id: leadershipContext.leaderMasterId
+          },
+          data: {
+            revision: {
+              increment: 1
+            }
+          }
+        });
+
+        if (guarded.count !== 1) {
+          throw new GenericAbortedError('The write was aborted because cluster leadership changed');
+        }
+
+        return action(tx);
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return result;
+  }
 
   async claimLeadership(input: ClaimLeadershipRepositoryInput): Promise<boolean> {
     let claimResult;

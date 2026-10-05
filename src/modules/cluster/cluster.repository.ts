@@ -30,7 +30,10 @@ type ClusterRepositoryContract = {
   create(input: CreateClusterRepositoryInput): Promise<Cluster>;
 
   // membership
-  withAdvancedMembershipRevision<TResult>(action: MembershipRevisionTransactionAction<TResult>): Promise<TResult>;
+  withAdvancedMembershipRevision<TResult>(
+    action: MembershipRevisionTransactionAction<TResult>,
+    tx?: Prisma.TransactionClient
+  ): Promise<TResult>;
   applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
@@ -135,11 +138,28 @@ class ClusterRepository implements ClusterRepositoryContract {
   /* membership methods */
 
   async withAdvancedMembershipRevision<TResult>(
-    action: MembershipRevisionTransactionAction<TResult>
+    action: MembershipRevisionTransactionAction<TResult>,
+    tx?: Prisma.TransactionClient
   ): Promise<TResult> {
     let result;
 
     try {
+      if (tx) {
+        // joins an existing transaction instead of opening a new one
+        await tx.cluster.update({
+          where: {
+            id: CLUSTER_RECORD_ID
+          },
+          data: {
+            membership_revision: {
+              increment: 1
+            }
+          }
+        });
+
+        return action(tx);
+      }
+
       result = await this.prisma.$transaction(async (transaction) => {
         await transaction.cluster.update({
           where: {
