@@ -198,6 +198,8 @@ class LeadershipService implements LeadershipServiceContract {
       return;
     }
 
+    this.synchronizeMatchSequenceProgress(consensusState.currentEpoch);
+
     const masterNodes = await this.masterNodeService.listMasterNodes();
     const voters = masterNodes.filter(isMasterNodeVotingMember);
     const quorumSize = resolveElectionQuorumSize(voters.length);

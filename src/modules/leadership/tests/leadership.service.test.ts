@@ -385,4 +385,35 @@ describe('LeadershipService', () => {
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
     expect(masterNodeService.listMasterNodes).not.toHaveBeenCalled();
   });
+
+  test('does not count matches recorded under a previous epoch', async () => {
+    // record matched sequences from both followers under epoch 3; the task at the
+    // candidate sequence is from an older epoch, so nothing commits yet
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: 3n,
+      accepted: true,
+      lastMatchedSequence: 6n
+    });
+
+    await service.broadcastLeaderHeartbeat();
+
+    // the same node leads again in a new epoch; the task at the candidate sequence
+    // is now a current-epoch entry, so only the stale matches could commit it
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      currentEpoch: 4n,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 4n });
+
+    await service.evaluateCommitment();
+
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+  });
 });
