@@ -255,7 +255,7 @@ describe('MasterNodeInternodeService', () => {
         id: callerMasterNodeId,
         certificateFingerprint: callerCertificateFingerprint,
         sessionId: callerMasterNodeSessionId,
-        state: 'active',
+        state: 'joining',
         mode: 'serving',
         endpoint: {
           hostname: callerMasterNode.hostname,
@@ -412,6 +412,51 @@ describe('MasterNodeInternodeService', () => {
     });
   });
 
+  test('promotes a caught-up joining follower to an active member', async () => {
+    const joiningCaller = { ...callerMasterNode, state: 'joining' as const };
+
+    masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
+
+    await expect(
+      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: consensusState.lastCommittedSequence, limit: 8 })
+    ).resolves.toBeDefined();
+
+    expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(
+      {
+        id: callerMasterNode.id,
+        certificateFingerprint: callerMasterNode.certificateFingerprint,
+        sessionId: callerMasterNode.sessionId,
+        state: 'active',
+        mode: callerMasterNode.mode,
+        endpoint: {
+          hostname: callerMasterNode.hostname,
+          port: callerMasterNode.port,
+          scheme: callerMasterNode.scheme
+        }
+      },
+      expect.anything()
+    );
+    expect(consensusService.withLeadershipContext).toHaveBeenCalledWith(
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: selfMasterNodeId
+      },
+      expect.any(Function)
+    );
+  });
+
+  test('keeps a joining follower behind the committed sequence unmodified', async () => {
+    const joiningCaller = { ...callerMasterNode, state: 'joining' as const };
+
+    masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
+
+    await expect(
+      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: 0n, limit: 8 })
+    ).resolves.toBeDefined();
+
+    expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
+  });
+
   test('returns an empty entry list when no committed tasks are available', async () => {
     taskService.listTasksInSequenceRange.mockResolvedValue([]);
 
@@ -426,6 +471,12 @@ describe('MasterNodeInternodeService', () => {
   test('returns the cluster membership snapshot to an authenticated master node', async () => {
     await expect(service.fetchClusterMembershipSnapshot(authenticatedCaller)).resolves.toBe(clusterMembershipSnapshot);
     expect(clusterService.captureMembershipSnapshot).toHaveBeenCalledWith();
+  });
+
+  test('serves authenticated calls from joining master nodes', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({ ...callerMasterNode, state: 'joining' });
+
+    await expect(service.fetchClusterMembershipSnapshot(authenticatedCaller)).resolves.toBe(clusterMembershipSnapshot);
   });
 
   test('retrieves a task payload from byte storage', async () => {

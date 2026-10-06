@@ -94,8 +94,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     };
   }
 
-  // registers a joining master node as an active serving member and advances
-  // the membership revision so followers receive it in later snapshots.
+  // registers a master node as a joining serving member and advances the
+  // membership revision so followers receive it in later snapshots.
+  // joining members do not count toward election and commit quorums until they
+  // are promoted to active after catching up with the leader's log.
   async registerMasterNode(input: RegisterMasterNodeInternodeInput): Promise<void> {
     const consensusState = await this.requireLeadershipState();
 
@@ -119,7 +121,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
             certificateFingerprint: input.certificateFingerprint,
             sessionId: input.sessionId,
-            state: 'active',
+            state: 'joining',
             mode: 'serving',
 
             endpoint: input.endpoint
@@ -146,8 +148,37 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   // returns the next batch of leader task entries and the current committed sequence.
   async fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult> {
     const consensusState = await this.requireLeadershipState();
-    await this.requireAuthenticatedMasterNodeCaller(input);
+    const caller = await this.requireAuthenticatedMasterNodeCaller(input);
     const cluster = await this.clusterService.getCluster();
+
+    // a joining follower that has replicated through the leader's committed sequence
+    // has caught up with the committed log and can become an active voting member.
+    if (caller.state === 'joining' && input.afterSequence >= consensusState.lastCommittedSequence) {
+      await this.consensusService.withLeadershipContext(
+        {
+          epoch: consensusState.currentEpoch,
+          leaderMasterId: this.selfMasterNodeId
+        },
+        (tx) =>
+          this.masterNodeService.registerMasterNode(
+            {
+              id: caller.id,
+
+              certificateFingerprint: caller.certificateFingerprint,
+              sessionId: caller.sessionId,
+              state: 'active',
+              mode: caller.mode,
+
+              endpoint: {
+                hostname: caller.hostname,
+                port: caller.port,
+                scheme: caller.scheme
+              }
+            },
+            tx
+          )
+      );
+    }
 
     const tasks = await this.taskService.listTasksInSequenceRange({
       afterSequence: input.afterSequence,
@@ -280,8 +311,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       throw new GenericConflictError('Master node session is no longer current');
     }
 
-    if (masterNode.state !== 'active') {
-      throw new GenericFailedPreconditionError('Calling master node is not active');
+    // joining members may catch up with the leader's log but do not count toward
+    // quorums until promoted; all other non-active members are rejected.
+    if (masterNode.state !== 'active' && masterNode.state !== 'joining') {
+      throw new GenericFailedPreconditionError('Calling master node is not an active cluster member');
     }
 
     return masterNode;
