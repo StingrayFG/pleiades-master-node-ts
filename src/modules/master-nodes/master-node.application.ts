@@ -84,7 +84,7 @@ export const fetchClusterMembershipSnapshotInternodeInputSchema = authenticatedM
 
 export const fetchTaskEntriesInternodeInputSchema = authenticatedMasterNodeCallerSchema.extend({
   afterSequence: consensusLastSequenceSchema,
-  limit: z.number().int().positive()
+  limit: z.number().int().positive().max(128)
 });
 
 export const fetchTaskEntriesInternodeResultSchema = z.object({
@@ -142,7 +142,7 @@ export const fetchTaskEntriesClientInputSchema = z.object({
   expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema,
 
   afterSequence: consensusLastSequenceSchema,
-  limit: z.number().int().positive()
+  limit: z.number().int().positive().max(128)
 });
 
 export const fetchTaskPayloadClientInputSchema = z.object({

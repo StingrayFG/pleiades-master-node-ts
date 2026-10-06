@@ -124,6 +124,35 @@ describe('master node application schemas', () => {
     expect(internodeTaskEntrySchema.parse(taskEntry)).toEqual(taskEntry);
   });
 
+  test('caps task-entry fetch limits at the protocol maximum', () => {
+    expect(
+      fetchTaskEntriesInternodeInputSchema.parse({
+        ...authenticatedCaller,
+        afterSequence: -1n,
+        limit: 128
+      })
+    ).toEqual({
+      ...authenticatedCaller,
+      afterSequence: -1n,
+      limit: 128
+    });
+    expect(() =>
+      fetchTaskEntriesInternodeInputSchema.parse({
+        ...authenticatedCaller,
+        afterSequence: -1n,
+        limit: 129
+      })
+    ).toThrow();
+    expect(() =>
+      fetchTaskEntriesClientInputSchema.parse({
+        masterNodeEndpoint: { hostname: 'leader.internal', port: 4410, scheme: 'grpcs' },
+        expectedCertificateFingerprint: 'ab'.repeat(32),
+        afterSequence: -1n,
+        limit: 129
+      })
+    ).toThrow();
+  });
+
   test('accepts the initial task-entry range and an empty uncommitted result', () => {
     expect(
       fetchTaskEntriesInternodeInputSchema.parse({
