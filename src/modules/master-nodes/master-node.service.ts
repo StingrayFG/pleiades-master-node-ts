@@ -2,7 +2,6 @@ import type { Prisma } from '@prisma/client';
 
 import {
   GenericAbortedError,
-  GenericConflictError,
   GenericFailedPreconditionError,
   GenericNotFoundError
 } from '@/errors/application.errors';
@@ -55,12 +54,6 @@ class MasterNodeService implements MasterNodeServiceContract {
   /* membership methods */
 
   async registerMasterNode(input: RegisterMasterNodeInput, tx?: Prisma.TransactionClient): Promise<MasterNode> {
-    const currentMasterNode = await this.repository.findById(input.id);
-
-    if (currentMasterNode && currentMasterNode.certificateFingerprint !== input.certificateFingerprint) {
-      throw new GenericConflictError('Master node certificate does not match the registered certificate');
-    }
-
     return this.clusterService.withAdvancedMembershipRevision(
       (membershipTx) =>
         this.repository.applyRegistration(

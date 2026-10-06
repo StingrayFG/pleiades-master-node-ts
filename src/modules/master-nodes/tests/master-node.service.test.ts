@@ -79,14 +79,12 @@ const consensusState: ConsensusState = {
 const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContract> => {
   const repository = {
     listAll: jest.fn<MasterNodeRepositoryContract['listAll']>(),
-    findById: jest.fn<MasterNodeRepositoryContract['findById']>(),
     findMemberById: jest.fn<MasterNodeRepositoryContract['findMemberById']>(),
     applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>(),
     transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>()
   };
 
   repository.listAll.mockResolvedValue([]);
-  repository.findById.mockResolvedValue(null);
   repository.findMemberById.mockResolvedValue(null);
   repository.applyRegistration.mockResolvedValue(masterNode);
   repository.transitionMode.mockResolvedValue(true);
@@ -155,7 +153,6 @@ describe('MasterNodeService', () => {
 
   test('registers a new master node', async () => {
     await expect(service.registerMasterNode(registrationInput)).resolves.toBe(masterNode);
-    expect(repository.findById).toHaveBeenCalledWith(masterNodeId);
     expect(repository.applyRegistration).toHaveBeenCalledWith(
       {
         ...registrationInput,
@@ -166,8 +163,6 @@ describe('MasterNodeService', () => {
   });
 
   test('accepts repeated registration from the same master node session', async () => {
-    repository.findById.mockResolvedValue(masterNode);
-
     await expect(service.registerMasterNode(registrationInput)).resolves.toBe(masterNode);
     expect(repository.applyRegistration).toHaveBeenCalledWith(
       {
@@ -179,8 +174,6 @@ describe('MasterNodeService', () => {
   });
 
   test('refreshes a master node session with its existing certificate', async () => {
-    repository.findById.mockResolvedValue(masterNode);
-
     const restartedInput: RegisterMasterNodeInput = {
       ...registrationInput,
       sessionId: '00000000-0000-4000-8000-000000000099'
@@ -197,7 +190,7 @@ describe('MasterNodeService', () => {
   });
 
   test('rejects re-registration with a different certificate', async () => {
-    repository.findById.mockResolvedValue(masterNode);
+    repository.applyRegistration.mockRejectedValue(new GenericConflictError());
 
     const conflictingInput: RegisterMasterNodeInput = {
       ...registrationInput,
@@ -205,7 +198,6 @@ describe('MasterNodeService', () => {
     };
 
     await expect(service.registerMasterNode(conflictingInput)).rejects.toBeInstanceOf(GenericConflictError);
-    expect(repository.applyRegistration).not.toHaveBeenCalled();
   });
 
   test('changes a master node mode and advances the membership revision', async () => {

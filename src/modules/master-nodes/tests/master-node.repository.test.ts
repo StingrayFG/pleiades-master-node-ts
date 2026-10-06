@@ -1,7 +1,7 @@
 import { Prisma, type MasterNode as PrismaMasterNode, type PrismaClient } from '@prisma/client';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { GenericAlreadyExistsError, GenericMapperError } from '@/errors/application.errors';
+import { GenericAlreadyExistsError, GenericConflictError, GenericMapperError } from '@/errors/application.errors';
 
 import type { ApplyMasterNodeRegistrationRepositoryInput } from '../master-node.application';
 import type { MasterNode } from '../master-node.domain';
@@ -87,6 +87,8 @@ const createMasterNodeDelegateMock = () => {
     findMany: jest.fn<(input: unknown) => Promise<PrismaMasterNode[]>>(),
     findFirst: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
     findUnique: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
+    findUniqueOrThrow: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),
+    create: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),
     upsert: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),
     updateMany: jest.fn<(input: unknown) => Promise<{ count: number }>>()
   };
@@ -94,6 +96,8 @@ const createMasterNodeDelegateMock = () => {
   delegate.findMany.mockResolvedValue([]);
   delegate.findFirst.mockResolvedValue(null);
   delegate.findUnique.mockResolvedValue(null);
+  delegate.findUniqueOrThrow.mockResolvedValue(prismaMasterNode);
+  delegate.create.mockResolvedValue(prismaMasterNode);
   delegate.upsert.mockResolvedValue(prismaMasterNode);
   delegate.updateMany.mockResolvedValue({ count: 1 });
 
@@ -142,21 +146,6 @@ describe('MasterNodeRepository', () => {
     await expect(repository.listAll()).rejects.toBeInstanceOf(GenericMapperError);
   });
 
-  test('finds a master node by id', async () => {
-    delegate.findUnique.mockResolvedValue(prismaMasterNode);
-
-    await expect(repository.findById(masterNodeId)).resolves.toEqual(domainMasterNode);
-    expect(delegate.findUnique).toHaveBeenCalledWith({
-      where: {
-        id: masterNodeId
-      }
-    });
-  });
-
-  test('returns null when a master node cannot be found', async () => {
-    await expect(repository.findById(masterNodeId)).resolves.toBeNull();
-  });
-
   test('finds a current cluster member by id', async () => {
     delegate.findFirst.mockResolvedValue(prismaMasterNode);
 
@@ -174,30 +163,14 @@ describe('MasterNodeRepository', () => {
     await expect(repository.findMemberById(masterNodeId)).resolves.toBeNull();
   });
 
-  test('applies master node registration through an upsert', async () => {
+  test('adopts an existing registration through the certificate-guarded update', async () => {
     await expect(repository.applyRegistration(registrationInput)).resolves.toEqual(domainMasterNode);
-    expect(delegate.upsert).toHaveBeenCalledWith({
+    expect(delegate.updateMany).toHaveBeenCalledWith({
       where: {
-        id: masterNodeId
-      },
-      create: {
         id: masterNodeId,
-        cluster_record_id: 'self',
-
-        certificate_fingerprint: registrationInput.certificateFingerprint,
-        session_id: registrationInput.sessionId,
-        state: 'active',
-        mode: 'serving',
-
-        hostname: 'master-node.internal',
-        port: 50051,
-        scheme: 'grpcs',
-
-        last_contact_at: lastContactAt,
-        last_heartbeat_at: null,
-        removed_at: null
+        certificate_fingerprint: registrationInput.certificateFingerprint
       },
-      update: {
+      data: {
         cluster_record_id: 'self',
 
         session_id: registrationInput.sessionId,
@@ -217,10 +190,55 @@ describe('MasterNodeRepository', () => {
         }
       }
     });
+    expect(delegate.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId
+      }
+    });
+    expect(delegate.create).not.toHaveBeenCalled();
+  });
+
+  test('rejects a registration with a different certificate on an existing master node', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+    delegate.findUnique.mockResolvedValue(prismaMasterNode);
+
+    await expect(repository.applyRegistration(registrationInput)).rejects.toBeInstanceOf(GenericConflictError);
+    expect(delegate.create).not.toHaveBeenCalled();
+  });
+
+  test('creates a registration when the master node id is free', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(repository.applyRegistration(registrationInput)).resolves.toEqual(domainMasterNode);
+    expect(delegate.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId
+      }
+    });
+    expect(delegate.create).toHaveBeenCalledWith({
+      data: {
+        id: masterNodeId,
+        cluster_record_id: 'self',
+
+        certificate_fingerprint: registrationInput.certificateFingerprint,
+        session_id: registrationInput.sessionId,
+        state: 'active',
+        mode: 'serving',
+
+        hostname: 'master-node.internal',
+        port: 50051,
+        scheme: 'grpcs',
+
+        last_contact_at: lastContactAt,
+        last_heartbeat_at: null,
+        removed_at: null
+      }
+    });
   });
 
   test('maps registration uniqueness violations to an already-exists error', async () => {
-    delegate.upsert.mockRejectedValue(createPrismaError('P2002'));
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+    delegate.create.mockRejectedValue(createPrismaError('P2002'));
 
     await expect(repository.applyRegistration(registrationInput)).rejects.toBeInstanceOf(GenericAlreadyExistsError);
   });
