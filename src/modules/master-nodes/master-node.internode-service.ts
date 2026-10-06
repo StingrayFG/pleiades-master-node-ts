@@ -199,12 +199,16 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
     const result = await this.taskService.executeTaskByDefinition(definition, data);
 
-    if (result === undefined) {
+    if (!definition.resultSchema) {
+      if (result !== undefined) {
+        throw new GenericInternalServerError('Task execution returned a result without a declared result schema');
+      }
+
       return undefined;
     }
 
-    if (!definition.resultSchema) {
-      throw new GenericInternalServerError('The task definition does not declare a result schema');
+    if (result === undefined) {
+      throw new GenericInternalServerError('Task execution did not return its declared result');
     }
 
     return z.encode(definition.resultSchema, result);

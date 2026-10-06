@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { z } from 'zod';
 
 import type { Prisma } from '@prisma/client';
 
@@ -8,6 +9,7 @@ import {
   GenericConflictError,
   GenericFailedPreconditionError,
   GenericForbiddenError,
+  GenericInternalServerError,
   GenericNotFoundError
 } from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domain';
@@ -17,6 +19,7 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
+import { createTaskDefinition } from '@/modules/tasks/task.definition';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { MasterNode } from '../master-node.domain';
@@ -101,16 +104,33 @@ const clusterMembershipSnapshot = {
   dataNodes: []
 };
 
+const resultTaskDefinition = createTaskDefinition({
+  type: 'test.result',
+  executionScope: 'cluster',
+  dataSchema: z.object({ value: z.string() }),
+  resultSchema: z.object({ result: z.string() })
+});
+
+const voidTaskDefinition = createTaskDefinition({
+  type: 'test.void',
+  executionScope: 'cluster',
+  dataSchema: z.object({ value: z.string() })
+});
+
 /* mocks */
 
 const createTaskServiceMock = (): jest.Mocked<TaskServiceContract> => {
   const service = {
     listTasksInSequenceRange: jest.fn<TaskServiceContract['listTasksInSequenceRange']>(),
-    retrieveTaskPayload: jest.fn<TaskServiceContract['retrieveTaskPayload']>()
+    retrieveTaskPayload: jest.fn<TaskServiceContract['retrieveTaskPayload']>(),
+    getTaskDefinitionByType: jest.fn<TaskServiceContract['getTaskDefinitionByType']>(),
+    executeTaskByDefinition: jest.fn<TaskServiceContract['executeTaskByDefinition']>()
   };
 
   service.listTasksInSequenceRange.mockResolvedValue([task]);
   service.retrieveTaskPayload.mockResolvedValue(Buffer.from('task payload'));
+  service.getTaskDefinitionByType.mockReturnValue(resultTaskDefinition);
+  service.executeTaskByDefinition.mockResolvedValue({ result: 'done' });
 
   return service as unknown as jest.Mocked<TaskServiceContract>;
 };
@@ -413,6 +433,57 @@ describe('MasterNodeInternodeService', () => {
 
     await expect(service.fetchTaskPayload({ ...authenticatedCaller, payloadId })).resolves.toEqual(payload);
     expect(taskService.retrieveTaskPayload).toHaveBeenCalledWith(payloadId);
+  });
+
+  test('executes a forwarded task and encodes its declared result', async () => {
+    await expect(
+      service.forwardTask({
+        ...authenticatedCaller,
+        type: resultTaskDefinition.type,
+        data: { value: 'input' }
+      })
+    ).resolves.toEqual({ result: 'done' });
+
+    expect(taskService.getTaskDefinitionByType).toHaveBeenCalledWith(resultTaskDefinition.type);
+    expect(taskService.executeTaskByDefinition).toHaveBeenCalledWith(resultTaskDefinition, { value: 'input' });
+  });
+
+  test('rejects a missing declared result from forwarded task execution', async () => {
+    taskService.executeTaskByDefinition.mockResolvedValue(undefined);
+
+    await expect(
+      service.forwardTask({
+        ...authenticatedCaller,
+        type: resultTaskDefinition.type,
+        data: { value: 'input' }
+      })
+    ).rejects.toBeInstanceOf(GenericInternalServerError);
+  });
+
+  test('returns no result for forwarded task execution without a result schema', async () => {
+    taskService.getTaskDefinitionByType.mockReturnValue(voidTaskDefinition);
+    taskService.executeTaskByDefinition.mockResolvedValue(undefined);
+
+    await expect(
+      service.forwardTask({
+        ...authenticatedCaller,
+        type: voidTaskDefinition.type,
+        data: { value: 'input' }
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  test('rejects an unexpected result from forwarded task execution without a result schema', async () => {
+    taskService.getTaskDefinitionByType.mockReturnValue(voidTaskDefinition);
+    taskService.executeTaskByDefinition.mockResolvedValue({ result: 'unexpected' });
+
+    await expect(
+      service.forwardTask({
+        ...authenticatedCaller,
+        type: voidTaskDefinition.type,
+        data: { value: 'input' }
+      })
+    ).rejects.toBeInstanceOf(GenericInternalServerError);
   });
 
   test('rejects task history requests from an unregistered master node', async () => {

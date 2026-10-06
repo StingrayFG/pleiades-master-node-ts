@@ -13,6 +13,8 @@ import {
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
   type FetchTaskPayloadResponse,
+  type ForwardTaskRequest,
+  type ForwardTaskResponse,
   type RecordLeaderHeartbeatRequest,
   type RecordLeaderHeartbeatResponse,
   type RegisterMasterNodeRequest,
@@ -90,6 +92,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
   });
   service.fetchClusterMembershipSnapshot.mockResolvedValue(clusterMembershipSnapshot);
   service.fetchTaskPayload.mockResolvedValue(Buffer.from('task payload'));
+  service.forwardTask.mockResolvedValue({ result: 'done' });
   service.requestVote.mockResolvedValue({ epoch: 2n, voteGranted: false });
   service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true, lastMatchedSequence: 5n });
 
@@ -235,6 +238,53 @@ describe('MasterNodeGrpcController', () => {
     ).rejects.toBeInstanceOf(GenericBadRequestError);
     expect(service.fetchTaskPayload).not.toHaveBeenCalled();
     expect(callback).not.toHaveBeenCalled();
+  });
+
+  test('forwards authenticated task execution and encodes its result', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<ForwardTaskResponse>>();
+
+    await controller.forwardTask(
+      createCall<ForwardTaskRequest, ForwardTaskResponse>({
+        type: 'test.result',
+        data: Buffer.from(JSON.stringify({ value: 'input' })),
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
+      }),
+      callback
+    );
+
+    expect(service.forwardTask).toHaveBeenCalledWith({
+      type: 'test.result',
+      data: { value: 'input' },
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint
+    });
+    expect(callback).toHaveBeenCalledWith(null, {
+      result: Buffer.from(JSON.stringify({ result: 'done' }))
+    });
+  });
+
+  test('omits the forwarded result when task execution returns no result', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<ForwardTaskResponse>>();
+
+    service.forwardTask.mockResolvedValue(undefined);
+
+    await controller.forwardTask(
+      createCall<ForwardTaskRequest, ForwardTaskResponse>({
+        type: 'test.void',
+        data: Buffer.from(JSON.stringify({ value: 'input' })),
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId
+      }),
+      callback
+    );
+
+    expect(callback).toHaveBeenCalledWith(null, { result: undefined });
   });
 
   test('registers a master node using the presented certificate fingerprint', async () => {

@@ -11,6 +11,7 @@ import type {
   FetchClusterMembershipSnapshotResponse,
   FetchTaskEntriesResponse,
   FetchTaskPayloadResponse,
+  ForwardTaskResponse,
   MasterClient as GrpcMasterClient,
   RecordLeaderHeartbeatResponse,
   RegisterMasterNodeResponse,
@@ -70,6 +71,10 @@ const payloadResponse: FetchTaskPayloadResponse = {
   payload: Buffer.from('task payload')
 };
 
+const forwardedTaskResponse: ForwardTaskResponse = {
+  result: Buffer.from(JSON.stringify({ result: 'done' }))
+};
+
 const voteResponse: RequestVoteResponse = {
   epoch: '2',
   vote_granted: false
@@ -103,6 +108,7 @@ type ClusterMembershipSnapshotCallback = (
   response: FetchClusterMembershipSnapshotResponse
 ) => void;
 type PayloadCallback = (error: ServiceError | null, response: FetchTaskPayloadResponse) => void;
+type ForwardTaskCallback = (error: ServiceError | null, response: ForwardTaskResponse) => void;
 type RegistrationCallback = (error: ServiceError | null, response: RegisterMasterNodeResponse) => void;
 type VoteCallback = (error: ServiceError | null, response: RequestVoteResponse) => void;
 type HeartbeatCallback = (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void;
@@ -122,6 +128,9 @@ type GrpcMasterClientMock = {
   >;
   fetchTaskPayload: jest.Mock<
     (_request: unknown, _metadata: unknown, _options: unknown, callback: PayloadCallback) => void
+  >;
+  forwardTask: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: ForwardTaskCallback) => void
   >;
   requestVote: jest.Mock<(_request: unknown, _metadata: unknown, _options: unknown, callback: VoteCallback) => void>;
   recordLeaderHeartbeat: jest.Mock<
@@ -195,6 +204,9 @@ describe('MasterNodeGrpcClient', () => {
         fetchTaskPayload: jest.fn((_request, _metadata, _options, callback: PayloadCallback) => {
           callback(null, payloadResponse);
         }),
+        forwardTask: jest.fn((_request, _metadata, _options, callback: ForwardTaskCallback) => {
+          callback(null, forwardedTaskResponse);
+        }),
         requestVote: jest.fn((_request, _metadata, _options, callback: VoteCallback) => {
           callback(null, voteResponse);
         }),
@@ -252,6 +264,7 @@ describe('MasterNodeGrpcClient', () => {
         fetchClusterMembershipSnapshot: jest.fn(),
         fetchTaskEntries: jest.fn(),
         fetchTaskPayload: jest.fn(),
+        forwardTask: jest.fn(),
         requestVote: jest.fn(),
         recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()
@@ -466,6 +479,33 @@ describe('MasterNodeGrpcClient', () => {
     );
   });
 
+  test('forwards task execution to an authenticated master node', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+    const data = Buffer.from(JSON.stringify({ value: 'input' }));
+
+    await expect(
+      client.forwardTask({
+        masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
+        type: 'test.result',
+        data
+      })
+    ).resolves.toEqual(forwardedTaskResponse.result);
+
+    expect(createdClients[0].forwardTask).toHaveBeenCalledWith(
+      {
+        type: 'test.result',
+        data,
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId
+      },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
   test('reuses a client for task entries and payloads from the same endpoint', async () => {
     const { provider } = createCredentialsMock();
     const client = createClient(provider);
@@ -531,6 +571,7 @@ describe('MasterNodeGrpcClient', () => {
           callback(grpcError, entriesResponse);
         }),
         fetchTaskPayload: jest.fn(),
+        forwardTask: jest.fn(),
         requestVote: jest.fn(),
         recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()
@@ -572,6 +613,7 @@ describe('MasterNodeGrpcClient', () => {
           });
         }),
         fetchTaskPayload: jest.fn(),
+        forwardTask: jest.fn(),
         requestVote: jest.fn(),
         recordLeaderHeartbeat: jest.fn(),
         close: jest.fn()

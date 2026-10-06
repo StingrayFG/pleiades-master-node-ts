@@ -43,12 +43,16 @@ class MasterNodeTaskForwarder implements TaskForwarderContract {
       data: Buffer.from(JSON.stringify(z.encode(definition.dataSchema, data)))
     });
 
-    if (result === undefined) {
+    if (!definition.resultSchema) {
+      if (result !== undefined) {
+        throw new GenericInternalServerError('The leader returned a result without a declared result schema');
+      }
+
       return undefined as TaskDefinitionResult<TDefinition>;
     }
 
-    if (!definition.resultSchema) {
-      throw new GenericInternalServerError('The task definition does not declare a result schema');
+    if (result === undefined) {
+      throw new GenericInternalServerError('The leader did not return the declared task result');
     }
 
     return z.decode(definition.resultSchema, JSON.parse(result.toString('utf8'))) as TaskDefinitionResult<TDefinition>;
