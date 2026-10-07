@@ -9,7 +9,10 @@ import { mapPrismaMasterNodeToDomainMasterNode } from '@/modules/master-nodes/ma
 
 import type { CreateClusterRepositoryInput, MembershipRevisionTransactionAction } from './cluster.application';
 import { CLUSTER_RECORD_ID, type Cluster } from './cluster.domain';
-import { mapPrismaClusterToDomainCluster } from './cluster.mappers';
+import {
+  mapPrismaClusterMembershipSnapshotToDomainClusterMembershipSnapshot,
+  mapPrismaClusterToDomainCluster
+} from './cluster.mappers';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 import { resolveMembershipSnapshotAction } from './cluster.policies';
 import {
@@ -109,11 +112,7 @@ class ClusterRepository implements ClusterRepositoryContract {
       return null;
     }
 
-    return {
-      cluster: mapPrismaClusterToDomainCluster(snapshot.cluster),
-      masterNodes: snapshot.masterNodes.map(mapPrismaMasterNodeToDomainMasterNode),
-      dataNodes: snapshot.dataNodes.map(mapPrismaDataNodeToDomainDataNode)
-    };
+    return mapPrismaClusterMembershipSnapshotToDomainClusterMembershipSnapshot(snapshot);
   }
 
   /* create methods */
