@@ -46,7 +46,6 @@ const prismaMasterNode: PrismaMasterNode = {
 
   registered_at: new Date('2026-01-01T00:00:00.000Z'),
   last_contact_at: new Date('2026-01-02T00:00:00.000Z'),
-  last_health_check_at: new Date('2026-01-02T00:01:00.000Z'),
   last_heartbeat_at: new Date('2026-01-02T00:02:00.000Z'),
   removed_at: null,
   updated_at: new Date('2026-01-02T00:02:00.000Z'),
@@ -68,7 +67,6 @@ const domainMasterNode: MasterNode = {
 
   registeredAt: prismaMasterNode.registered_at,
   lastContactAt: prismaMasterNode.last_contact_at,
-  lastHealthCheckAt: prismaMasterNode.last_health_check_at,
   lastHeartbeatAt: prismaMasterNode.last_heartbeat_at,
   updatedAt: prismaMasterNode.updated_at,
 
@@ -165,7 +163,6 @@ describe('master node mappers', () => {
 
       registeredAt: domainMasterNode.registeredAt.toISOString(),
       lastContactAt: domainMasterNode.lastContactAt.toISOString(),
-      lastHealthCheckAt: domainMasterNode.lastHealthCheckAt?.toISOString() ?? null,
       lastHeartbeatAt: domainMasterNode.lastHeartbeatAt?.toISOString() ?? null,
       updatedAt: domainMasterNode.updatedAt.toISOString(),
 

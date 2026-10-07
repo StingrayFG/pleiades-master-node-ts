@@ -27,7 +27,6 @@ const prismaMasterNode: PrismaMasterNode = {
 
   registered_at: new Date('2026-01-01T00:00:00.000Z'),
   last_contact_at: lastContactAt,
-  last_health_check_at: null,
   last_heartbeat_at: null,
   removed_at: null,
   updated_at: lastContactAt,
@@ -49,7 +48,6 @@ const domainMasterNode: MasterNode = {
 
   registeredAt: prismaMasterNode.registered_at,
   lastContactAt: prismaMasterNode.last_contact_at,
-  lastHealthCheckAt: prismaMasterNode.last_health_check_at,
   lastHeartbeatAt: prismaMasterNode.last_heartbeat_at,
   updatedAt: prismaMasterNode.updated_at,
 

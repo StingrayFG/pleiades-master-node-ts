@@ -60,7 +60,6 @@ const leader: MasterNode = {
   scheme: 'grpcs',
   registeredAt: now,
   lastContactAt: now,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: now,
   revision: 1n

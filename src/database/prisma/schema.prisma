@@ -481,7 +481,6 @@ model MasterNode {
   // timestamps
   registered_at        DateTime  @default(now())
   last_contact_at      DateTime
-  last_health_check_at DateTime?
   last_heartbeat_at    DateTime?
   removed_at           DateTime?
   updated_at           DateTime  @updatedAt

@@ -51,7 +51,6 @@ const prismaMasterNode: PrismaMasterNode = {
   scheme: 'grpcs',
   registered_at: now,
   last_contact_at: now,
-  last_health_check_at: null,
   last_heartbeat_at: null,
   removed_at: null,
   updated_at: now,
@@ -94,7 +93,6 @@ const snapshot: ClusterMembershipSnapshot = {
       scheme: 'grpcs',
       registeredAt: prismaMasterNode.registered_at,
       lastContactAt: prismaMasterNode.last_contact_at,
-      lastHealthCheckAt: prismaMasterNode.last_health_check_at,
       lastHeartbeatAt: prismaMasterNode.last_heartbeat_at,
       updatedAt: prismaMasterNode.updated_at,
       revision: prismaMasterNode.revision
@@ -385,7 +383,7 @@ describe('ClusterRepository', () => {
         dataNodes: [
           {
             ...snapshot.dataNodes[0],
-            storageFreeBytes: 300n
+            port: 4421
           }
         ]
       })

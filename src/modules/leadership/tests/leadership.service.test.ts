@@ -62,7 +62,6 @@ const createMasterNode = (id: string): MasterNode => ({
   scheme: 'grpcs',
   registeredAt: now,
   lastContactAt: now,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: now,
   revision: 1n
@@ -106,9 +105,7 @@ describe('LeadershipService', () => {
         ...consensusState,
         currentEpoch: 3n
       }),
-      releaseLeadership: jest
-        .fn<ConsensusServiceContract['releaseLeadership']>()
-        .mockResolvedValue(electionState),
+      releaseLeadership: jest.fn<ConsensusServiceContract['releaseLeadership']>().mockResolvedValue(electionState),
       adoptNewerEpoch: jest.fn<ConsensusServiceContract['adoptNewerEpoch']>().mockImplementation(async (epoch) => ({
         ...electionState,
         currentEpoch: epoch

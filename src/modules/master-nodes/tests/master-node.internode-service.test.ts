@@ -86,7 +86,6 @@ const callerMasterNode: MasterNode = {
   scheme: 'grpcs',
   registeredAt: now,
   lastContactAt: now,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: now,
   revision: 1n
@@ -418,7 +417,11 @@ describe('MasterNodeInternodeService', () => {
     masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
 
     await expect(
-      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: consensusState.lastCommittedSequence, limit: 8 })
+      service.fetchTaskEntries({
+        ...authenticatedCaller,
+        afterSequence: consensusState.lastCommittedSequence,
+        limit: 8
+      })
     ).resolves.toBeDefined();
 
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(

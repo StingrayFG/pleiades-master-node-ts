@@ -87,11 +87,10 @@ message MasterNodeSnapshot {
 
   google.protobuf.Timestamp registered_at = 9 [(buf.validate.field).required = true];
   google.protobuf.Timestamp last_contact_at = 10 [(buf.validate.field).required = true];
-  optional google.protobuf.Timestamp last_health_check_at = 11;
-  optional google.protobuf.Timestamp last_heartbeat_at = 12;
-  google.protobuf.Timestamp updated_at = 13 [(buf.validate.field).required = true];
+  optional google.protobuf.Timestamp last_heartbeat_at = 11;
+  google.protobuf.Timestamp updated_at = 12 [(buf.validate.field).required = true];
 
-  int64 revision = 14 [(buf.validate.field).int64.gte = 0];
+  int64 revision = 13 [(buf.validate.field).int64.gte = 0];
 }
 
 message DataNodeSnapshot {

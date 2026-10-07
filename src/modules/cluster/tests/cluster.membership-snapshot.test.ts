@@ -29,7 +29,6 @@ const masterNode = {
 
   registeredAt: now,
   lastContactAt: now,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: now,
 

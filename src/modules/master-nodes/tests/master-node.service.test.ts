@@ -37,7 +37,6 @@ const masterNode: MasterNode = {
 
   registeredAt: new Date('2026-01-01T00:00:00.000Z'),
   lastContactAt,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: lastContactAt,
 
@@ -268,7 +267,9 @@ describe('MasterNodeService', () => {
     repository.findMemberById.mockResolvedValue(masterNode);
     repository.transitionMode.mockResolvedValue(false);
 
-    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
   });
 });

@@ -45,7 +45,6 @@ export const masterNodeResponseSchema = z.object({
 
   registeredAt: z.iso.datetime(),
   lastContactAt: z.iso.datetime(),
-  lastHealthCheckAt: z.iso.datetime().nullable(),
   lastHeartbeatAt: z.iso.datetime().nullable(),
   updatedAt: z.iso.datetime(),
 

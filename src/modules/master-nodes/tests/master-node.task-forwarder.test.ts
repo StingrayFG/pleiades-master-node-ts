@@ -27,7 +27,6 @@ const leader: MasterNode = {
   scheme: 'grpcs',
   registeredAt: now,
   lastContactAt: now,
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: now,
   revision: 1n
@@ -112,14 +111,16 @@ describe('MasterNodeTaskForwarder', () => {
   test('returns no result for a task without a result schema', async () => {
     grpcClient.forwardTask.mockResolvedValue(undefined);
 
-    await expect(forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)).resolves.toBeUndefined();
+    await expect(
+      forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)
+    ).resolves.toBeUndefined();
   });
 
   test('rejects an unexpected result for a task without a result schema', async () => {
     grpcClient.forwardTask.mockResolvedValue(Buffer.from(JSON.stringify({ result: 'unexpected' })));
 
-    await expect(
-      forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)
-    ).rejects.toBeInstanceOf(GenericInternalServerError);
+    await expect(forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)).rejects.toBeInstanceOf(
+      GenericInternalServerError
+    );
   });
 });

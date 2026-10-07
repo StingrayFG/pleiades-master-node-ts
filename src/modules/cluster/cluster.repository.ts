@@ -324,7 +324,6 @@ class ClusterRepository implements ClusterRepositoryContract {
 
           registered_at: masterNode.registeredAt,
           last_contact_at: masterNode.lastContactAt,
-          last_health_check_at: masterNode.lastHealthCheckAt,
           last_heartbeat_at: masterNode.lastHeartbeatAt,
           removed_at: null,
           updated_at: masterNode.updatedAt,
@@ -344,7 +343,6 @@ class ClusterRepository implements ClusterRepositoryContract {
 
           registered_at: masterNode.registeredAt,
           last_contact_at: masterNode.lastContactAt,
-          last_health_check_at: masterNode.lastHealthCheckAt,
           last_heartbeat_at: masterNode.lastHeartbeatAt,
           removed_at: null,
           updated_at: masterNode.updatedAt,

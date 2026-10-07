@@ -77,7 +77,6 @@ export const mapPrismaMasterNodeToDomainMasterNode = (masterNode: PrismaMasterNo
 
       registeredAt: masterNode.registered_at,
       lastContactAt: masterNode.last_contact_at,
-      lastHealthCheckAt: masterNode.last_health_check_at,
       lastHeartbeatAt: masterNode.last_heartbeat_at,
       updatedAt: masterNode.updated_at,
 
@@ -114,7 +113,6 @@ export const mapDomainMasterNodeToHttpMasterNodeResponse = (masterNode: MasterNo
 
       registeredAt: masterNode.registeredAt.toISOString(),
       lastContactAt: masterNode.lastContactAt.toISOString(),
-      lastHealthCheckAt: masterNode.lastHealthCheckAt?.toISOString() ?? null,
       lastHeartbeatAt: masterNode.lastHeartbeatAt?.toISOString() ?? null,
       updatedAt: masterNode.updatedAt.toISOString(),
 
@@ -207,7 +205,6 @@ export const mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot = (
 
         registeredAt: masterNode.registered_at,
         lastContactAt: masterNode.last_contact_at,
-        lastHealthCheckAt: masterNode.last_health_check_at ?? null,
         lastHeartbeatAt: masterNode.last_heartbeat_at ?? null,
         updatedAt: masterNode.updated_at,
 
@@ -402,7 +399,6 @@ export const mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot = (
 
         registered_at: masterNode.registeredAt,
         last_contact_at: masterNode.lastContactAt,
-        last_health_check_at: masterNode.lastHealthCheckAt ?? undefined,
         last_heartbeat_at: masterNode.lastHeartbeatAt ?? undefined,
         updated_at: masterNode.updatedAt,
 

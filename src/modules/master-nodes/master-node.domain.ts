@@ -7,7 +7,6 @@ import { nodeIdSchema, nodeSessionIdSchema } from '@/modules/identity/identity.d
 export const MASTER_NODE_STATES = ['joining', 'active', 'offline', 'failed'] as const;
 export const MASTER_NODE_MODES = ['serving', 'draining'] as const;
 export const MASTER_NODE_SCHEMES = ['grpcs'] as const;
-export const MASTER_NODE_HEALTH_SNAPSHOT_STATUS = ['healthy', 'degraded'] as const;
 
 /* field schemas */
 
@@ -21,8 +20,6 @@ export const masterNodeModeSchema = z.enum(MASTER_NODE_MODES);
 export const masterNodeHostnameSchema = z.string().min(1);
 export const masterNodePortSchema = z.number().int().min(1).max(65535);
 export const masterNodeSchemeSchema = z.enum(MASTER_NODE_SCHEMES);
-
-export const masterNodeHealthSnapshotStatusSchema = z.enum(MASTER_NODE_HEALTH_SNAPSHOT_STATUS);
 
 /* object schemas */
 
@@ -46,17 +43,10 @@ export const masterNodeSchema = z.object({
 
   registeredAt: z.date(),
   lastContactAt: z.date(),
-  lastHealthCheckAt: z.date().nullable(),
   lastHeartbeatAt: z.date().nullable(),
   updatedAt: z.date(),
 
   revision: z.bigint().nonnegative()
-});
-
-export const masterNodeHealthSnapshotSchema = z.object({
-  status: masterNodeHealthSnapshotStatusSchema,
-  databaseOk: z.boolean(),
-  message: z.string()
 });
 
 /* field types */
@@ -72,10 +62,7 @@ export type MasterNodeHostname = z.infer<typeof masterNodeHostnameSchema>;
 export type MasterNodePort = z.infer<typeof masterNodePortSchema>;
 export type MasterNodeScheme = z.infer<typeof masterNodeSchemeSchema>;
 
-export type MasterNodeHealthSnapshotStatus = z.infer<typeof masterNodeHealthSnapshotStatusSchema>;
-
 /* object types */
 
 export type MasterNodeEndpoint = z.infer<typeof masterNodeEndpointSchema>;
 export type MasterNode = z.infer<typeof masterNodeSchema>;
-export type MasterNodeHealthSnapshot = z.infer<typeof masterNodeHealthSnapshotSchema>;

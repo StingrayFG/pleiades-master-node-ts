@@ -31,7 +31,6 @@ const masterNode: MasterNode = {
 
   registeredAt: new Date('2026-01-01T00:00:00.000Z'),
   lastContactAt: new Date('2026-01-02T00:00:00.000Z'),
-  lastHealthCheckAt: null,
   lastHeartbeatAt: new Date('2026-01-02T00:01:00.000Z'),
   updatedAt: new Date('2026-01-02T00:01:00.000Z'),
 
@@ -52,7 +51,6 @@ const masterNodeResponse = {
 
   registeredAt: masterNode.registeredAt.toISOString(),
   lastContactAt: masterNode.lastContactAt.toISOString(),
-  lastHealthCheckAt: null,
   lastHeartbeatAt: masterNode.lastHeartbeatAt?.toISOString() ?? null,
   updatedAt: masterNode.updatedAt.toISOString(),
 

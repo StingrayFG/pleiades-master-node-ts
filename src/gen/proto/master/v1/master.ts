@@ -107,7 +107,6 @@ export interface MasterNodeSnapshot {
   scheme: string;
   registered_at: Date | undefined;
   last_contact_at: Date | undefined;
-  last_health_check_at?: Date | undefined;
   last_heartbeat_at?: Date | undefined;
   updated_at: Date | undefined;
   revision: string;
@@ -811,7 +810,6 @@ function createBaseMasterNodeSnapshot(): MasterNodeSnapshot {
     scheme: "",
     registered_at: undefined,
     last_contact_at: undefined,
-    last_health_check_at: undefined,
     last_heartbeat_at: undefined,
     updated_at: undefined,
     revision: "0",
@@ -850,17 +848,14 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
     if (message.last_contact_at !== undefined) {
       Timestamp.encode(toTimestamp(message.last_contact_at), writer.uint32(82).fork()).join();
     }
-    if (message.last_health_check_at !== undefined) {
-      Timestamp.encode(toTimestamp(message.last_health_check_at), writer.uint32(90).fork()).join();
-    }
     if (message.last_heartbeat_at !== undefined) {
-      Timestamp.encode(toTimestamp(message.last_heartbeat_at), writer.uint32(98).fork()).join();
+      Timestamp.encode(toTimestamp(message.last_heartbeat_at), writer.uint32(90).fork()).join();
     }
     if (message.updated_at !== undefined) {
-      Timestamp.encode(toTimestamp(message.updated_at), writer.uint32(106).fork()).join();
+      Timestamp.encode(toTimestamp(message.updated_at), writer.uint32(98).fork()).join();
     }
     if (message.revision !== "0") {
-      writer.uint32(112).int64(message.revision);
+      writer.uint32(104).int64(message.revision);
     }
     return writer;
   },
@@ -957,7 +952,7 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
             break;
           }
 
-          message.last_health_check_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.last_heartbeat_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
           continue;
         }
         case 12: {
@@ -965,19 +960,11 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
             break;
           }
 
-          message.last_heartbeat_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
-          continue;
-        }
-        case 13: {
-          if (tag !== 106) {
-            break;
-          }
-
           message.updated_at = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
           continue;
         }
-        case 14: {
-          if (tag !== 112) {
+        case 13: {
+          if (tag !== 104) {
             break;
           }
 
@@ -1020,11 +1007,6 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
         ? fromJsonTimestamp(object.lastContactAt)
         : isSet(object.last_contact_at)
         ? fromJsonTimestamp(object.last_contact_at)
-        : undefined,
-      last_health_check_at: isSet(object.lastHealthCheckAt)
-        ? fromJsonTimestamp(object.lastHealthCheckAt)
-        : isSet(object.last_health_check_at)
-        ? fromJsonTimestamp(object.last_health_check_at)
         : undefined,
       last_heartbeat_at: isSet(object.lastHeartbeatAt)
         ? fromJsonTimestamp(object.lastHeartbeatAt)
@@ -1072,9 +1054,6 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
     if (message.last_contact_at !== undefined) {
       obj.lastContactAt = message.last_contact_at.toISOString();
     }
-    if (message.last_health_check_at !== undefined) {
-      obj.lastHealthCheckAt = message.last_health_check_at.toISOString();
-    }
     if (message.last_heartbeat_at !== undefined) {
       obj.lastHeartbeatAt = message.last_heartbeat_at.toISOString();
     }
@@ -1102,7 +1081,6 @@ export const MasterNodeSnapshot: MessageFns<MasterNodeSnapshot> = {
     message.scheme = object.scheme ?? "";
     message.registered_at = object.registered_at ?? undefined;
     message.last_contact_at = object.last_contact_at ?? undefined;
-    message.last_health_check_at = object.last_health_check_at ?? undefined;
     message.last_heartbeat_at = object.last_heartbeat_at ?? undefined;
     message.updated_at = object.updated_at ?? undefined;
     message.revision = object.revision ?? "0";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { masterNodeEndpointSchema, masterNodeHealthSnapshotSchema, masterNodeSchema } from '../master-node.domain';
+import { masterNodeEndpointSchema, masterNodeSchema } from '../master-node.domain';
 
 /* fixtures */
 
@@ -18,7 +18,6 @@ const masterNode = {
 
   registeredAt: new Date('2026-01-01T00:00:00.000Z'),
   lastContactAt: new Date('2026-01-02T00:00:00.000Z'),
-  lastHealthCheckAt: null,
   lastHeartbeatAt: null,
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
 
@@ -83,25 +82,5 @@ describe('master node domain schemas', () => {
         scheme: 'grpcs'
       }).success
     ).toBe(true);
-  });
-
-  test.each(['healthy', 'degraded'])('accepts %s master node health snapshots', (status) => {
-    expect(
-      masterNodeHealthSnapshotSchema.safeParse({
-        status,
-        databaseOk: status === 'healthy',
-        message: 'Health check completed'
-      }).success
-    ).toBe(true);
-  });
-
-  test('rejects an unknown health snapshot status', () => {
-    expect(
-      masterNodeHealthSnapshotSchema.safeParse({
-        status: 'unknown',
-        databaseOk: false,
-        message: 'Unknown state'
-      }).success
-    ).toBe(false);
   });
 });
