@@ -18,8 +18,32 @@ class TaskServiceStub implements TaskServiceContract {
     throw new Error('Unexpected getTaskById call');
   };
 
+  findTaskBySequence: TaskServiceContract['findTaskBySequence'] = async () => {
+    throw new Error('Unexpected findTaskBySequence call');
+  };
+
+  listTasksInSequenceRange: TaskServiceContract['listTasksInSequenceRange'] = async () => {
+    throw new Error('Unexpected listTasksInSequenceRange call');
+  };
+
+  retrieveTaskPayload: TaskServiceContract['retrieveTaskPayload'] = async () => {
+    throw new Error('Unexpected retrieveTaskPayload call');
+  };
+
+  replicateTask: TaskServiceContract['replicateTask'] = async () => {
+    throw new Error('Unexpected replicateTask call');
+  };
+
+  deleteTasksFromSequence: TaskServiceContract['deleteTasksFromSequence'] = async () => {
+    throw new Error('Unexpected deleteTasksFromSequence call');
+  };
+
   registerHandler: TaskServiceContract['registerHandler'] = (definition, handler) => {
     this.registrations.push({ definition, handler });
+  };
+
+  getTaskDefinitionByType: TaskServiceContract['getTaskDefinitionByType'] = () => {
+    throw new Error('Unexpected getTaskDefinitionByType call');
   };
 
   submitTask: TaskServiceContract['submitTask'] = async () => {

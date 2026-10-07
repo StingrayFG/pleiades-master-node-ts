@@ -89,7 +89,8 @@ const createTaskRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
     markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
     updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
-    clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>()
+    clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>(),
+    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>()
   };
 
   repository.listPayloadCleanupCandidates.mockResolvedValue([]);

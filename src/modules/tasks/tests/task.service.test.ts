@@ -347,7 +347,7 @@ describe('TaskService', () => {
         sequence: task.sequence,
         type: task.type,
         executionScope: task.executionScope,
-        data: task.data,
+        data: task.data as Prisma.InputJsonValue,
         payloadId: execution.id,
         createdAt: task.createdAt,
         updatedAt: task.createdAt
