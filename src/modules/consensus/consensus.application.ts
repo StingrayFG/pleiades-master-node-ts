@@ -5,6 +5,7 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 
 import {
   consensusEpochSchema,
+  consensusLeadershipContextSchema,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
   consensusStateSchema,
@@ -13,12 +14,6 @@ import {
 } from './consensus.domain';
 
 /* service schemas */
-
-// leadership context
-export const consensusLeadershipContextSchema = z.object({
-  epoch: consensusEpochSchema,
-  leaderMasterId: masterNodeIdSchema
-});
 
 // election
 export const requestConsensusVoteInputSchema = z.object({
@@ -98,9 +93,6 @@ export const applyVoteRequestRepositoryInputSchema = z.object({
 });
 
 /* service types */
-
-// leadership context
-export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
 
 // sequence
 

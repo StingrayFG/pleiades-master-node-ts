@@ -3,6 +3,7 @@ import { describe, expect, test } from '@jest/globals';
 import {
   CONSENSUS_STATE_ID,
   consensusEpochSchema,
+  consensusLeadershipContextSchema,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
   consensusStateSchema
@@ -31,6 +32,15 @@ const state = {
 /* tests */
 
 describe('consensus domain schemas', () => {
+  test('parses leadership context', () => {
+    const leadershipContext = {
+      epoch: 2n,
+      leaderMasterId: 'master-node-aaaaaaaaaaaa'
+    };
+
+    expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
+  });
+
   test('accepts the initial unallocated consensus state', () => {
     expect(CONSENSUS_STATE_ID).toBe('self');
     expect(consensusStateSchema.parse(state)).toEqual(state);

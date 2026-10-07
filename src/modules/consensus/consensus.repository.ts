@@ -18,10 +18,13 @@ import type {
   AdoptNewerEpochRepositoryInput,
   ApplyVoteRequestRepositoryInput,
   ConsensusVoteResult,
-  ConsensusLeadershipContext,
   LeadershipContextTransactionAction
 } from './consensus.application';
-import { CONSENSUS_STATE_ID, type ConsensusState } from './consensus.domain';
+import {
+  CONSENSUS_STATE_ID,
+  type ConsensusLeadershipContext,
+  type ConsensusState
+} from './consensus.domain';
 import { mapPrismaConsensusStateToDomainConsensusState } from './consensus.mappers';
 
 /* contract */

@@ -1,5 +1,5 @@
 import { GenericAbortedError, GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
-import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
+import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.domain';
 import type { ConsensusLastSequence } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';

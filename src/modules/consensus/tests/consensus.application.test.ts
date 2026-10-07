@@ -6,7 +6,6 @@ import {
   advanceSequenceRepositoryInputSchema,
   acceptFollowershipRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
-  consensusLeadershipContextSchema,
   consensusVoteResultSchema,
   releaseLeadershipRepositoryInputSchema
 } from '../consensus.application';
@@ -31,7 +30,6 @@ describe('consensus application schemas', () => {
       leadershipContext
     };
 
-    expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
     expect(advanceSequenceRepositoryInputSchema.parse(appliedSequenceInput)).toEqual(appliedSequenceInput);
     expect(advanceLeadershipSequenceRepositoryInputSchema.parse(leadershipSequenceInput)).toEqual(
       leadershipSequenceInput

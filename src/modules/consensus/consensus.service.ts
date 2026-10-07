@@ -4,13 +4,17 @@ import type { TaskSequence } from '@/modules/tasks/task.domain';
 
 import type {
   AllocatedSequenceTransactionAction,
-  ConsensusLeadershipContext,
   LeadershipContextTransactionAction,
   ConsensusVoteResult,
   RequestConsensusVoteInput,
   RewoundSequenceTransactionAction
 } from './consensus.application';
-import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
+import type {
+  ConsensusEpoch,
+  ConsensusLastSequence,
+  ConsensusLeadershipContext,
+  ConsensusState
+} from './consensus.domain';
 import { isElectionStarterLogUpToDate } from './consensus.policies';
 import type { ConsensusStateRepositoryContract } from './consensus.repository';
 import {

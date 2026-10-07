@@ -13,8 +13,7 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
-import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
-import type { ConsensusState } from '@/modules/consensus/consensus.domain';
+import type { ConsensusLeadershipContext, ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 

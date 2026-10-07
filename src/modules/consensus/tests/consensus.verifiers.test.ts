@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import { GenericAbortedError, GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
 
-import type { ConsensusLeadershipContext } from '../consensus.application';
+import type { ConsensusLeadershipContext } from '../consensus.domain';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '../consensus.domain';
 import {
   verifyAppliedSequenceWithinCommitted,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { clusterIdSchema, clusterMembershipRevisionSchema } from '@/modules/cluster/cluster.domain';
-import { consensusLeadershipContextSchema } from '@/modules/consensus/consensus.application';
+import { consensusLeadershipContextSchema } from '@/modules/consensus/consensus.domain';
 import {
   consensusEpochSchema,
   consensusLastSequenceSchema,

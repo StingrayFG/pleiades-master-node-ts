@@ -6,7 +6,7 @@ import {
   GenericNotFoundError
 } from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
-import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.application';
+import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import type { RegisterMasterNodeInput } from './master-node.application';

@@ -1,8 +1,12 @@
 import { GenericAbortedError, GenericConflictError, GenericFailedPreconditionError } from '@/errors/application.errors';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
-import type { ConsensusLeadershipContext } from './consensus.application';
-import type { ConsensusEpoch, ConsensusLastSequence, ConsensusState } from './consensus.domain';
+import type {
+  ConsensusEpoch,
+  ConsensusLastSequence,
+  ConsensusLeadershipContext,
+  ConsensusState
+} from './consensus.domain';
 
 /* sequence verifiers */
 
