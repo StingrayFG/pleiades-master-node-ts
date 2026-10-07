@@ -11,7 +11,7 @@ import type { BootstrapServiceContract } from '../bootstrap.service';
 
 /* fixtures */
 
-const leaderMasterId = 'master-node-012345abcdef';
+const leaderMasterId = 'master-node-aaaaaaaaaaaa';
 const leaderCertificateFingerprint = 'ab'.repeat(32);
 
 const leaderResult = {

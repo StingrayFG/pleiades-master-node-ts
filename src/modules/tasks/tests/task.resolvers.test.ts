@@ -12,7 +12,7 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const createExecution = (state: TaskExecutionState): TaskExecution => ({
   id: '00000000-0000-4000-8000-000000000001',
   taskId: '00000000-0000-4000-8000-000000000002',
-  targetMasterId: 'master-node-test',
+  targetMasterId: 'master-node-aaaaaaaaaaaa',
   state,
   failureReason: state === 'failed' ? 'failed' : null,
   createdAt: now,
@@ -46,11 +46,11 @@ describe('task resolvers', () => {
   });
 
   test.each(['local', 'cluster'] as const)('resolves %s execution to the current master node', (scope) => {
-    expect(resolveTaskTargetsFromScope(scope, 'master-node-test')).toEqual(['master-node-test']);
+    expect(resolveTaskTargetsFromScope(scope, 'master-node-aaaaaaaaaaaa')).toEqual(['master-node-aaaaaaaaaaaa']);
   });
 
   test('rejects unsupported execution scopes', () => {
-    expect(() => resolveTaskTargetsFromScope('unsupported' as never, 'master-node-test')).toThrow(
+    expect(() => resolveTaskTargetsFromScope('unsupported' as never, 'master-node-aaaaaaaaaaaa')).toThrow(
       GenericInternalServerError
     );
   });

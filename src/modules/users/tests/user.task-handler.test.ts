@@ -63,7 +63,7 @@ const newRefreshToken: UserRefreshToken = {
 
 const taskBase = {
   id: '00000000-0000-4000-8000-000000000099',
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 2n,
   state: 'pending' as const,

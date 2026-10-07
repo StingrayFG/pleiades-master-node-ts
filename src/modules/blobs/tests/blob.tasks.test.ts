@@ -41,7 +41,7 @@ const ensureData: EnsureBlobExistsTaskData = {
 const taskBase = {
   id: taskId,
 
-  originMasterNodeId: 'master-node-7e5700000003',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 2n,
 

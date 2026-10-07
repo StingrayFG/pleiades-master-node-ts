@@ -20,7 +20,7 @@ import type { TaskResultWaiterContract } from '../task.result-waiter';
 /* fixtures */
 
 const now = new Date('2026-01-02T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-test';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 
 const config: TaskConfig = {
   applyBatchSize: 32,

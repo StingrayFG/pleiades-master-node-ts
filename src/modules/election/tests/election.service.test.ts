@@ -15,7 +15,7 @@ import { ElectionService } from '../election.service';
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-a';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 const config: ElectionConfig = {
   timeoutMinMs: 5_000,
   timeoutMaxMs: 5_000
@@ -24,8 +24,8 @@ const config: ElectionConfig = {
 const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-leader',
-  votedForMasterId: 'master-node-leader',
+  leaderMasterId: 'master-node-bbbbbbbbbbbb',
+  votedForMasterId: 'master-node-bbbbbbbbbbbb',
   lastLeaderContactAt: now,
   lastAllocatedSequence: 4n,
   lastMatchedSequence: 4n,
@@ -71,8 +71,8 @@ const createMasterNode = (id: string): MasterNode => ({
 
 const masterNodes = [
   createMasterNode(selfMasterNodeId),
-  createMasterNode('master-node-b'),
-  createMasterNode('master-node-c')
+  createMasterNode('master-node-bbbbbbbbbbbb'),
+  createMasterNode('master-node-aaaaaaaaaaab')
 ];
 
 const lastTask: PersistedTask = {
@@ -142,7 +142,7 @@ describe('ElectionService', () => {
   test('grants a vote through durable consensus state after comparing log freshness', async () => {
     await expect(
       service.requestVote({
-        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
         epoch: 3n,
         lastLogEpoch: 2n,
         lastLogSequence: 5n
@@ -154,7 +154,7 @@ describe('ElectionService', () => {
 
     expect(consensusService.requestVote).toHaveBeenCalledWith({
       epoch: 3n,
-      electionStarterMasterNodeId: 'master-node-b',
+      electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
       electionStarterLastLogEpoch: 2n,
       electionStarterLastLogSequence: 5n,
       localLastLogEpoch: lastTask.epoch,

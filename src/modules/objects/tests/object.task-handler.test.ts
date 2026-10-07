@@ -40,7 +40,7 @@ const committedVersion = { ...pendingVersion, state: 'committed' as const, commi
 
 const task: CreateObjectTask = {
   id: '00000000-0000-4000-8000-000000000003',
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 1n,
   state: 'pending',

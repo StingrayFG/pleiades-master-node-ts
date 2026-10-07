@@ -9,7 +9,7 @@ import { MasterNodeRepository } from '../master-node.repository';
 
 /* fixtures */
 
-const masterNodeId = 'master-node-012345abcdef';
+const masterNodeId = 'master-node-aaaaaaaaaaaa';
 const lastContactAt = new Date('2026-01-02T00:00:00.000Z');
 
 const prismaMasterNode: PrismaMasterNode = {
@@ -84,7 +84,7 @@ const createPrismaError = (code: string): Prisma.PrismaClientKnownRequestError =
 
 const createMasterNodeDelegateMock = () => {
   const delegate = {
-    findMany: jest.fn<() => Promise<PrismaMasterNode[]>>(),
+    findMany: jest.fn<(input: unknown) => Promise<PrismaMasterNode[]>>(),
     findFirst: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
     findUnique: jest.fn<(input: unknown) => Promise<PrismaMasterNode | null>>(),
     upsert: jest.fn<(input: unknown) => Promise<PrismaMasterNode>>(),

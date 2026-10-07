@@ -28,7 +28,7 @@ const config: TaskConfig = {
 const payloadTask: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000001',
 
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 1n,
 
@@ -57,8 +57,8 @@ const consensusState: ConsensusState = {
   id: 'consensus-state',
 
   currentEpoch: 1n,
-  leaderMasterId: 'master-node-test',
-  votedForMasterId: 'master-node-test',
+  leaderMasterId: 'master-node-aaaaaaaaaaaa',
+  votedForMasterId: 'master-node-aaaaaaaaaaaa',
   lastLeaderContactAt: now,
 
   lastAllocatedSequence: 5n,

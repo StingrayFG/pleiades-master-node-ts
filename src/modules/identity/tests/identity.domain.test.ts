@@ -6,18 +6,18 @@ import { nodeIdSchema, nodeSessionIdSchema } from '../identity.domain';
 
 describe('identity domain schemas', () => {
   test('accepts a master node ID with a 12-character lowercase hexadecimal suffix', () => {
-    expect(nodeIdSchema.parse('master-node-012345abcdef')).toBe('master-node-012345abcdef');
+    expect(nodeIdSchema.parse('master-node-aaaaaaaaaaaa')).toBe('master-node-aaaaaaaaaaaa');
   });
 
   test.each([
     'master-node-012345abcde',
-    'master-node-012345abcdef0',
+    'master-node-aaaaaaaaaaaa0',
     'master-node-012345ABCDEf',
     'master-node-012345abcdeg',
     'data-node-012345abcdef',
     'master-node_012345abcdef',
-    'master-node-012345abcdef/extra',
-    ' master-node-012345abcdef'
+    'master-node-aaaaaaaaaaaa/extra',
+    ' master-node-aaaaaaaaaaaa'
   ])('rejects invalid node ID %j', (nodeId) => {
     expect(nodeIdSchema.safeParse(nodeId).success).toBe(false);
   });

@@ -12,8 +12,8 @@ import { IdentityRepository } from '../identity.repository';
 
 /* fixtures */
 
-const nodeId = nodeIdSchema.parse('master-node-012345abcdef');
-const otherNodeId = nodeIdSchema.parse('master-node-fedcba543210');
+const nodeId = nodeIdSchema.parse('master-node-aaaaaaaaaaaa');
+const otherNodeId = nodeIdSchema.parse('master-node-bbbbbbbbbbbb');
 
 /* tests */
 

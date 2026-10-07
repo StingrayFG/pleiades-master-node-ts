@@ -78,8 +78,8 @@ describe('consensus domain schemas', () => {
     expect(() =>
       consensusStateSchema.parse({
         ...state,
-        leaderMasterId: 'master-node-a',
-        votedForMasterId: 'master-node-b',
+        leaderMasterId: 'master-node-aaaaaaaaaaaa',
+        votedForMasterId: 'master-node-bbbbbbbbbbbb',
         lastLeaderContactAt: now
       })
     ).toThrow();
@@ -89,8 +89,8 @@ describe('consensus domain schemas', () => {
     expect(() =>
       consensusStateSchema.parse({
         ...state,
-        leaderMasterId: 'master-node-a',
-        votedForMasterId: 'master-node-a'
+        leaderMasterId: 'master-node-aaaaaaaaaaaa',
+        votedForMasterId: 'master-node-aaaaaaaaaaaa'
       })
     ).toThrow();
     expect(() =>

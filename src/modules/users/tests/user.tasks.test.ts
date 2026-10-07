@@ -21,7 +21,7 @@ const expiresAt = new Date('2026-02-01T00:00:00.000Z');
 
 const taskBase = {
   id: '00000000-0000-4000-8000-000000000099',
-  originMasterNodeId: 'master-node-7e5700000003',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 2n,
   state: 'pending' as const,

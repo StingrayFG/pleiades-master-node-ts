@@ -20,8 +20,8 @@ import { ConsensusService } from '../consensus.service';
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-a';
-const otherMasterNodeId = 'master-node-b';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
+const otherMasterNodeId = 'master-node-bbbbbbbbbbbb';
 const leadershipContext = {
   epoch: 2n,
   leaderMasterId: selfMasterNodeId
@@ -509,7 +509,7 @@ describe('ConsensusService', () => {
   });
 
   test('rejects followership when already following a different leader', async () => {
-    const followerState = { ...state, leaderMasterId: 'master-node-c' };
+    const followerState = { ...state, leaderMasterId: 'master-node-aaaaaaaaaaab' };
 
     repository.findState.mockResolvedValue(followerState);
 
@@ -544,7 +544,7 @@ describe('ConsensusService', () => {
   });
 
   test('rejects followership when another leader wins the acceptance race', async () => {
-    const winningState = { ...unclaimedState, leaderMasterId: 'master-node-c' };
+    const winningState = { ...unclaimedState, leaderMasterId: 'master-node-aaaaaaaaaaab' };
 
     repository.findState.mockResolvedValueOnce(unclaimedState).mockResolvedValueOnce(winningState);
     repository.acceptFollowership.mockResolvedValue(false);

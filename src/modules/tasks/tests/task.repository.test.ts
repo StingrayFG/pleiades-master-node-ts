@@ -17,7 +17,7 @@ import { TaskRepository } from '../task.repository';
 const now = new Date('2026-01-01T00:00:00.000Z');
 const taskId = '00000000-0000-4000-8000-000000000001';
 const executionId = '00000000-0000-4000-8000-000000000002';
-const selfMasterNodeId = 'master-node-7e5700000003';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 
 const prismaTask: PrismaTask = {
   id: taskId,

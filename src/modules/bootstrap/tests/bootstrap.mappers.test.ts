@@ -10,7 +10,7 @@ describe('bootstrap mappers', () => {
     const result: MasterBootstrapResult = {
       role: 'leader',
       epoch: 4n,
-      leaderMasterId: 'master-node-012345abcdef'
+      leaderMasterId: 'master-node-aaaaaaaaaaaa'
     };
 
     expect(mapDomainBootstrapResultToHttpBootstrapResultResponse(result)).toEqual({

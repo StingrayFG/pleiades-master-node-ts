@@ -12,13 +12,13 @@ import type { MasterNodeTaskReplicationHandlerContract } from '../lifecycle/mast
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-a';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 
 const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-b',
-  votedForMasterId: 'master-node-b',
+  leaderMasterId: 'master-node-bbbbbbbbbbbb',
+  votedForMasterId: 'master-node-bbbbbbbbbbbb',
   lastLeaderContactAt: now,
   lastAllocatedSequence: -1n,
   lastMatchedSequence: -1n,

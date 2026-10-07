@@ -15,7 +15,7 @@ import { LeadershipService } from '../leadership.service';
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-a';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 const config: LeadershipConfig = {
   quorumLossTimeoutMs: 5_000
 };
@@ -23,8 +23,8 @@ const config: LeadershipConfig = {
 const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-leader',
-  votedForMasterId: 'master-node-leader',
+  leaderMasterId: 'master-node-bbbbbbbbbbbb',
+  votedForMasterId: 'master-node-bbbbbbbbbbbb',
   lastLeaderContactAt: now,
   lastAllocatedSequence: 4n,
   lastMatchedSequence: 4n,
@@ -70,8 +70,8 @@ const createMasterNode = (id: string): MasterNode => ({
 
 const masterNodes = [
   createMasterNode(selfMasterNodeId),
-  createMasterNode('master-node-b'),
-  createMasterNode('master-node-c')
+  createMasterNode('master-node-bbbbbbbbbbbb'),
+  createMasterNode('master-node-aaaaaaaaaaab')
 ];
 
 const lastTask: PersistedTask = {
@@ -150,7 +150,7 @@ describe('LeadershipService', () => {
   test('accepts a current leader heartbeat and refreshes followership', async () => {
     await expect(
       service.recordLeaderHeartbeat({
-        leaderMasterNodeId: 'master-node-leader',
+        leaderMasterNodeId: 'master-node-bbbbbbbbbbbb',
         epoch: 3n,
         lastCommittedSequence: 4n
       })
@@ -162,14 +162,14 @@ describe('LeadershipService', () => {
 
     expect(consensusService.acceptFollowership).toHaveBeenCalledWith({
       epoch: 3n,
-      leaderMasterId: 'master-node-leader'
+      leaderMasterId: 'master-node-bbbbbbbbbbbb'
     });
   });
 
   test('rejects stale leader heartbeats', async () => {
     await expect(
       service.recordLeaderHeartbeat({
-        leaderMasterNodeId: 'master-node-leader',
+        leaderMasterNodeId: 'master-node-bbbbbbbbbbbb',
         epoch: 1n,
         lastCommittedSequence: 4n
       })

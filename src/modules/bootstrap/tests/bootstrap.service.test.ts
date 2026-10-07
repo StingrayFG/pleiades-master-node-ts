@@ -26,8 +26,8 @@ const cluster: Cluster = {
   createdAt: now,
   updatedAt: now
 };
-const selfMasterNodeId = 'master-node-a';
-const leaderMasterNodeId = 'master-node-b';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
+const leaderMasterNodeId = 'master-node-bbbbbbbbbbbb';
 const leaderMasterNodeSessionId = '00000000-0000-4000-8000-000000000002';
 
 const selfMasterNode: Omit<RegisterMasterNodeInput, 'state' | 'mode'> = {
@@ -170,6 +170,9 @@ const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContr
       .mockResolvedValue(clusterMembershipSnapshot),
     fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcClientContract['fetchTaskPayload']>(),
+    forwardTask: jest.fn<MasterNodeGrpcClientContract['forwardTask']>(),
+    requestVote: jest.fn<MasterNodeGrpcClientContract['requestVote']>(),
+    recordLeaderHeartbeat: jest.fn<MasterNodeGrpcClientContract['recordLeaderHeartbeat']>(),
     close: jest.fn<MasterNodeGrpcClientContract['close']>()
   };
 };
@@ -291,7 +294,7 @@ describe('BootstrapService', () => {
   test('rejects a different existing leader before changing master node rows', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...unclaimedState,
-      leaderMasterId: 'master-node-c'
+      leaderMasterId: 'master-node-aaaaaaaaaaab'
     });
 
     await expect(service.bootstrapAsFollower(followerInput)).rejects.toBeInstanceOf(GenericConflictError);

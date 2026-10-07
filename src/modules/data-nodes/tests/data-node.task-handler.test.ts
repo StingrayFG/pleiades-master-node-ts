@@ -48,7 +48,7 @@ const dataNode: DataNode = {
 const taskBase = {
   id: taskId,
 
-  originMasterNodeId: 'master-node-012345abcdef',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 0n,
   sequence: 0n,
 

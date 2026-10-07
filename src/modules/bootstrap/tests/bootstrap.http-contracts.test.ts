@@ -9,7 +9,7 @@ describe('bootstrap HTTP contracts', () => {
     const response = {
       role: 'leader',
       epoch: '3',
-      leaderMasterId: 'master-node-012345abcdef'
+      leaderMasterId: 'master-node-aaaaaaaaaaaa'
     } as const;
 
     expect(bootstrapResultResponseSchema.parse(response)).toEqual(response);
@@ -19,7 +19,7 @@ describe('bootstrap HTTP contracts', () => {
     const response = {
       role: 'follower',
       epoch: '3',
-      leaderMasterId: 'master-node-012345abcdef'
+      leaderMasterId: 'master-node-aaaaaaaaaaaa'
     } as const;
 
     expect(bootstrapResultResponseSchema.safeParse({ ...response, epoch: '-1' }).success).toBe(false);

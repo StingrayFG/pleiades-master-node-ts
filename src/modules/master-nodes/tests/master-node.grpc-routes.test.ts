@@ -23,6 +23,9 @@ const createControllerMock = (): jest.Mocked<MasterNodeGrpcControllerContract> =
   return {
     fetchMasterInfo: jest.fn<MasterNodeGrpcControllerContract['fetchMasterInfo']>().mockResolvedValue(),
     registerMasterNode: jest.fn<MasterNodeGrpcControllerContract['registerMasterNode']>().mockResolvedValue(),
+    fetchClusterMembershipSnapshot: jest
+      .fn<MasterNodeGrpcControllerContract['fetchClusterMembershipSnapshot']>()
+      .mockResolvedValue(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcControllerContract['fetchTaskEntries']>().mockResolvedValue(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcControllerContract['fetchTaskPayload']>().mockResolvedValue(),
     forwardTask: jest.fn<MasterNodeGrpcControllerContract['forwardTask']>().mockResolvedValue(),
@@ -39,7 +42,7 @@ describe('master node gRPC routes', () => {
     const routes = createMasterNodeGrpcRoutes({ controller });
     const call = {
       request: {
-        master_id: 'master-node-follower',
+        master_id: 'master-node-bbbbbbbbbbbb',
         session_id: '00000000-0000-4000-8000-000000000004',
         cluster_id: '00000000-0000-4000-8000-000000000010',
         hostname: 'follower.internal',
@@ -90,7 +93,7 @@ describe('master node gRPC routes', () => {
       request: {
         epoch: '3',
         last_log_sequence: '4',
-        caller_master_id: 'master-node-election-starter',
+        caller_master_id: 'master-node-bbbbbbbbbbbb',
         caller_session_id: '00000000-0000-4000-8000-000000000004',
         last_log_epoch: '2'
       }
@@ -110,7 +113,7 @@ describe('master node gRPC routes', () => {
       request: {
         epoch: '3',
         last_committed_sequence: '4',
-        caller_master_id: 'master-node-leader',
+        caller_master_id: 'master-node-aaaaaaaaaaaa',
         caller_session_id: '00000000-0000-4000-8000-000000000004'
       }
     } as ServerUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>;

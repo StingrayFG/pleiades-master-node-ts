@@ -19,7 +19,7 @@ import { MasterNodeService } from '../master-node.service';
 
 /* fixtures */
 
-const masterNodeId = 'master-node-012345abcdef';
+const masterNodeId = 'master-node-aaaaaaaaaaaa';
 const certificateFingerprint = 'ab'.repeat(32);
 const lastContactAt = new Date('2026-01-02T00:00:00.000Z');
 
@@ -248,7 +248,7 @@ describe('MasterNodeService', () => {
   test('rejects mode changes submitted to a follower', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
-      leaderMasterId: 'master-node-fedcba654321'
+      leaderMasterId: 'master-node-bbbbbbbbbbbb'
     });
 
     await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(

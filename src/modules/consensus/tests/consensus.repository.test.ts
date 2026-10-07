@@ -770,7 +770,7 @@ describe('ConsensusStateRepository', () => {
       ...prismaState,
       current_epoch: 3n,
       leader_master_id: null,
-      voted_for_master_id: 'master-node-cccccccccccc',
+      voted_for_master_id: 'master-node-aaaaaaaaaaab',
       last_leader_contact_at: null
     });
 
@@ -785,7 +785,7 @@ describe('ConsensusStateRepository', () => {
         ...state,
         currentEpoch: 3n,
         leaderMasterId: null,
-        votedForMasterId: 'master-node-cccccccccccc',
+        votedForMasterId: 'master-node-aaaaaaaaaaab',
         lastLeaderContactAt: null
       },
       voteGranted: false

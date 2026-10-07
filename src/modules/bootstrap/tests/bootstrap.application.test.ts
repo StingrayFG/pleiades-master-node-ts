@@ -4,7 +4,7 @@ import { bootstrapAsFollowerInputSchema, masterBootstrapResultSchema } from '../
 
 /* fixtures */
 
-const leaderMasterId = 'master-node-012345abcdef';
+const leaderMasterId = 'master-node-aaaaaaaaaaaa';
 
 const followerInput = {
   leaderEndpoint: {

@@ -35,7 +35,7 @@ const bucket: Bucket = {
 const createBucketTask: CreateBucketTask = {
   id: taskId,
 
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 0n,
   sequence: 0n,
 
@@ -60,7 +60,7 @@ const createBucketTask: CreateBucketTask = {
 const deleteBucketTask: DeleteBucketTask = {
   id: taskId,
 
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 0n,
   sequence: 0n,
 

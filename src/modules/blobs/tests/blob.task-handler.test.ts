@@ -51,7 +51,7 @@ const dataNodeEndpoint = {
 const taskBase = {
   id: taskId,
 
-  originMasterNodeId: 'master-node-test',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 1n,
   sequence: 2n,
 

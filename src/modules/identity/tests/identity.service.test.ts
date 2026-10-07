@@ -8,8 +8,8 @@ import { IdentityService } from '../identity.service';
 
 /* fixtures */
 
-const existingNodeId = nodeIdSchema.parse('master-node-012345abcdef');
-const concurrentlyCreatedNodeId = nodeIdSchema.parse('master-node-fedcba543210');
+const existingNodeId = nodeIdSchema.parse('master-node-aaaaaaaaaaaa');
+const concurrentlyCreatedNodeId = nodeIdSchema.parse('master-node-bbbbbbbbbbbb');
 
 /* mocks */
 

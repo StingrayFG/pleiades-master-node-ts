@@ -15,7 +15,7 @@ describe('isElectionStarterLogUpToDate', () => {
     expect(
       isElectionStarterLogUpToDate({
         epoch: 3n,
-        electionStarterMasterNodeId: 'master-node-b',
+        electionStarterMasterNodeId: 'master-node-bbbbbbbbbbbb',
         localLastLogEpoch: 2n,
         localLastLogSequence: 4n,
         ...positions

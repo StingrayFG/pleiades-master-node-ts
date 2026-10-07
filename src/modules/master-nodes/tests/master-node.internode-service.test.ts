@@ -27,10 +27,10 @@ import type { MasterNodeServiceContract } from '../master-node.service';
 
 const now = new Date('2026-01-01T00:00:00.000Z');
 const payloadId = '00000000-0000-4000-8000-000000000003';
-const selfMasterNodeId = 'master-node-a';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 const selfMasterNodeSessionId = '00000000-0000-4000-8000-000000000001';
 const clusterId = '00000000-0000-4000-8000-000000000010';
-const callerMasterNodeId = 'master-node-follower';
+const callerMasterNodeId = 'master-node-bbbbbbbbbbbb';
 const callerMasterNodeSessionId = '00000000-0000-4000-8000-000000000004';
 const callerCertificateFingerprint = 'ab'.repeat(32);
 
@@ -59,7 +59,7 @@ const consensusState: ConsensusState = {
 
 const task: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000002',
-  originMasterNodeId: 'master-node-a',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
   epoch: 2n,
   sequence: 4n,
   state: 'pending',
@@ -333,7 +333,7 @@ describe('MasterNodeInternodeService', () => {
   test('rejects a leader heartbeat when the authenticated record does not match the caller id', async () => {
     masterNodeService.getMasterNodeById.mockResolvedValue({
       ...callerMasterNode,
-      id: 'master-node-other'
+      id: 'master-node-aaaaaaaaaaaa'
     });
 
     await expect(
@@ -453,7 +453,7 @@ describe('MasterNodeInternodeService', () => {
   test('rejects master information requests when the local master node is not the leader', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
-      leaderMasterId: 'master-node-b'
+      leaderMasterId: 'master-node-bbbbbbbbbbbb'
     });
 
     await expect(service.fetchMasterInfo()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
@@ -463,7 +463,7 @@ describe('MasterNodeInternodeService', () => {
   test('rejects task entry requests when the local master node is not the leader', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
-      leaderMasterId: 'master-node-b'
+      leaderMasterId: 'master-node-bbbbbbbbbbbb'
     });
 
     await expect(
@@ -475,7 +475,7 @@ describe('MasterNodeInternodeService', () => {
   test('rejects task payload requests when the local master node is not the leader', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
-      leaderMasterId: 'master-node-b'
+      leaderMasterId: 'master-node-bbbbbbbbbbbb'
     });
 
     await expect(service.fetchTaskPayload({ ...authenticatedCaller, payloadId })).rejects.toBeInstanceOf(

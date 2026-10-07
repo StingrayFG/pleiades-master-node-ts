@@ -23,8 +23,8 @@ import { MasterNodeTaskReplicationHandler } from '../lifecycle/master-node.task-
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-follower';
-const leaderMasterNodeId = 'master-node-leader';
+const selfMasterNodeId = 'master-node-bbbbbbbbbbbb';
+const leaderMasterNodeId = 'master-node-aaaaaaaaaaaa';
 const leaderCertificateFingerprint = 'ab'.repeat(32);
 const payloadId = '00000000-0000-4000-8000-000000000002';
 const clusterMembershipRevision = 2n;

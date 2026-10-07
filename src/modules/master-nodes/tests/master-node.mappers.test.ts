@@ -32,7 +32,8 @@ import {
 /* fixtures */
 
 const prismaMasterNode: PrismaMasterNode = {
-  id: 'master-node-012345abcdef',
+  id: 'master-node-aaaaaaaaaaaa',
+  cluster_record_id: 'self',
 
   certificate_fingerprint: 'ab'.repeat(32),
   session_id: '00000000-0000-4000-8000-000000000001',
@@ -47,6 +48,7 @@ const prismaMasterNode: PrismaMasterNode = {
   last_contact_at: new Date('2026-01-02T00:00:00.000Z'),
   last_health_check_at: new Date('2026-01-02T00:01:00.000Z'),
   last_heartbeat_at: new Date('2026-01-02T00:02:00.000Z'),
+  removed_at: null,
   updated_at: new Date('2026-01-02T00:02:00.000Z'),
 
   revision: 2n

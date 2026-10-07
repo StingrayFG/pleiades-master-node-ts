@@ -18,7 +18,7 @@ import {
 /* fixtures */
 
 const registrationInput = {
-  id: 'master-node-012345abcdef',
+  id: 'master-node-aaaaaaaaaaaa',
 
   certificateFingerprint: 'ab'.repeat(32),
   sessionId: '00000000-0000-4000-8000-000000000001',

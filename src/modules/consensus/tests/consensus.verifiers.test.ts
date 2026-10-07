@@ -26,8 +26,8 @@ const now = new Date('2026-01-01T00:00:00.000Z');
 const consensusState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
   currentEpoch: 2n,
-  leaderMasterId: 'master-node-a',
-  votedForMasterId: 'master-node-a',
+  leaderMasterId: 'master-node-aaaaaaaaaaaa',
+  votedForMasterId: 'master-node-aaaaaaaaaaaa',
   lastLeaderContactAt: now,
   lastAllocatedSequence: 5n,
   lastMatchedSequence: 4n,
@@ -40,7 +40,7 @@ const consensusState: ConsensusState = {
 
 const leadershipContext: ConsensusLeadershipContext = {
   epoch: consensusState.currentEpoch,
-  leaderMasterId: 'master-node-a'
+  leaderMasterId: 'master-node-aaaaaaaaaaaa'
 };
 
 /* tests */
@@ -124,7 +124,7 @@ describe('verifyLeadershipSequenceAdvancementNotAborted', () => {
     ).toThrow('Leadership sequence advancement was aborted by a concurrent consensus change');
     expect(() =>
       verifyLeadershipSequenceAdvancementNotAborted(
-        { ...consensusState, leaderMasterId: 'master-node-b' },
+        { ...consensusState, leaderMasterId: 'master-node-bbbbbbbbbbbb' },
         leadershipContext,
         5n,
         5n
@@ -148,20 +148,20 @@ describe('verifyFollowershipAcceptable', () => {
     expect(() =>
       verifyFollowershipAcceptable(
         { ...consensusState, leaderMasterId: null },
-        { epoch: 2n, leaderMasterId: 'master-node-b' }
+        { epoch: 2n, leaderMasterId: 'master-node-bbbbbbbbbbbb' }
       )
     ).not.toThrow();
   });
 
   test('rejects a different leader in the same epoch', () => {
     expect(() =>
-      verifyFollowershipAcceptable(consensusState, { epoch: 2n, leaderMasterId: 'master-node-b' })
+      verifyFollowershipAcceptable(consensusState, { epoch: 2n, leaderMasterId: 'master-node-bbbbbbbbbbbb' })
     ).toThrow(GenericConflictError);
   });
 
   test('rejects a leader epoch older than the local consensus epoch', () => {
     expect(() =>
-      verifyFollowershipAcceptable(consensusState, { epoch: 1n, leaderMasterId: 'master-node-a' })
+      verifyFollowershipAcceptable(consensusState, { epoch: 1n, leaderMasterId: 'master-node-aaaaaaaaaaaa' })
     ).toThrow(GenericConflictError);
   });
 });
@@ -173,13 +173,13 @@ describe('verifyFollowershipAccepted', () => {
 
   test('rejects followership claimed by another leader first', () => {
     expect(() =>
-      verifyFollowershipAccepted({ ...consensusState, leaderMasterId: 'master-node-b' }, leadershipContext)
+      verifyFollowershipAccepted({ ...consensusState, leaderMasterId: 'master-node-bbbbbbbbbbbb' }, leadershipContext)
     ).toThrow(GenericConflictError);
   });
 
   test('rejects followership left behind by a newer epoch', () => {
     expect(() =>
-      verifyFollowershipAccepted(consensusState, { epoch: 3n, leaderMasterId: 'master-node-a' })
+      verifyFollowershipAccepted(consensusState, { epoch: 3n, leaderMasterId: 'master-node-aaaaaaaaaaaa' })
     ).toThrow(GenericConflictError);
   });
 });
@@ -199,33 +199,33 @@ describe('verifyElectionStarted', () => {
     ...consensusState,
     currentEpoch: 3n,
     leaderMasterId: null,
-    votedForMasterId: 'master-node-b',
+    votedForMasterId: 'master-node-bbbbbbbbbbbb',
     lastLeaderContactAt: null
   };
 
   test('accepts a started election voting for the election starter', () => {
-    expect(() => verifyElectionStarted(electionState, 3n, 'master-node-b')).not.toThrow();
+    expect(() => verifyElectionStarted(electionState, 3n, 'master-node-bbbbbbbbbbbb')).not.toThrow();
   });
 
   test('rejects election states missing the expected epoch, vacancy, or vote', () => {
-    expect(() => verifyElectionStarted(electionState, 2n, 'master-node-b')).toThrow(GenericAbortedError);
+    expect(() => verifyElectionStarted(electionState, 2n, 'master-node-bbbbbbbbbbbb')).toThrow(GenericAbortedError);
     expect(() =>
-      verifyElectionStarted({ ...electionState, leaderMasterId: 'master-node-c' }, 3n, 'master-node-b')
+      verifyElectionStarted({ ...electionState, leaderMasterId: 'master-node-aaaaaaaaaaab' }, 3n, 'master-node-bbbbbbbbbbbb')
     ).toThrow(GenericAbortedError);
     expect(() =>
-      verifyElectionStarted({ ...electionState, votedForMasterId: 'master-node-c' }, 3n, 'master-node-b')
+      verifyElectionStarted({ ...electionState, votedForMasterId: 'master-node-aaaaaaaaaaab' }, 3n, 'master-node-bbbbbbbbbbbb')
     ).toThrow(GenericAbortedError);
   });
 });
 
 describe('verifyElectionCompleted', () => {
   test('accepts a completed election under the election starter', () => {
-    expect(() => verifyElectionCompleted(consensusState, 2n, 'master-node-a')).not.toThrow();
+    expect(() => verifyElectionCompleted(consensusState, 2n, 'master-node-aaaaaaaaaaaa')).not.toThrow();
   });
 
   test('rejects election states missing the expected epoch or leader', () => {
-    expect(() => verifyElectionCompleted(consensusState, 3n, 'master-node-a')).toThrow(GenericAbortedError);
-    expect(() => verifyElectionCompleted(consensusState, 2n, 'master-node-b')).toThrow(GenericAbortedError);
+    expect(() => verifyElectionCompleted(consensusState, 3n, 'master-node-aaaaaaaaaaaa')).toThrow(GenericAbortedError);
+    expect(() => verifyElectionCompleted(consensusState, 2n, 'master-node-bbbbbbbbbbbb')).toThrow(GenericAbortedError);
   });
 });
 

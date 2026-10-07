@@ -21,8 +21,8 @@ import {
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
-const selfMasterNodeId = 'master-node-a';
-const leaderMasterNodeId = 'master-node-b';
+const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
+const leaderMasterNodeId = 'master-node-bbbbbbbbbbbb';
 
 const unclaimedState: ConsensusState = {
   id: CONSENSUS_STATE_ID,
