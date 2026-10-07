@@ -278,13 +278,21 @@ describe('MasterNodeService', () => {
 
     await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).resolves.toBe(drainingMasterNode);
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
+    await expect(clusterService.withAdvancedMembershipRevision.mock.results[0]?.value).rejects.toThrow(
+      'Master node mode transition lost its concurrency gate'
+    );
   });
 
   test('rejects a lost mode transition when the requested mode is not present', async () => {
     repository.findMemberById.mockResolvedValue(masterNode);
     repository.transitionMode.mockResolvedValue(false);
 
-    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
+      GenericAbortedError
+    );
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
+    await expect(clusterService.withAdvancedMembershipRevision.mock.results[0]?.value).rejects.toThrow(
+      'Master node mode transition lost its concurrency gate'
+    );
   });
 });

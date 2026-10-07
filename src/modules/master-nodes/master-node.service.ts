@@ -1,10 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-import {
-  GenericAbortedError,
-  GenericFailedPreconditionError,
-  GenericNotFoundError
-} from '@/errors/application.errors';
+import { GenericAbortedError, GenericFailedPreconditionError, GenericNotFoundError } from '@/errors/application.errors';
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
@@ -112,10 +108,12 @@ class MasterNodeService implements MasterNodeServiceContract {
       leaderMasterId: this.selfMasterNodeId
     };
 
-    const transitioned = await this.consensusService.withLeadershipContext(leadershipContext, (tx) =>
-      this.clusterService.withAdvancedMembershipRevision(
-        (membershipTx) =>
-          this.repository.transitionMode(
+    const failedTransition = new Error('Master node mode transition lost its concurrency gate');
+
+    try {
+      await this.consensusService.withLeadershipContext(leadershipContext, (tx) =>
+        this.clusterService.withAdvancedMembershipRevision(async (membershipTx) => {
+          const transitioned = await this.repository.transitionMode(
             {
               id,
               from: masterNode.mode,
@@ -123,12 +121,19 @@ class MasterNodeService implements MasterNodeServiceContract {
               expectedRevision: masterNode.revision
             },
             membershipTx
-          ),
-        tx
-      )
-    );
+          );
 
-    if (!transitioned) {
+          if (!transitioned) {
+            // abort the transaction so the membership revision is not advanced.
+            throw failedTransition;
+          }
+        }, tx)
+      );
+    } catch (err) {
+      if (err !== failedTransition) {
+        throw err;
+      }
+
       const currentMasterNode = await this.getMasterNodeById(id);
 
       if (currentMasterNode.mode === mode) {
