@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import {
   GenericFailedPreconditionError,
   GenericNotFoundError,
-  GenericUnauthorizedError
+  GenericUnauthorizedError,
+  GenericUnavailableError
 } from '@/errors/application.errors';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
@@ -232,5 +233,37 @@ describe('master node HTTP routes', () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().code).toBe('CONFLICT');
+  });
+
+  test('returns service unavailable when master node storage is unavailable', async () => {
+    app = await createTestApp(service);
+    const unavailableError = new GenericUnavailableError('Master node storage is unavailable');
+
+    service.listMasterNodes.mockRejectedValue(unavailableError);
+    service.getMasterNodeById.mockRejectedValue(unavailableError);
+    service.transitionMasterNodeMode.mockRejectedValue(unavailableError);
+
+    const responses = await Promise.all([
+      app.inject({
+        method: 'GET',
+        url: '/internal/master-nodes/'
+      }),
+      app.inject({
+        method: 'GET',
+        url: `/internal/master-nodes/${masterNode.id}`
+      }),
+      app.inject({
+        method: 'PUT',
+        url: `/internal/master-nodes/${masterNode.id}/mode`,
+        payload: {
+          mode: 'draining'
+        }
+      })
+    ]);
+
+    for (const response of responses) {
+      expect(response.statusCode).toBe(503);
+      expect(response.json().code).toBe('SERVICE_UNAVAILABLE');
+    }
   });
 });

@@ -6,6 +6,7 @@ import {
   conflictHttpErrorResponseSchema,
   internalServerErrorHttpErrorResponseSchema,
   notFoundHttpErrorResponseSchema,
+  serviceUnavailableHttpErrorResponseSchema,
   unauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
@@ -57,7 +58,8 @@ export const listMasterNodesHttpSchema = {
   response: {
     200: masterNodesResponseSchema,
     401: unauthorizedHttpErrorResponseSchema,
-    500: internalServerErrorHttpErrorResponseSchema
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -68,7 +70,8 @@ export const getMasterNodeHttpSchema = {
     400: badRequestHttpErrorResponseSchema,
     401: unauthorizedHttpErrorResponseSchema,
     404: notFoundHttpErrorResponseSchema,
-    500: internalServerErrorHttpErrorResponseSchema
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -81,7 +84,8 @@ export const setMasterNodeModeHttpSchema = {
     401: unauthorizedHttpErrorResponseSchema,
     404: notFoundHttpErrorResponseSchema,
     409: conflictHttpErrorResponseSchema,
-    500: internalServerErrorHttpErrorResponseSchema
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 

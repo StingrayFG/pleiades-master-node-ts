@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { GenericConflictError, GenericUnauthorizedError } from '@/errors/application.errors';
+import { GenericConflictError, GenericUnauthorizedError, GenericUnavailableError } from '@/errors/application.errors';
 import errorHandlerPlugin from '@/transports/http/plugins/error-handler.plugin';
 
 import { BootstrapController } from '../bootstrap.http-controller';
@@ -172,5 +172,34 @@ describe('bootstrap HTTP routes', () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().code).toBe('CONFLICT');
+  });
+
+  test('returns service unavailable when bootstrap storage is unavailable', async () => {
+    const unavailableError = new GenericUnavailableError('Bootstrap storage is unavailable');
+
+    service.bootstrapAsLeader.mockRejectedValue(unavailableError);
+    service.bootstrapAsFollower.mockRejectedValue(unavailableError);
+    app = await createTestApp(service);
+
+    const leaderResponse = await app.inject({
+      method: 'POST',
+      url: '/internal/bootstrap/leader'
+    });
+    const followerResponse = await app.inject({
+      method: 'POST',
+      url: '/internal/bootstrap/follower',
+      payload: {
+        leaderEndpoint: {
+          hostname: 'master-node.internal',
+          port: 4410
+        },
+        leaderCertificateFingerprint
+      }
+    });
+
+    for (const response of [leaderResponse, followerResponse]) {
+      expect(response.statusCode).toBe(503);
+      expect(response.json().code).toBe('SERVICE_UNAVAILABLE');
+    }
   });
 });

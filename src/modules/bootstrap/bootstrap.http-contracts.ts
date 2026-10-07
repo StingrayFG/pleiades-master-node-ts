@@ -4,6 +4,7 @@ import type { InferHttpRoute } from '@/transports/http/contracts/infer-http-rout
 import {
   conflictHttpErrorResponseSchema,
   internalServerErrorHttpErrorResponseSchema,
+  serviceUnavailableHttpErrorResponseSchema,
   unauthorizedHttpErrorResponseSchema
 } from '@/transports/http/schemas/error.schemas';
 
@@ -37,7 +38,8 @@ export const bootstrapLeaderHttpSchema = {
     200: bootstrapResultResponseSchema,
     401: unauthorizedHttpErrorResponseSchema,
     409: conflictHttpErrorResponseSchema,
-    500: internalServerErrorHttpErrorResponseSchema
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
@@ -47,7 +49,8 @@ export const bootstrapFollowerHttpSchema = {
     200: bootstrapResultResponseSchema,
     401: unauthorizedHttpErrorResponseSchema,
     409: conflictHttpErrorResponseSchema,
-    500: internalServerErrorHttpErrorResponseSchema
+    500: internalServerErrorHttpErrorResponseSchema,
+    503: serviceUnavailableHttpErrorResponseSchema
   }
 };
 
