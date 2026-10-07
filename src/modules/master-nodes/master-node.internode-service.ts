@@ -149,7 +149,6 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   async fetchTaskEntries(input: FetchTaskEntriesInternodeInput): Promise<FetchTaskEntriesInternodeResult> {
     const consensusState = await this.requireLeadershipState();
     const caller = await this.requireAuthenticatedMasterNodeCaller(input);
-    const cluster = await this.clusterService.getCluster();
 
     // a joining follower that has replicated through the leader's committed sequence
     // has caught up with the committed log and can become an active voting member.
@@ -179,6 +178,8 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
           )
       );
     }
+
+    const cluster = await this.clusterService.getCluster();
 
     const tasks = await this.taskService.listTasksInSequenceRange({
       afterSequence: input.afterSequence,

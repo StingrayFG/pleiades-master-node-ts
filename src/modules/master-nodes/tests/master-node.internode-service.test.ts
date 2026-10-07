@@ -485,8 +485,10 @@ describe('MasterNodeInternodeService', () => {
 
   test('promotes a caught-up joining follower to an active member', async () => {
     const joiningCaller = { ...callerMasterNode, state: 'joining' as const };
+    const promotedCluster = { ...cluster, membershipRevision: cluster.membershipRevision + 1n };
 
     masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
+    clusterService.getCluster.mockResolvedValue(promotedCluster);
 
     await expect(
       service.fetchTaskEntries({
@@ -494,7 +496,9 @@ describe('MasterNodeInternodeService', () => {
         afterSequence: consensusState.lastCommittedSequence,
         limit: 8
       })
-    ).resolves.toBeDefined();
+    ).resolves.toMatchObject({
+      clusterMembershipRevision: promotedCluster.membershipRevision
+    });
 
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(
       {
@@ -517,6 +521,9 @@ describe('MasterNodeInternodeService', () => {
         leaderMasterId: selfMasterNodeId
       },
       expect.any(Function)
+    );
+    expect(masterNodeService.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
+      clusterService.getCluster.mock.invocationCallOrder[0]
     );
   });
 
