@@ -79,12 +79,14 @@ const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContr
   const repository = {
     listAll: jest.fn<MasterNodeRepositoryContract['listAll']>(),
     findMemberById: jest.fn<MasterNodeRepositoryContract['findMemberById']>(),
+    applyHeartbeat: jest.fn<MasterNodeRepositoryContract['applyHeartbeat']>(),
     applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>(),
     transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>()
   };
 
   repository.listAll.mockResolvedValue([]);
   repository.findMemberById.mockResolvedValue(null);
+  repository.applyHeartbeat.mockResolvedValue(true);
   repository.applyRegistration.mockResolvedValue(masterNode);
   repository.transitionMode.mockResolvedValue(true);
 
@@ -148,6 +150,21 @@ describe('MasterNodeService', () => {
 
   test('throws when a master node cannot be found', async () => {
     await expect(service.getMasterNodeById(masterNodeId)).rejects.toBeInstanceOf(GenericNotFoundError);
+  });
+
+  test('records master node heartbeat activity under the current session', async () => {
+    await expect(
+      service.applyMasterNodeHeartbeat({
+        id: masterNode.id,
+        sessionId: masterNode.sessionId
+      })
+    ).resolves.toBeUndefined();
+    expect(repository.applyHeartbeat).toHaveBeenCalledWith({
+      id: masterNode.id,
+      sessionId: masterNode.sessionId,
+      lastContactAt,
+      lastHeartbeatAt: lastContactAt
+    });
   });
 
   test('registers a new master node', async () => {
@@ -267,9 +284,7 @@ describe('MasterNodeService', () => {
     repository.findMemberById.mockResolvedValue(masterNode);
     repository.transitionMode.mockResolvedValue(false);
 
-    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(
-      GenericAbortedError
-    );
+    await expect(service.transitionMasterNodeMode(masterNodeId, 'draining')).rejects.toBeInstanceOf(GenericAbortedError);
     expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function), expect.anything());
   });
 });

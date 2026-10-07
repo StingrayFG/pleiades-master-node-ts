@@ -278,11 +278,25 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       throw new GenericFailedPreconditionError('Calling master node is not eligible to serve as the cluster leader');
     }
 
-    return this.leadershipService.recordLeaderHeartbeat({
+    const result = await this.leadershipService.recordLeaderHeartbeat({
       leaderMasterNodeId: leader.id,
       epoch: input.epoch,
       lastCommittedSequence: input.lastCommittedSequence
     });
+
+    if (result.accepted) {
+      // record accepted leader activity without coupling it to consensus acceptance.
+      try {
+        await this.masterNodeService.applyMasterNodeHeartbeat({
+          id: leader.id,
+          sessionId: leader.sessionId
+        });
+      } catch {
+        // ignore activity recording failures because followership has already been accepted.
+      }
+    }
+
+    return result;
   }
 
   /* private methods */

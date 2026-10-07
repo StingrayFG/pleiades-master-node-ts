@@ -65,6 +65,7 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
   return {
     listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>(),
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>().mockResolvedValue(leader),
+    applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>(),
     registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>(),
     transitionMasterNodeMode: jest.fn<MasterNodeServiceContract['transitionMasterNodeMode']>()
   };
@@ -111,16 +112,14 @@ describe('MasterNodeTaskForwarder', () => {
   test('returns no result for a task without a result schema', async () => {
     grpcClient.forwardTask.mockResolvedValue(undefined);
 
-    await expect(
-      forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)
-    ).resolves.toBeUndefined();
+    await expect(forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)).resolves.toBeUndefined();
   });
 
   test('rejects an unexpected result for a task without a result schema', async () => {
     grpcClient.forwardTask.mockResolvedValue(Buffer.from(JSON.stringify({ result: 'unexpected' })));
 
-    await expect(forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)).rejects.toBeInstanceOf(
-      GenericInternalServerError
-    );
+    await expect(
+      forwarder.forwardTask(voidDefinition, { value: 'input' }, leaderMasterNodeId)
+    ).rejects.toBeInstanceOf(GenericInternalServerError);
   });
 });

@@ -99,6 +99,32 @@ describe('verifyMembershipSnapshotConsistent', () => {
     expect(() => verifyMembershipSnapshotConsistent([masterNode], [dataNode], snapshot)).not.toThrow();
   });
 
+  test('accepts a snapshot differing only in operational fields', () => {
+    expect(() =>
+      verifyMembershipSnapshotConsistent([masterNode], [dataNode], {
+        ...snapshot,
+        masterNodes: [
+          {
+            ...masterNode,
+            lastContactAt: new Date('2026-02-02T00:00:00.000Z'),
+            lastHeartbeatAt: new Date('2026-02-02T00:00:00.000Z'),
+            updatedAt: new Date('2026-02-02T00:00:00.000Z')
+          }
+        ],
+        dataNodes: [
+          {
+            ...dataNode,
+            lastHeartbeatSequence: 99n,
+            storageFreeBytes: 1n,
+            lastContactAt: new Date('2026-02-02T00:00:00.000Z'),
+            lastHeartbeatAt: new Date('2026-02-02T00:00:00.000Z'),
+            updatedAt: new Date('2026-02-02T00:00:00.000Z')
+          }
+        ]
+      })
+    ).not.toThrow();
+  });
+
   test('rejects a snapshot with diverging master nodes', () => {
     expect(() =>
       verifyMembershipSnapshotConsistent([masterNode], [dataNode], { ...snapshot, masterNodes: [] })

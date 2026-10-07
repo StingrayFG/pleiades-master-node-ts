@@ -7,6 +7,36 @@ import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 import type { Cluster } from './cluster.domain';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 
+/* helpers */
+
+// operational fields can change independently of the membership revision,
+// so membership consistency compares only membership fields.
+const toComparableMasterNode = (masterNode: MasterNode) => ({
+  id: masterNode.id,
+  certificateFingerprint: masterNode.certificateFingerprint,
+  sessionId: masterNode.sessionId,
+  state: masterNode.state,
+  mode: masterNode.mode,
+  hostname: masterNode.hostname,
+  port: masterNode.port,
+  scheme: masterNode.scheme,
+  registeredAt: masterNode.registeredAt,
+  revision: masterNode.revision
+});
+
+const toComparableDataNode = (dataNode: DataNode) => ({
+  id: dataNode.id,
+  certificateFingerprint: dataNode.certificateFingerprint,
+  sessionId: dataNode.sessionId,
+  state: dataNode.state,
+  mode: dataNode.mode,
+  hostname: dataNode.hostname,
+  port: dataNode.port,
+  scheme: dataNode.scheme,
+  registeredAt: dataNode.registeredAt,
+  revision: dataNode.revision
+});
+
 /* verifiers */
 
 export const verifyClusterRegistered: (cluster: Cluster | null) => asserts cluster is Cluster = (cluster) => {
@@ -26,12 +56,19 @@ export const verifyMembershipSnapshotConsistent = (
   currentDataNodes: DataNode[],
   snapshot: ClusterMembershipSnapshot
 ): void => {
-  const snapshotMasterNodes = [...snapshot.masterNodes].sort((left, right) => left.id.localeCompare(right.id));
-  const snapshotDataNodes = [...snapshot.dataNodes].sort((left, right) => left.id.localeCompare(right.id));
+  const currentMasterMembership = currentMasterNodes.map(toComparableMasterNode);
+  const snapshotMasterMembership = snapshot.masterNodes
+    .map(toComparableMasterNode)
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  const currentDataNodeInventory = currentDataNodes.map(toComparableDataNode);
+  const snapshotDataNodeInventory = snapshot.dataNodes
+    .map(toComparableDataNode)
+    .sort((left, right) => left.id.localeCompare(right.id));
 
   if (
-    !isDeepStrictEqual(currentMasterNodes, snapshotMasterNodes) ||
-    !isDeepStrictEqual(currentDataNodes, snapshotDataNodes)
+    !isDeepStrictEqual(currentMasterMembership, snapshotMasterMembership) ||
+    !isDeepStrictEqual(currentDataNodeInventory, snapshotDataNodeInventory)
   ) {
     throw new GenericConflictError(
       'Cluster membership snapshot conflicts with the local cluster inventory at the same revision'

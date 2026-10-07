@@ -190,6 +190,7 @@ const createLeadershipServiceMock = (): jest.Mocked<LeadershipServiceContract> =
 const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> => {
   return {
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>().mockResolvedValue(callerMasterNode),
+    applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>(),
     registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>().mockResolvedValue(callerMasterNode)
   } as unknown as jest.Mocked<MasterNodeServiceContract>;
 };
@@ -312,7 +313,7 @@ describe('MasterNodeInternodeService', () => {
     expect(electionService.requestVote).not.toHaveBeenCalled();
   });
 
-  test('delegates authenticated leader heartbeats to the election service', async () => {
+  test('delegates authenticated leader heartbeats to the leadership service', async () => {
     await expect(
       service.recordLeaderHeartbeat({
         ...authenticatedCaller,
@@ -330,6 +331,42 @@ describe('MasterNodeInternodeService', () => {
       epoch: 3n,
       lastCommittedSequence: 4n
     });
+    expect(masterNodeService.applyMasterNodeHeartbeat).toHaveBeenCalledWith({
+      id: callerMasterNode.id,
+      sessionId: callerMasterNode.sessionId
+    });
+  });
+
+  test('accepts a leader heartbeat when the activity stamp fails', async () => {
+    masterNodeService.applyMasterNodeHeartbeat.mockRejectedValue(new Error('activity stamp failed'));
+
+    await expect(
+      service.recordLeaderHeartbeat({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).resolves.toEqual({
+      epoch: consensusState.currentEpoch,
+      lastMatchedSequence: consensusState.lastMatchedSequence,
+      accepted: true
+    });
+  });
+
+  test('does not record a rejected leader heartbeat', async () => {
+    leadershipService.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: consensusState.currentEpoch,
+      lastMatchedSequence: consensusState.lastMatchedSequence,
+      accepted: false
+    });
+
+    await service.recordLeaderHeartbeat({
+      ...authenticatedCaller,
+      epoch: 3n,
+      lastCommittedSequence: 4n
+    });
+
+    expect(masterNodeService.applyMasterNodeHeartbeat).not.toHaveBeenCalled();
   });
 
   test('rejects leader heartbeats from a draining master node', async () => {
@@ -417,11 +454,7 @@ describe('MasterNodeInternodeService', () => {
     masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
 
     await expect(
-      service.fetchTaskEntries({
-        ...authenticatedCaller,
-        afterSequence: consensusState.lastCommittedSequence,
-        limit: 8
-      })
+      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: consensusState.lastCommittedSequence, limit: 8 })
     ).resolves.toBeDefined();
 
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(

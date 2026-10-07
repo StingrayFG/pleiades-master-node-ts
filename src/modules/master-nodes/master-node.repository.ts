@@ -5,6 +5,7 @@ import { GenericConflictError } from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 
 import type {
+  ApplyMasterNodeHeartbeatRepositoryInput,
   ApplyMasterNodeRegistrationRepositoryInput,
   TransitionMasterNodeModeRepositoryInput
 } from './master-node.application';
@@ -17,6 +18,9 @@ type MasterNodeRepositoryContract = {
   // queries
   listAll(): Promise<MasterNode[]>;
   findMemberById(id: MasterNodeId): Promise<MasterNode | null>;
+
+  // activity
+  applyHeartbeat(input: ApplyMasterNodeHeartbeatRepositoryInput): Promise<boolean>;
 
   // membership
   applyRegistration(
@@ -71,6 +75,33 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     }
 
     return masterNode ? mapPrismaMasterNodeToDomainMasterNode(masterNode) : null;
+  }
+
+  /* activity methods */
+
+  async applyHeartbeat(input: ApplyMasterNodeHeartbeatRepositoryInput): Promise<boolean> {
+    let heartbeatResult;
+
+    try {
+      // heartbeat timestamps are operational metadata, so recording them does not
+      // advance membership or master node revisions.
+      heartbeatResult = await this.prisma.masterNode.updateMany({
+        where: {
+          id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
+          session_id: input.sessionId
+        },
+        data: {
+          last_contact_at: input.lastContactAt,
+          last_heartbeat_at: input.lastHeartbeatAt
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return heartbeatResult.count === 1;
   }
 
   /* membership methods */

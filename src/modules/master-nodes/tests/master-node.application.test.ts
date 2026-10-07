@@ -1,6 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 
 import {
+  applyMasterNodeHeartbeatInputSchema,
+  applyMasterNodeHeartbeatRepositoryInputSchema,
   applyMasterNodeRegistrationRepositoryInputSchema,
   fetchMasterInfoClientInputSchema,
   fetchTaskEntriesClientInputSchema,
@@ -106,6 +108,27 @@ describe('master node application schemas', () => {
     ).toEqual({
       ...registrationInput,
       lastContactAt
+    });
+  });
+
+  test('accepts service and repository heartbeat inputs', () => {
+    const input = {
+      id: registrationInput.id,
+      sessionId: registrationInput.sessionId
+    };
+    const lastHeartbeatAt = new Date('2026-01-02T00:00:00.000Z');
+
+    expect(applyMasterNodeHeartbeatInputSchema.parse(input)).toEqual(input);
+    expect(
+      applyMasterNodeHeartbeatRepositoryInputSchema.parse({
+        ...input,
+        lastContactAt: lastHeartbeatAt,
+        lastHeartbeatAt
+      })
+    ).toEqual({
+      ...input,
+      lastContactAt: lastHeartbeatAt,
+      lastHeartbeatAt
     });
   });
 

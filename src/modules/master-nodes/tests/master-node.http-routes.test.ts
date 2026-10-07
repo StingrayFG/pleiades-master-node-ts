@@ -63,6 +63,7 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
   const service = {
     listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>(),
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>(),
+    applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>(),
     registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>(),
     transitionMasterNodeMode: jest.fn<MasterNodeServiceContract['transitionMasterNodeMode']>()
   };

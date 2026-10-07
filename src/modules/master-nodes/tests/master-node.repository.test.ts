@@ -161,6 +161,42 @@ describe('MasterNodeRepository', () => {
     await expect(repository.findMemberById(masterNodeId)).resolves.toBeNull();
   });
 
+  test('records a heartbeat for the current master node session', async () => {
+    await expect(
+      repository.applyHeartbeat({
+        id: masterNodeId,
+        sessionId: prismaMasterNode.session_id,
+        lastContactAt,
+        lastHeartbeatAt: lastContactAt
+      })
+    ).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
+        session_id: prismaMasterNode.session_id
+      },
+      data: {
+        last_contact_at: lastContactAt,
+        last_heartbeat_at: lastContactAt
+      }
+    });
+  });
+
+  test('does not record a heartbeat after the master node session changes', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.applyHeartbeat({
+        id: masterNodeId,
+        sessionId: prismaMasterNode.session_id,
+        lastContactAt,
+        lastHeartbeatAt: lastContactAt
+      })
+    ).resolves.toBe(false);
+  });
+
   test('adopts an existing registration through the certificate-guarded update', async () => {
     await expect(repository.applyRegistration(registrationInput)).resolves.toEqual(domainMasterNode);
     expect(delegate.updateMany).toHaveBeenCalledWith({

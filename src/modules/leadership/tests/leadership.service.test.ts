@@ -105,7 +105,9 @@ describe('LeadershipService', () => {
         ...consensusState,
         currentEpoch: 3n
       }),
-      releaseLeadership: jest.fn<ConsensusServiceContract['releaseLeadership']>().mockResolvedValue(electionState),
+      releaseLeadership: jest
+        .fn<ConsensusServiceContract['releaseLeadership']>()
+        .mockResolvedValue(electionState),
       adoptNewerEpoch: jest.fn<ConsensusServiceContract['adoptNewerEpoch']>().mockImplementation(async (epoch) => ({
         ...electionState,
         currentEpoch: epoch
@@ -116,7 +118,8 @@ describe('LeadershipService', () => {
     } as unknown as jest.Mocked<ConsensusServiceContract>;
 
     masterNodeService = {
-      listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue(masterNodes)
+      listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue(masterNodes),
+      applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>()
     } as unknown as jest.Mocked<MasterNodeServiceContract>;
 
     masterNodeGrpcClient = {
@@ -281,6 +284,45 @@ describe('LeadershipService', () => {
     masterNodeGrpcClient.recordLeaderHeartbeat
       .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 6n })
       .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 4n });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: {
+        epoch: 3n,
+        leaderMasterId: selfMasterNodeId
+      },
+      sequence: 6n
+    });
+    expect(taskApplyHandler.run).toHaveBeenCalled();
+    expect(masterNodeService.applyMasterNodeHeartbeat).toHaveBeenCalledTimes(3);
+    expect(masterNodeService.applyMasterNodeHeartbeat).toHaveBeenCalledWith({
+      id: selfMasterNodeId,
+      sessionId: masterNodes[0].sessionId
+    });
+    expect(masterNodeService.applyMasterNodeHeartbeat).toHaveBeenCalledWith({
+      id: masterNodes[1].id,
+      sessionId: masterNodes[1].sessionId
+    });
+    expect(masterNodeService.applyMasterNodeHeartbeat).toHaveBeenCalledWith({
+      id: masterNodes[2].id,
+      sessionId: masterNodes[2].sessionId
+    });
+  });
+
+  test('evaluates commitment even when a heartbeat activity stamp fails', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 3n });
+    masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: 3n,
+      accepted: true,
+      lastMatchedSequence: 6n
+    });
+    masterNodeService.applyMasterNodeHeartbeat.mockRejectedValue(new Error('activity stamp failed'));
 
     await service.broadcastLeaderHeartbeat();
 

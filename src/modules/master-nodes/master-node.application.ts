@@ -38,6 +38,11 @@ export const registerMasterNodeInputSchema = z.object({
   endpoint: masterNodeEndpointSchema
 });
 
+export const applyMasterNodeHeartbeatInputSchema = z.object({
+  id: masterNodeIdSchema,
+  sessionId: masterNodeSessionIdSchema
+});
+
 /* internode schemas */
 
 export const authenticatedMasterNodeCallerSchema = z.object({
@@ -215,6 +220,11 @@ export const applyMasterNodeRegistrationRepositoryInputSchema = registerMasterNo
   lastContactAt: z.date()
 });
 
+export const applyMasterNodeHeartbeatRepositoryInputSchema = applyMasterNodeHeartbeatInputSchema.extend({
+  lastContactAt: z.date(),
+  lastHeartbeatAt: z.date()
+});
+
 export const transitionMasterNodeModeRepositoryInputSchema = z.object({
   id: masterNodeIdSchema,
 
@@ -227,6 +237,7 @@ export const transitionMasterNodeModeRepositoryInputSchema = z.object({
 /* service types */
 
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
+export type ApplyMasterNodeHeartbeatInput = z.infer<typeof applyMasterNodeHeartbeatInputSchema>;
 
 /* internode types */
 
@@ -270,5 +281,8 @@ export type ReconcileTaskHistoryInput = z.infer<typeof reconcileTaskHistoryInput
 
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
+>;
+export type ApplyMasterNodeHeartbeatRepositoryInput = z.infer<
+  typeof applyMasterNodeHeartbeatRepositoryInputSchema
 >;
 export type TransitionMasterNodeModeRepositoryInput = z.infer<typeof transitionMasterNodeModeRepositoryInputSchema>;

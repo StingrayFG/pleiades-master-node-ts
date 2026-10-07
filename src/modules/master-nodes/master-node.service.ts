@@ -9,7 +9,7 @@ import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
-import type { RegisterMasterNodeInput } from './master-node.application';
+import type { ApplyMasterNodeHeartbeatInput, RegisterMasterNodeInput } from './master-node.application';
 import type { MasterNode, MasterNodeId, MasterNodeMode } from './master-node.domain';
 import type { MasterNodeRepositoryContract } from './master-node.repository';
 
@@ -19,6 +19,9 @@ type MasterNodeServiceContract = {
   // queries
   listMasterNodes(): Promise<MasterNode[]>;
   getMasterNodeById(id: MasterNodeId): Promise<MasterNode>;
+
+  // activity
+  applyMasterNodeHeartbeat(input: ApplyMasterNodeHeartbeatInput): Promise<void>;
 
   // membership
   registerMasterNode(input: RegisterMasterNodeInput, tx?: Prisma.TransactionClient): Promise<MasterNode>;
@@ -49,6 +52,18 @@ class MasterNodeService implements MasterNodeServiceContract {
     }
 
     return masterNode;
+  }
+
+  /* activity methods */
+
+  async applyMasterNodeHeartbeat(input: ApplyMasterNodeHeartbeatInput): Promise<void> {
+    const now = new Date();
+
+    await this.repository.applyHeartbeat({
+      ...input,
+      lastContactAt: now,
+      lastHeartbeatAt: now
+    });
   }
 
   /* membership methods */

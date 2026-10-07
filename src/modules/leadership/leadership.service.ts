@@ -149,22 +149,37 @@ class LeadershipService implements LeadershipServiceContract {
       return;
     }
 
-    results.forEach((result, index) => {
+    const acceptedPeers = results.flatMap((result, index) => {
       if (
         result.status === 'fulfilled' &&
         result.value.accepted &&
         result.value.epoch === consensusState.currentEpoch
       ) {
-        this.latestMatchedSequencesByMasterNodeId.set(peers[index].id, result.value.lastMatchedSequence);
+        const peer = peers[index];
+
+        this.latestMatchedSequencesByMasterNodeId.set(peer.id, result.value.lastMatchedSequence);
+
+        return [peer];
       }
+
+      return [];
     });
 
-    const acceptedNodeCount =
-      1 +
-      results.filter(
-        (result) =>
-          result.status === 'fulfilled' && result.value.epoch === consensusState.currentEpoch && result.value.accepted
-      ).length;
+    // record leader activity on every round and follower activity only after
+    // an accepted heartbeat response.
+
+    // heartbeat activity is best-effort operational metadata and must not block
+    // quorum or commitment evaluation.
+    await Promise.allSettled(
+      [selfMasterNode, ...acceptedPeers].map((masterNode) =>
+        this.masterNodeService.applyMasterNodeHeartbeat({
+          id: masterNode.id,
+          sessionId: masterNode.sessionId
+        })
+      )
+    );
+
+    const acceptedNodeCount = 1 + acceptedPeers.length;
 
     if (acceptedNodeCount >= resolveElectionQuorumSize(masterNodes.filter(isMasterNodeVotingMember).length)) {
       this.quorumLossStartedAtMs = null;
