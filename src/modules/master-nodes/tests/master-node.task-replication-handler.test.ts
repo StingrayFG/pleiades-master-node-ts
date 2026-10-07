@@ -209,8 +209,14 @@ describe('MasterNodeTaskReplicationHandler', () => {
       },
       replicatedLeadershipContext
     );
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
-    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: 0n
+    });
+    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: 0n
+    });
     expect(consensusService.acceptFollowership.mock.invocationCallOrder[0]).toBeLessThan(
       taskService.replicateTask.mock.invocationCallOrder[0]
     );
@@ -296,10 +302,10 @@ describe('MasterNodeTaskReplicationHandler', () => {
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(
-      entry.sequence,
-      replicatedLeadershipContext
-    );
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: entry.sequence
+    });
     expect(taskService.deleteTasksFromSequence).not.toHaveBeenCalled();
   });
 
@@ -330,10 +336,10 @@ describe('MasterNodeTaskReplicationHandler', () => {
 
     expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(entry.sequence, replicatedLeadershipContext);
     expect(taskService.replicateTask).toHaveBeenCalledTimes(3);
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(
-      nextEntry.sequence,
-      replicatedLeadershipContext
-    );
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: nextEntry.sequence
+    });
   });
 
   test('rejects non-contiguous task entries without advancing committed history', async () => {
@@ -369,7 +375,10 @@ describe('MasterNodeTaskReplicationHandler', () => {
     );
     expect(taskService.deleteTasksFromSequence).not.toHaveBeenCalled();
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
+    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: 0n
+    });
   });
 
   test('removes a stale local tail after fully catching up with the leader', async () => {

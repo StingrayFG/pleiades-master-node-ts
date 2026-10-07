@@ -141,7 +141,10 @@ class TaskService implements TaskServiceContract {
       await this.storeTaskDataPayloadIfNeeded(input.payloadId, input.payload);
 
       if (input.sequence === nextSequence) {
-        await this.consensusService.advanceLastAllocatedSequence(input.sequence, leadershipContext);
+        await this.consensusService.advanceLastAllocatedSequence({
+          leadershipContext,
+          sequence: input.sequence
+        });
       }
 
       return existingTask;
@@ -207,8 +210,10 @@ class TaskService implements TaskServiceContract {
     }
 
     const result = await this.consensusService.withRewoundLastAllocatedSequence(
-      leadershipContext,
-      sequence - 1n,
+      {
+        leadershipContext,
+        sequence: sequence - 1n
+      },
       async (tx) => {
         const tasks = await this.repository.listTasksFromSequence(sequence, tx);
         const deletedCount = await this.repository.truncateFromSequence(sequence, tx);

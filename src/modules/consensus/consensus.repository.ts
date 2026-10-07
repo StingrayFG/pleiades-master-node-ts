@@ -4,12 +4,9 @@ import { mapPrismaError, type PrismaErrorMapperOverrides } from '@/database/pris
 import { GenericAbortedError } from '@/errors/application.errors';
 
 import type {
-  AdvanceLeadershipLastSequenceRepositoryInput,
-  AdvanceLeadershipSequenceRepositoryInput,
   AdvanceSequenceRepositoryInput,
   WithAdvancedLastAllocatedSequenceRepositoryInput,
   AllocatedSequenceTransactionAction,
-  WithRewoundLastAllocatedSequenceRepositoryInput,
   RewoundSequenceTransactionAction,
   ClaimLeadershipRepositoryInput,
   AcceptFollowershipRepositoryInput,
@@ -23,6 +20,8 @@ import type {
 import {
   CONSENSUS_STATE_ID,
   type ConsensusLeadershipContext,
+  type ConsensusLeadershipContextWithLastSequence,
+  type ConsensusLeadershipContextWithSequence,
   type ConsensusState
 } from './consensus.domain';
 import { mapPrismaConsensusStateToDomainConsensusState } from './consensus.mappers';
@@ -35,16 +34,16 @@ type ConsensusStateRepositoryContract = {
   createState(): Promise<ConsensusState>;
 
   // sequence
-  advanceLastCommittedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastCommittedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState>;
   advanceLastAppliedSequence(input: AdvanceSequenceRepositoryInput): Promise<ConsensusState>;
-  advanceLastAllocatedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState>;
-  advanceLastMatchedSequence(input: AdvanceLeadershipLastSequenceRepositoryInput): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState>;
+  advanceLastMatchedSequence(input: ConsensusLeadershipContextWithLastSequence): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     input: WithAdvancedLastAllocatedSequenceRepositoryInput,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult>;
   withRewoundLastAllocatedSequence<TResult>(
-    input: WithRewoundLastAllocatedSequenceRepositoryInput,
+    input: ConsensusLeadershipContextWithLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
@@ -106,7 +105,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
 
   /* sequence methods */
 
-  async advanceLastCommittedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastCommittedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState> {
     let state;
 
     try {
@@ -185,7 +184,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastAllocatedSequence(input: AdvanceLeadershipSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastAllocatedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState> {
     let state;
 
     try {
@@ -223,7 +222,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
     return mapPrismaConsensusStateToDomainConsensusState(state);
   }
 
-  async advanceLastMatchedSequence(input: AdvanceLeadershipLastSequenceRepositoryInput): Promise<ConsensusState> {
+  async advanceLastMatchedSequence(input: ConsensusLeadershipContextWithLastSequence): Promise<ConsensusState> {
     let state;
 
     try {
@@ -310,7 +309,7 @@ class ConsensusStateRepository implements ConsensusStateRepositoryContract {
   }
 
   async withRewoundLastAllocatedSequence<TResult>(
-    input: WithRewoundLastAllocatedSequenceRepositoryInput,
+    input: ConsensusLeadershipContextWithLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     let result;

@@ -4,6 +4,8 @@ import {
   CONSENSUS_STATE_ID,
   consensusEpochSchema,
   consensusLeadershipContextSchema,
+  consensusLeadershipContextWithLastSequenceSchema,
+  consensusLeadershipContextWithSequenceSchema,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
   consensusStateSchema
@@ -32,13 +34,37 @@ const state = {
 /* tests */
 
 describe('consensus domain schemas', () => {
-  test('parses leadership context', () => {
+  test('parses leadership context with sequence variants', () => {
     const leadershipContext = {
       epoch: 2n,
       leaderMasterId: 'master-node-aaaaaaaaaaaa'
     };
 
     expect(consensusLeadershipContextSchema.parse(leadershipContext)).toEqual(leadershipContext);
+    expect(
+      consensusLeadershipContextWithSequenceSchema.parse({
+        leadershipContext,
+        sequence: 0n
+      })
+    ).toEqual({ leadershipContext, sequence: 0n });
+    expect(
+      consensusLeadershipContextWithLastSequenceSchema.parse({
+        leadershipContext,
+        sequence: -1n
+      })
+    ).toEqual({ leadershipContext, sequence: -1n });
+    expect(() =>
+      consensusLeadershipContextWithSequenceSchema.parse({
+        leadershipContext,
+        sequence: -1n
+      })
+    ).toThrow();
+    expect(() =>
+      consensusLeadershipContextWithLastSequenceSchema.parse({
+        leadershipContext,
+        sequence: -2n
+      })
+    ).toThrow();
   });
 
   test('accepts the initial unallocated consensus state', () => {

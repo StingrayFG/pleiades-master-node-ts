@@ -37,21 +37,7 @@ export const advanceSequenceRepositoryInputSchema = z.object({
   sequence: consensusSequenceSchema
 });
 
-export const advanceLeadershipSequenceRepositoryInputSchema = advanceSequenceRepositoryInputSchema.extend({
-  leadershipContext: consensusLeadershipContextSchema
-});
-
-export const advanceLeadershipLastSequenceRepositoryInputSchema = z.object({
-  sequence: consensusLastSequenceSchema,
-  leadershipContext: consensusLeadershipContextSchema
-});
-
 export const withAdvancedLastAllocatedSequenceRepositoryInputSchema = z.object({
-  leadershipContext: consensusLeadershipContextSchema
-});
-
-export const withRewoundLastAllocatedSequenceRepositoryInputSchema = z.object({
-  sequence: consensusLastSequenceSchema,
   leadershipContext: consensusLeadershipContextSchema
 });
 
@@ -121,15 +107,8 @@ export type ConsensusVoteResult = z.infer<typeof consensusVoteResultSchema>;
 
 // sequence
 export type AdvanceSequenceRepositoryInput = z.infer<typeof advanceSequenceRepositoryInputSchema>;
-export type AdvanceLeadershipSequenceRepositoryInput = z.infer<typeof advanceLeadershipSequenceRepositoryInputSchema>;
-export type AdvanceLeadershipLastSequenceRepositoryInput = z.infer<
-  typeof advanceLeadershipLastSequenceRepositoryInputSchema
->;
 export type WithAdvancedLastAllocatedSequenceRepositoryInput = z.infer<
   typeof withAdvancedLastAllocatedSequenceRepositoryInputSchema
->;
-export type WithRewoundLastAllocatedSequenceRepositoryInput = z.infer<
-  typeof withRewoundLastAllocatedSequenceRepositoryInputSchema
 >;
 
 // leadership

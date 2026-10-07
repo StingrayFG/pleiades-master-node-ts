@@ -101,7 +101,10 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
     });
 
     // record matched sequence progress through the entries verified against this leader.
-    await this.consensusService.advanceLastMatchedSequence(replicatedThroughSequence, leadershipContext);
+    await this.consensusService.advanceLastMatchedSequence({
+      leadershipContext,
+      sequence: replicatedThroughSequence
+    });
   }
 
   /* private methods */
@@ -190,7 +193,10 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
 
     // advance commitment only through entries available locally.
     if (nextCommittedSequence > input.consensusState.lastCommittedSequence) {
-      await this.consensusService.advanceLastCommittedSequence(nextCommittedSequence, input.leadershipContext);
+      await this.consensusService.advanceLastCommittedSequence({
+        leadershipContext: input.leadershipContext,
+        sequence: nextCommittedSequence
+      });
     }
   }
 }

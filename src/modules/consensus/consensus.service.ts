@@ -11,8 +11,9 @@ import type {
 } from './consensus.application';
 import type {
   ConsensusEpoch,
-  ConsensusLastSequence,
   ConsensusLeadershipContext,
+  ConsensusLeadershipContextWithLastSequence,
+  ConsensusLeadershipContextWithSequence,
   ConsensusState
 } from './consensus.domain';
 import { isElectionStarterLogUpToDate } from './consensus.policies';
@@ -39,26 +40,16 @@ type ConsensusServiceContract = {
   getConsensusState(): Promise<ConsensusState>;
 
   // sequence
-  advanceLastAllocatedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState>;
-  advanceLastMatchedSequence(
-    sequence: ConsensusLastSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState>;
-  advanceLastCommittedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState>;
+  advanceLastAllocatedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState>;
+  advanceLastMatchedSequence(input: ConsensusLeadershipContextWithLastSequence): Promise<ConsensusState>;
+  advanceLastCommittedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState>;
   advanceLastAppliedSequence(sequence: TaskSequence): Promise<ConsensusState>;
   withAdvancedLastAllocatedSequence<TResult>(
     leadershipContext: ConsensusLeadershipContext,
     action: AllocatedSequenceTransactionAction<TResult>
   ): Promise<TResult>;
   withRewoundLastAllocatedSequence<TResult>(
-    leadershipContext: ConsensusLeadershipContext,
-    sequence: ConsensusLastSequence,
+    input: ConsensusLeadershipContextWithLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult>;
 
@@ -114,22 +105,16 @@ class ConsensusService implements ConsensusServiceContract {
 
   /* sequence methods */
 
-  async advanceLastAllocatedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState> {
+  async advanceLastAllocatedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState> {
     await this.getConsensusState();
 
-    const updatedConsensusState = await this.repository.advanceLastAllocatedSequence({
-      sequence,
-      leadershipContext
-    });
+    const updatedConsensusState = await this.repository.advanceLastAllocatedSequence(input);
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
         updatedConsensusState,
-        leadershipContext,
-        sequence,
+        input.leadershipContext,
+        input.sequence,
         updatedConsensusState.lastAllocatedSequence
       );
     } catch (err) {
@@ -141,24 +126,18 @@ class ConsensusService implements ConsensusServiceContract {
     return updatedConsensusState;
   }
 
-  async advanceLastMatchedSequence(
-    sequence: ConsensusLastSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState> {
+  async advanceLastMatchedSequence(input: ConsensusLeadershipContextWithLastSequence): Promise<ConsensusState> {
     const consensusState = await this.getConsensusState();
 
-    verifyMatchedSequenceWithinAllocated(consensusState, sequence);
+    verifyMatchedSequenceWithinAllocated(consensusState, input.sequence);
 
-    const updatedConsensusState = await this.repository.advanceLastMatchedSequence({
-      sequence,
-      leadershipContext
-    });
+    const updatedConsensusState = await this.repository.advanceLastMatchedSequence(input);
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
         updatedConsensusState,
-        leadershipContext,
-        sequence,
+        input.leadershipContext,
+        input.sequence,
         updatedConsensusState.lastMatchedSequence
       );
     } catch (err) {
@@ -170,24 +149,18 @@ class ConsensusService implements ConsensusServiceContract {
     return updatedConsensusState;
   }
 
-  async advanceLastCommittedSequence(
-    sequence: TaskSequence,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<ConsensusState> {
+  async advanceLastCommittedSequence(input: ConsensusLeadershipContextWithSequence): Promise<ConsensusState> {
     const consensusState = await this.getConsensusState();
 
-    verifyCommittedSequenceWithinAllocated(consensusState, sequence);
+    verifyCommittedSequenceWithinAllocated(consensusState, input.sequence);
 
-    const updatedConsensusState = await this.repository.advanceLastCommittedSequence({
-      sequence,
-      leadershipContext
-    });
+    const updatedConsensusState = await this.repository.advanceLastCommittedSequence(input);
 
     try {
       verifyLeadershipSequenceAdvancementNotAborted(
         updatedConsensusState,
-        leadershipContext,
-        sequence,
+        input.leadershipContext,
+        input.sequence,
         updatedConsensusState.lastCommittedSequence
       );
     } catch (err) {
@@ -236,21 +209,14 @@ class ConsensusService implements ConsensusServiceContract {
 
   // runs the action in the same transaction that rewinds the last allocated sequence.
   async withRewoundLastAllocatedSequence<TResult>(
-    leadershipContext: ConsensusLeadershipContext,
-    sequence: ConsensusLastSequence,
+    input: ConsensusLeadershipContextWithLastSequence,
     action: RewoundSequenceTransactionAction<TResult>
   ): Promise<TResult> {
     const consensusState = await this.getConsensusState();
 
-    verifySequenceWithinRewindBounds(consensusState, sequence);
+    verifySequenceWithinRewindBounds(consensusState, input.sequence);
 
-    return this.repository.withRewoundLastAllocatedSequence(
-      {
-        sequence,
-        leadershipContext
-      },
-      action
-    );
+    return this.repository.withRewoundLastAllocatedSequence(input, action);
   }
 
   /* leadership methods */

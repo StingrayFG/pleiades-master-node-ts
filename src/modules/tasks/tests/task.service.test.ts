@@ -159,8 +159,8 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
   service.withAdvancedLastAllocatedSequence.mockImplementation(async (_leadershipContext, action) => {
     return action(transaction, task.sequence);
   });
-  service.withRewoundLastAllocatedSequence.mockImplementation(async (_leadershipContext, sequence, action) => {
-    return action(transaction, sequence);
+  service.withRewoundLastAllocatedSequence.mockImplementation(async (input, action) => {
+    return action(transaction, input.sequence);
   });
 
   return service as unknown as jest.Mocked<ConsensusServiceContract>;
@@ -482,7 +482,10 @@ describe('TaskService', () => {
 
     expect(byteStorageService.store).toHaveBeenCalledWith(execution.id, payload);
     expect(repository.create).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(task.sequence, leadershipContext);
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith({
+      leadershipContext,
+      sequence: task.sequence
+    });
   });
 
   test('accepts an exact replay of an already allocated task without advancing the sequence again', async () => {
@@ -539,10 +542,10 @@ describe('TaskService', () => {
     ).resolves.toBe(historicalTask);
 
     expect(repository.create).not.toHaveBeenCalled();
-    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith(
-      historicalTask.sequence,
-      leadershipContext
-    );
+    expect(consensusService.advanceLastAllocatedSequence).toHaveBeenCalledWith({
+      leadershipContext,
+      sequence: historicalTask.sequence
+    });
   });
 
   test('rejects a replay whose immutable task data differs', async () => {
@@ -693,8 +696,10 @@ describe('TaskService', () => {
     await expect(service.deleteTasksFromSequence(task.sequence, leadershipContext)).resolves.toBe(2);
 
     expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      leadershipContext,
-      task.sequence - 1n,
+      {
+        leadershipContext,
+        sequence: task.sequence - 1n
+      },
       expect.any(Function)
     );
     expect(repository.listTasksFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
@@ -742,8 +747,10 @@ describe('TaskService', () => {
     await expect(service.deleteTasksFromSequence(task.sequence, leadershipContext)).resolves.toBe(1);
 
     expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      leadershipContext,
-      consensusState.lastAllocatedSequence,
+      {
+        leadershipContext,
+        sequence: consensusState.lastAllocatedSequence
+      },
       expect.any(Function)
     );
     expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));

@@ -229,9 +229,12 @@ class LeadershipService implements LeadershipServiceContract {
     }
 
     try {
-      await this.consensusService.advanceLastCommittedSequence(candidateSequence, {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: this.selfMasterNodeId
+      await this.consensusService.advanceLastCommittedSequence({
+        leadershipContext: {
+          epoch: consensusState.currentEpoch,
+          leaderMasterId: this.selfMasterNodeId
+        },
+        sequence: candidateSequence
       });
     } catch (err) {
       if (err instanceof GenericAbortedError) {

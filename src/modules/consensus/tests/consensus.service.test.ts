@@ -167,7 +167,9 @@ describe('ConsensusService', () => {
 
     repository.advanceLastCommittedSequence.mockResolvedValue(advancedState);
 
-    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
+    await expect(service.advanceLastCommittedSequence({ leadershipContext, sequence: 4n })).resolves.toBe(
+      advancedState
+    );
     expect(repository.advanceLastCommittedSequence).toHaveBeenCalledWith({
       sequence: 4n,
       leadershipContext
@@ -175,7 +177,7 @@ describe('ConsensusService', () => {
   });
 
   test('rejects a committed sequence beyond the allocated sequence', async () => {
-    await expect(service.advanceLastCommittedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
+    await expect(service.advanceLastCommittedSequence({ leadershipContext, sequence: 5n })).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
     expect(repository.advanceLastCommittedSequence).not.toHaveBeenCalled();
@@ -187,7 +189,7 @@ describe('ConsensusService', () => {
       lastAllocatedSequence: 3n
     });
 
-    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toThrow(
+    await expect(service.advanceLastCommittedSequence({ leadershipContext, sequence: 4n })).rejects.toThrow(
       'Committed sequence advancement was aborted by a concurrent consensus change'
     );
   });
@@ -200,7 +202,7 @@ describe('ConsensusService', () => {
       lastCommittedSequence: 4n
     });
 
-    await expect(service.advanceLastCommittedSequence(4n, leadershipContext)).rejects.toThrow(
+    await expect(service.advanceLastCommittedSequence({ leadershipContext, sequence: 4n })).rejects.toThrow(
       'Committed sequence advancement was aborted by a concurrent consensus change'
     );
   });
@@ -237,7 +239,9 @@ describe('ConsensusService', () => {
 
     repository.advanceLastAllocatedSequence.mockResolvedValue(advancedState);
 
-    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).resolves.toBe(advancedState);
+    await expect(service.advanceLastAllocatedSequence({ leadershipContext, sequence: 5n })).resolves.toBe(
+      advancedState
+    );
     expect(repository.advanceLastAllocatedSequence).toHaveBeenCalledWith({
       sequence: 5n,
       leadershipContext
@@ -251,7 +255,7 @@ describe('ConsensusService', () => {
       lastLeaderContactAt: null
     });
 
-    await expect(service.advanceLastAllocatedSequence(5n, leadershipContext)).rejects.toThrow(
+    await expect(service.advanceLastAllocatedSequence({ leadershipContext, sequence: 5n })).rejects.toThrow(
       'Allocated sequence advancement was aborted by a concurrent consensus change'
     );
   });
@@ -261,7 +265,7 @@ describe('ConsensusService', () => {
 
     repository.advanceLastMatchedSequence.mockResolvedValue(advancedState);
 
-    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).resolves.toBe(advancedState);
+    await expect(service.advanceLastMatchedSequence({ leadershipContext, sequence: 4n })).resolves.toBe(advancedState);
     expect(repository.advanceLastMatchedSequence).toHaveBeenCalledWith({
       sequence: 4n,
       leadershipContext
@@ -269,7 +273,7 @@ describe('ConsensusService', () => {
   });
 
   test('rejects a matched sequence beyond the allocated sequence', async () => {
-    await expect(service.advanceLastMatchedSequence(5n, leadershipContext)).rejects.toBeInstanceOf(
+    await expect(service.advanceLastMatchedSequence({ leadershipContext, sequence: 5n })).rejects.toBeInstanceOf(
       GenericFailedPreconditionError
     );
     expect(repository.advanceLastMatchedSequence).not.toHaveBeenCalled();
@@ -281,7 +285,7 @@ describe('ConsensusService', () => {
       lastMatchedSequence: 3n
     });
 
-    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toThrow(
+    await expect(service.advanceLastMatchedSequence({ leadershipContext, sequence: 4n })).rejects.toThrow(
       'Matched sequence advancement was aborted by a concurrent consensus change'
     );
   });
@@ -294,7 +298,7 @@ describe('ConsensusService', () => {
       lastMatchedSequence: 4n
     });
 
-    await expect(service.advanceLastMatchedSequence(4n, leadershipContext)).rejects.toThrow(
+    await expect(service.advanceLastMatchedSequence({ leadershipContext, sequence: 4n })).rejects.toThrow(
       'Matched sequence advancement was aborted by a concurrent consensus change'
     );
   });
@@ -334,7 +338,9 @@ describe('ConsensusService', () => {
       .fn<RewoundSequenceTransactionAction<string>>()
       .mockImplementation(async (_tx, sequence) => `task-${sequence}`);
 
-    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 3n, action)).resolves.toBe('task-3');
+    await expect(
+      service.withRewoundLastAllocatedSequence({ leadershipContext, sequence: 3n }, action)
+    ).resolves.toBe('task-3');
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
       {
         sequence: 3n,
@@ -347,16 +353,18 @@ describe('ConsensusService', () => {
   test('rejects rewinding the allocated sequence below committed history', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 2n, action)).rejects.toBeInstanceOf(
-      GenericFailedPreconditionError
-    );
+    await expect(
+      service.withRewoundLastAllocatedSequence({ leadershipContext, sequence: 2n }, action)
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
     expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
   });
 
   test('allows sequence-tail work at the current allocated sequence', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 4n, action)).resolves.toBeUndefined();
+    await expect(
+      service.withRewoundLastAllocatedSequence({ leadershipContext, sequence: 4n }, action)
+    ).resolves.toBeUndefined();
     expect(repository.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
       {
         sequence: 4n,
@@ -369,9 +377,9 @@ describe('ConsensusService', () => {
   test('rejects a rewound sequence beyond the last allocated sequence', async () => {
     const action = jest.fn<RewoundSequenceTransactionAction<void>>();
 
-    await expect(service.withRewoundLastAllocatedSequence(leadershipContext, 5n, action)).rejects.toBeInstanceOf(
-      GenericFailedPreconditionError
-    );
+    await expect(
+      service.withRewoundLastAllocatedSequence({ leadershipContext, sequence: 5n }, action)
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
     expect(repository.withRewoundLastAllocatedSequence).not.toHaveBeenCalled();
   });
 

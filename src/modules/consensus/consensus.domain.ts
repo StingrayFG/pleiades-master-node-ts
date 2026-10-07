@@ -25,6 +25,16 @@ export const consensusLeadershipContextSchema = z.object({
   leaderMasterId: masterNodeIdSchema
 });
 
+export const consensusLeadershipContextWithSequenceSchema = z.object({
+  leadershipContext: consensusLeadershipContextSchema,
+  sequence: consensusSequenceSchema
+});
+
+export const consensusLeadershipContextWithLastSequenceSchema = z.object({
+  leadershipContext: consensusLeadershipContextSchema,
+  sequence: consensusLastSequenceSchema
+});
+
 export const consensusStateSchema = z
   .object({
     id: consensusStateIdSchema,
@@ -71,4 +81,8 @@ export type ConsensusLastSequence = z.infer<typeof consensusLastSequenceSchema>;
 
 export type ConsensusLogPosition = z.infer<typeof consensusLogPositionSchema>;
 export type ConsensusLeadershipContext = z.infer<typeof consensusLeadershipContextSchema>;
+export type ConsensusLeadershipContextWithSequence = z.infer<typeof consensusLeadershipContextWithSequenceSchema>;
+export type ConsensusLeadershipContextWithLastSequence = z.infer<
+  typeof consensusLeadershipContextWithLastSequenceSchema
+>;
 export type ConsensusState = z.infer<typeof consensusStateSchema>;

@@ -1,8 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
 import {
-  advanceLeadershipLastSequenceRepositoryInputSchema,
-  advanceLeadershipSequenceRepositoryInputSchema,
   advanceSequenceRepositoryInputSchema,
   acceptFollowershipRepositoryInputSchema,
   claimLeadershipRepositoryInputSchema,
@@ -21,25 +19,8 @@ describe('consensus application schemas', () => {
 
   test('parses sequence advancement inputs', () => {
     const appliedSequenceInput = { sequence: 3n };
-    const leadershipSequenceInput = {
-      sequence: 3n,
-      leadershipContext
-    };
-    const leadershipLastSequenceInput = {
-      sequence: -1n,
-      leadershipContext
-    };
 
     expect(advanceSequenceRepositoryInputSchema.parse(appliedSequenceInput)).toEqual(appliedSequenceInput);
-    expect(advanceLeadershipSequenceRepositoryInputSchema.parse(leadershipSequenceInput)).toEqual(
-      leadershipSequenceInput
-    );
-    expect(advanceLeadershipLastSequenceRepositoryInputSchema.parse(leadershipSequenceInput)).toEqual(
-      leadershipSequenceInput
-    );
-    expect(advanceLeadershipLastSequenceRepositoryInputSchema.parse(leadershipLastSequenceInput)).toEqual(
-      leadershipLastSequenceInput
-    );
   });
 
   test('parses leadership claims', () => {
@@ -86,18 +67,6 @@ describe('consensus application schemas', () => {
   });
 
   test('rejects negative sequences and epochs', () => {
-    expect(() =>
-      advanceLeadershipSequenceRepositoryInputSchema.parse({
-        sequence: -1n,
-        leadershipContext
-      })
-    ).toThrow();
-    expect(() =>
-      advanceLeadershipLastSequenceRepositoryInputSchema.parse({
-        sequence: -2n,
-        leadershipContext
-      })
-    ).toThrow();
     expect(() =>
       claimLeadershipRepositoryInputSchema.parse({
         leadershipContext: {

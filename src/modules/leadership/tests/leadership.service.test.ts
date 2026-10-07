@@ -287,9 +287,12 @@ describe('LeadershipService', () => {
 
     await service.broadcastLeaderHeartbeat();
 
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(6n, {
-      epoch: 3n,
-      leaderMasterId: selfMasterNodeId
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: {
+        epoch: 3n,
+        leaderMasterId: selfMasterNodeId
+      },
+      sequence: 6n
     });
     expect(taskApplyHandler.run).toHaveBeenCalled();
   });
@@ -372,9 +375,12 @@ describe('LeadershipService', () => {
 
     await service.evaluateCommitment();
 
-    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith(6n, {
-      epoch: 3n,
-      leaderMasterId: selfMasterNodeId
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: {
+        epoch: 3n,
+        leaderMasterId: selfMasterNodeId
+      },
+      sequence: 6n
     });
     expect(taskApplyHandler.run).toHaveBeenCalled();
   });
