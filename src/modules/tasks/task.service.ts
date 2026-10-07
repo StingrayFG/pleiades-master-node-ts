@@ -12,6 +12,7 @@ import {
   GenericInternalServerError,
   GenericNotFoundError
 } from '@/errors/application.errors';
+import { createAggregateErrorCause } from '@/errors/error.causes';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
 import type { ConsensusLeadershipContext, ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
@@ -417,6 +418,58 @@ class TaskService implements TaskServiceContract {
     await this.byteStorageService.store(payloadId, payload);
   }
 
+  private async storeSubmittedTaskPayload(
+    task: PersistedTask,
+    leadershipContext: ConsensusLeadershipContext,
+    payload?: Buffer
+  ): Promise<void> {
+    try {
+      await this.storeTaskDataPayloadIfNeeded(task.payloadId, payload);
+    } catch (storageError) {
+      try {
+        await this.rollbackTaskSubmission(task, leadershipContext);
+      } catch (rollbackError) {
+        const cause = createAggregateErrorCause([
+          { source: 'payload storage', error: storageError },
+          { source: 'task submission rollback', error: rollbackError }
+        ]);
+
+        throw new GenericInternalServerError('Task submission rollback failed after payload storage failed', {
+          cause
+        });
+      }
+
+      throw storageError;
+    }
+  }
+
+  private async rollbackTaskSubmission(
+    task: PersistedTask,
+    leadershipContext: ConsensusLeadershipContext
+  ): Promise<void> {
+    // reusing the rewound sequence in the same epoch is safe only because followers
+    // compare task contents and replace conflicting uncommitted tails.
+    await this.consensusService.withRewoundLastAllocatedSequence(
+      {
+        leadershipContext,
+        sequence: task.sequence - 1n
+      },
+      async (tx) => {
+        const tail = await this.repository.listTasksFromSequence(task.sequence, tx);
+
+        if (tail.length !== 1 || tail[0].id !== task.id) {
+          throw new GenericAbortedError('Task submission rollback was aborted because the allocated tail changed');
+        }
+
+        const deletedCount = await this.repository.truncateFromSequence(task.sequence, tx);
+
+        if (deletedCount !== 1) {
+          throw new GenericAbortedError('Task submission rollback was aborted because the task was not deleted');
+        }
+      }
+    );
+  }
+
   /* task creation flows */
 
   private async submitTaskWithId<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
@@ -457,8 +510,16 @@ class TaskService implements TaskServiceContract {
         )
     );
 
-    // store the payload after task creation so a failed store never leaves unreferenced bytes.
-    await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
+    // store the payload after task creation to avoid unreferenced bytes;
+    // if storage fails, roll back the uncommitted task.
+    await this.storeSubmittedTaskPayload(
+      task,
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      },
+      dehydratedData.payload
+    );
 
     return task;
   }
@@ -523,8 +584,16 @@ class TaskService implements TaskServiceContract {
       }
     );
 
-    // store the payload after task creation so a failed store never leaves unreferenced bytes.
-    await this.storeTaskDataPayloadIfNeeded(dehydratedData.payloadId, dehydratedData.payload);
+    // store the payload after task creation to avoid unreferenced bytes;
+    // if storage fails, roll back the uncommitted task.
+    await this.storeSubmittedTaskPayload(
+      task,
+      {
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      },
+      dehydratedData.payload
+    );
 
     return task;
   }

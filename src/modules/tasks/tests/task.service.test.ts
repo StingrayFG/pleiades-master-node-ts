@@ -821,6 +821,8 @@ describe('TaskService', () => {
   test('stores dehydrated task payloads after creating their task rows', async () => {
     const bytes = Buffer.from('payload');
 
+    repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
+
     await service.submitTask(dehydratedDefinition, { name: 'test', bytes });
 
     const createInput = repository.create.mock.calls[0][0];
@@ -833,16 +835,48 @@ describe('TaskService', () => {
     expect(byteStorageService.store).toHaveBeenCalledWith(createInput.payloadId!, bytes);
   });
 
-  test('does not commit a dehydrated task when payload storage fails', async () => {
+  test('rolls back a dehydrated task when payload storage fails', async () => {
     const storageError = new Error('storage failed');
 
+    repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
     byteStorageService.store.mockRejectedValue(storageError);
+    repository.listTasksFromSequence.mockResolvedValue([task]);
+    repository.truncateFromSequence.mockResolvedValue(1);
 
     await expect(
       service.submitTask(dehydratedDefinition, { name: 'test', bytes: Buffer.from('payload') })
     ).rejects.toBe(storageError);
+
     expect(repository.create).toHaveBeenCalled();
+    expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
+      {
+        leadershipContext,
+        sequence: task.sequence - 1n
+      },
+      expect.any(Function)
+    );
+    expect(repository.listTasksFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
+    expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+  });
+
+  test('preserves a changed task tail when payload storage and submission rollback fail', async () => {
+    const storageError = new Error('storage failed');
+    const laterTask = {
+      ...task,
+      id: '00000000-0000-4000-8000-000000000003',
+      sequence: task.sequence + 1n
+    };
+
+    repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
+    byteStorageService.store.mockRejectedValue(storageError);
+    repository.listTasksFromSequence.mockResolvedValue([task, laterTask]);
+
+    const result = service.submitTask(dehydratedDefinition, { name: 'test', bytes: Buffer.from('payload') });
+
+    await expect(result).rejects.toThrow('Task submission rollback failed after payload storage failed');
+    await expect(result).rejects.toBeInstanceOf(GenericInternalServerError);
+    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
   });
 
   test('executes a registered task against targets resolved from its scope', async () => {
