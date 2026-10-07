@@ -15,6 +15,7 @@ import {
   mapClusterMembershipSnapshotToGrpcClusterMembershipSnapshot,
   mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot,
   mapGrpcFetchTaskEntriesRequestToFetchTaskEntriesInternodeInput,
+  mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
   mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult,
@@ -229,6 +230,40 @@ describe('master node mappers', () => {
       callerCertificateFingerprint,
       payloadId: taskEntry.payloadId
     });
+  });
+
+  test('maps and validates a complete task-entry response', () => {
+    const grpcEntry = mapInternodeTaskEntryToGrpcTaskEntry(taskEntry);
+
+    expect(
+      mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult({
+        epoch: '2',
+        last_committed_sequence: '4',
+        cluster_membership_revision: '3',
+        entries: [grpcEntry]
+      })
+    ).toEqual({
+      epoch: 2n,
+      lastCommittedSequence: 4n,
+      clusterMembershipRevision: 3n,
+      entries: [taskEntry]
+    });
+  });
+
+  test.each([
+    { field: 'epoch', value: '-1' },
+    { field: 'last_committed_sequence', value: '-2' },
+    { field: 'cluster_membership_revision', value: '-1' }
+  ])('rejects a task-entry response with an invalid $field', ({ field, value }) => {
+    expect(() =>
+      mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult({
+        epoch: '2',
+        last_committed_sequence: '4',
+        cluster_membership_revision: '3',
+        entries: [mapInternodeTaskEntryToGrpcTaskEntry(taskEntry)],
+        [field]: value
+      })
+    ).toThrow(GenericMapperError);
   });
 
   test('maps a master registration request with the presented certificate fingerprint', () => {

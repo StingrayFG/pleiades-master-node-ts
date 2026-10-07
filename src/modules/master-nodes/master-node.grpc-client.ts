@@ -37,7 +37,7 @@ import type { MasterNodeEndpoint, MasterNodeId, MasterNodeSessionId } from './ma
 import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
   mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot,
-  mapGrpcTaskEntryToInternodeTaskEntry,
+  mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult,
   mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult
 } from './master-node.mappers';
@@ -171,12 +171,7 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
       );
     });
 
-    return {
-      epoch: BigInt(response.epoch),
-      lastCommittedSequence: BigInt(response.last_committed_sequence),
-      clusterMembershipRevision: BigInt(response.cluster_membership_revision),
-      entries: response.entries.map(mapGrpcTaskEntryToInternodeTaskEntry)
-    };
+    return mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult(response);
   }
 
   async fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer> {

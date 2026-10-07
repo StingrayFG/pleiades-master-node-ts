@@ -11,6 +11,7 @@ import {
   type RegisterMasterNodeRequest,
   type FetchClusterMembershipSnapshotRequest,
   type FetchTaskEntriesRequest,
+  type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
   type ForwardTaskRequest,
   type RequestVoteRequest,
@@ -37,6 +38,7 @@ import {
   registerMasterNodeInternodeInputSchema,
   fetchClusterMembershipSnapshotInternodeInputSchema,
   fetchTaskEntriesInternodeInputSchema,
+  fetchTaskEntriesInternodeResultSchema,
   fetchTaskPayloadInternodeInputSchema,
   forwardTaskInternodeInputSchema,
   requestVoteInternodeInputSchema,
@@ -46,6 +48,7 @@ import {
   type RegisterMasterNodeInternodeInput,
   type FetchClusterMembershipSnapshotInternodeInput,
   type FetchTaskEntriesInternodeInput,
+  type FetchTaskEntriesInternodeResult,
   type FetchTaskPayloadInternodeInput,
   type ForwardTaskInternodeInput,
   type RequestVoteInternodeInput,
@@ -281,6 +284,19 @@ export const mapGrpcTaskEntryToInternodeTaskEntry = (entry: GrpcTaskEntry): Inte
       payloadId: entry.payload_id ?? null,
 
       createdAt: entry.created_at
+    });
+  });
+};
+
+export const mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult = (
+  response: FetchTaskEntriesResponse
+): FetchTaskEntriesInternodeResult => {
+  return withMapperError('Failed to map gRPC fetch task entries response', () => {
+    return fetchTaskEntriesInternodeResultSchema.parse({
+      epoch: BigInt(response.epoch),
+      lastCommittedSequence: BigInt(response.last_committed_sequence),
+      clusterMembershipRevision: BigInt(response.cluster_membership_revision),
+      entries: response.entries.map(mapGrpcTaskEntryToInternodeTaskEntry)
     });
   });
 };
