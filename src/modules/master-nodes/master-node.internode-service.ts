@@ -251,7 +251,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   async requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult> {
     const electionStarter = await this.requireAuthenticatedMasterNodeCaller(input);
 
-    if (electionStarter.mode !== 'serving') {
+    if (electionStarter.state !== 'active' || electionStarter.mode !== 'serving') {
       throw new GenericFailedPreconditionError('Calling master node is not eligible to become the cluster leader');
     }
 
@@ -274,7 +274,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
       throw new GenericForbiddenError('Calling master node cannot claim leadership for another master node');
     }
 
-    if (leader.mode !== 'serving') {
+    if (leader.state !== 'active' || leader.mode !== 'serving') {
       throw new GenericFailedPreconditionError('Calling master node is not eligible to serve as the cluster leader');
     }
 
@@ -303,7 +303,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
   /* authentication methods */
 
-  // authenticates a registered active master node by its certificate and current session.
+  // authenticates a registered master node by its certificate and current session.
   private async requireAuthenticatedMasterNodeCaller(input: AuthenticatedMasterNodeCaller): Promise<MasterNode> {
     let masterNode;
 

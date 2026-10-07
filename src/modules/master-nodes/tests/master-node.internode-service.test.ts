@@ -313,6 +313,24 @@ describe('MasterNodeInternodeService', () => {
     expect(electionService.requestVote).not.toHaveBeenCalled();
   });
 
+  test('rejects vote requests from a joining election starter', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      state: 'joining'
+    });
+
+    await expect(
+      service.requestVote({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(electionService.requestVote).not.toHaveBeenCalled();
+  });
+
   test('delegates authenticated leader heartbeats to the leadership service', async () => {
     await expect(
       service.recordLeaderHeartbeat({
@@ -373,6 +391,23 @@ describe('MasterNodeInternodeService', () => {
     masterNodeService.getMasterNodeById.mockResolvedValue({
       ...callerMasterNode,
       mode: 'draining'
+    });
+
+    await expect(
+      service.recordLeaderHeartbeat({
+        ...authenticatedCaller,
+        epoch: 3n,
+        lastCommittedSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(leadershipService.recordLeaderHeartbeat).not.toHaveBeenCalled();
+  });
+
+  test('rejects leader heartbeats from a joining master node', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      state: 'joining'
     });
 
     await expect(
@@ -454,7 +489,11 @@ describe('MasterNodeInternodeService', () => {
     masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
 
     await expect(
-      service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: consensusState.lastCommittedSequence, limit: 8 })
+      service.fetchTaskEntries({
+        ...authenticatedCaller,
+        afterSequence: consensusState.lastCommittedSequence,
+        limit: 8
+      })
     ).resolves.toBeDefined();
 
     expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(
