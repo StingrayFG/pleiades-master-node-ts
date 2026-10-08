@@ -191,16 +191,28 @@ describe('master node application schemas', () => {
     expect(
       fetchTaskEntriesInternodeResultSchema.parse({
         epoch: 0n,
+        lastAllocatedSequence: -1n,
         lastCommittedSequence: -1n,
         clusterMembershipRevision: 0n,
         entries: []
       })
     ).toEqual({
       epoch: 0n,
+      lastAllocatedSequence: -1n,
       lastCommittedSequence: -1n,
       clusterMembershipRevision: 0n,
       entries: []
     });
+
+    expect(
+      fetchTaskEntriesInternodeResultSchema.safeParse({
+        epoch: 0n,
+        lastAllocatedSequence: -1n,
+        lastCommittedSequence: 0n,
+        clusterMembershipRevision: 0n,
+        entries: []
+      }).success
+    ).toBe(false);
   });
 
   test('rejects invalid task-entry range bounds', () => {

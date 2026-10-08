@@ -50,6 +50,7 @@ const masterInfoResponse: FetchMasterInfoResponse = {
 
 const entriesResponse: FetchTaskEntriesResponse = {
   epoch: '2',
+  last_allocated_sequence: '4',
   last_committed_sequence: '4',
   cluster_membership_revision: '3',
   entries: [
@@ -423,6 +424,7 @@ describe('MasterNodeGrpcClient', () => {
       })
     ).resolves.toEqual({
       epoch: 2n,
+      lastAllocatedSequence: 4n,
       lastCommittedSequence: 4n,
       clusterMembershipRevision: 3n,
       entries: [

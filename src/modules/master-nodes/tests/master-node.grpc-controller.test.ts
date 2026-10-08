@@ -86,6 +86,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
 
   service.fetchTaskEntries.mockResolvedValue({
     epoch: 2n,
+    lastAllocatedSequence: 4n,
     lastCommittedSequence: 4n,
     clusterMembershipRevision: 3n,
     entries: [entry]
@@ -158,6 +159,7 @@ describe('MasterNodeGrpcController', () => {
     });
     expect(callback).toHaveBeenCalledWith(null, {
       epoch: '2',
+      last_allocated_sequence: '4',
       last_committed_sequence: '4',
       cluster_membership_revision: '3',
       entries: [

@@ -205,6 +205,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
 
     return {
       epoch: consensusState.currentEpoch,
+      lastAllocatedSequence: consensusState.lastAllocatedSequence,
       lastCommittedSequence: consensusState.lastCommittedSequence,
       clusterMembershipRevision: cluster.membershipRevision,
       entries

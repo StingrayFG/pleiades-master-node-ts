@@ -162,6 +162,7 @@ export interface FetchTaskEntriesRequest {
 
 export interface FetchTaskEntriesResponse {
   epoch: string;
+  last_allocated_sequence: string;
   last_committed_sequence: string;
   entries: TaskEntry[];
   cluster_membership_revision: string;
@@ -1949,13 +1950,22 @@ export const FetchTaskEntriesRequest: MessageFns<FetchTaskEntriesRequest> = {
 };
 
 function createBaseFetchTaskEntriesResponse(): FetchTaskEntriesResponse {
-  return { epoch: "0", last_committed_sequence: "0", entries: [], cluster_membership_revision: "0" };
+  return {
+    epoch: "0",
+    last_allocated_sequence: "0",
+    last_committed_sequence: "0",
+    entries: [],
+    cluster_membership_revision: "0",
+  };
 }
 
 export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
   encode(message: FetchTaskEntriesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.epoch !== "0") {
       writer.uint32(8).int64(message.epoch);
+    }
+    if (message.last_allocated_sequence !== "0") {
+      writer.uint32(40).int64(message.last_allocated_sequence);
     }
     if (message.last_committed_sequence !== "0") {
       writer.uint32(16).int64(message.last_committed_sequence);
@@ -1982,6 +1992,14 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
           }
 
           message.epoch = reader.int64().toString();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.last_allocated_sequence = reader.int64().toString();
           continue;
         }
         case 2: {
@@ -2020,6 +2038,11 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
   fromJSON(object: any): FetchTaskEntriesResponse {
     return {
       epoch: isSet(object.epoch) ? globalThis.String(object.epoch) : "0",
+      last_allocated_sequence: isSet(object.lastAllocatedSequence)
+        ? globalThis.String(object.lastAllocatedSequence)
+        : isSet(object.last_allocated_sequence)
+        ? globalThis.String(object.last_allocated_sequence)
+        : "0",
       last_committed_sequence: isSet(object.lastCommittedSequence)
         ? globalThis.String(object.lastCommittedSequence)
         : isSet(object.last_committed_sequence)
@@ -2039,6 +2062,9 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
     if (message.epoch !== "0") {
       obj.epoch = message.epoch;
     }
+    if (message.last_allocated_sequence !== "0") {
+      obj.lastAllocatedSequence = message.last_allocated_sequence;
+    }
     if (message.last_committed_sequence !== "0") {
       obj.lastCommittedSequence = message.last_committed_sequence;
     }
@@ -2057,6 +2083,7 @@ export const FetchTaskEntriesResponse: MessageFns<FetchTaskEntriesResponse> = {
   fromPartial<I extends Exact<DeepPartial<FetchTaskEntriesResponse>, I>>(object: I): FetchTaskEntriesResponse {
     const message = createBaseFetchTaskEntriesResponse();
     message.epoch = object.epoch ?? "0";
+    message.last_allocated_sequence = object.last_allocated_sequence ?? "0";
     message.last_committed_sequence = object.last_committed_sequence ?? "0";
     message.entries = object.entries?.map((e) => TaskEntry.fromPartial(e)) || [];
     message.cluster_membership_revision = object.cluster_membership_revision ?? "0";

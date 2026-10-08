@@ -92,13 +92,19 @@ export const fetchTaskEntriesInternodeInputSchema = authenticatedMasterNodeCalle
   limit: z.number().int().positive().max(128)
 });
 
-export const fetchTaskEntriesInternodeResultSchema = z.object({
-  epoch: taskEpochSchema,
-  lastCommittedSequence: consensusLastSequenceSchema,
-  clusterMembershipRevision: clusterMembershipRevisionSchema,
+export const fetchTaskEntriesInternodeResultSchema = z
+  .object({
+    epoch: taskEpochSchema,
+    lastAllocatedSequence: consensusLastSequenceSchema,
+    lastCommittedSequence: consensusLastSequenceSchema,
+    clusterMembershipRevision: clusterMembershipRevisionSchema,
 
-  entries: z.array(internodeTaskEntrySchema)
-});
+    entries: z.array(internodeTaskEntrySchema)
+  })
+  .refine((result) => result.lastCommittedSequence <= result.lastAllocatedSequence, {
+    message: 'Last committed sequence cannot exceed last allocated sequence',
+    path: ['lastCommittedSequence']
+  });
 
 export const fetchTaskPayloadInternodeInputSchema = authenticatedMasterNodeCallerSchema.extend({
   payloadId: taskPayloadIdSchema
@@ -210,6 +216,7 @@ export const replicateTaskEntryInputSchema = fetchClusterMembershipSnapshotClien
 export const reconcileTaskHistoryInputSchema = z.object({
   consensusState: consensusStateSchema,
   replicatedThroughSequence: consensusLastSequenceSchema,
+  leaderLastAllocatedSequence: consensusLastSequenceSchema,
   leaderLastCommittedSequence: consensusLastSequenceSchema,
   leadershipContext: consensusLeadershipContextSchema
 });

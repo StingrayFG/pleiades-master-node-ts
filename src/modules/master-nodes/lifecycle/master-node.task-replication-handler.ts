@@ -96,6 +96,7 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
     await this.reconcileTaskHistory({
       consensusState,
       replicatedThroughSequence,
+      leaderLastAllocatedSequence: fetchResult.lastAllocatedSequence,
       leaderLastCommittedSequence: fetchResult.lastCommittedSequence,
       leadershipContext
     });
@@ -112,6 +113,16 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
   private verifyFetchResult(input: VerifyTaskEntriesFetchResultInput): void {
     if (input.fetchResult.epoch < input.consensusState.currentEpoch) {
       throw new GenericFailedPreconditionError('The leader returned a stale consensus epoch');
+    }
+
+    if (input.fetchResult.lastAllocatedSequence < input.consensusState.lastCommittedSequence) {
+      throw new GenericFailedPreconditionError(
+        'The leader returned an allocated sequence behind the local committed sequence'
+      );
+    }
+
+    if (input.fetchResult.entries.some((entry) => entry.sequence > input.fetchResult.lastAllocatedSequence)) {
+      throw new GenericFailedPreconditionError('The leader returned task entries beyond its allocated sequence');
     }
 
     // the leader's committed sequence may transiently lag the local one after an
@@ -178,12 +189,12 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
   }
 
   private async reconcileTaskHistory(input: ReconcileTaskHistoryInput): Promise<void> {
-    // remove a local tail beyond the leader's committed history once this pass catches up.
+    // remove a local tail beyond the leader's allocated history once this pass catches up.
     if (
-      input.replicatedThroughSequence === input.leaderLastCommittedSequence &&
-      input.consensusState.lastAllocatedSequence > input.leaderLastCommittedSequence
+      input.replicatedThroughSequence === input.leaderLastAllocatedSequence &&
+      input.consensusState.lastAllocatedSequence > input.leaderLastAllocatedSequence
     ) {
-      await this.taskService.deleteTasksFromSequence(input.leaderLastCommittedSequence + 1n, input.leadershipContext);
+      await this.taskService.deleteTasksFromSequence(input.leaderLastAllocatedSequence + 1n, input.leadershipContext);
     }
 
     const nextCommittedSequence =

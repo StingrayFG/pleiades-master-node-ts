@@ -294,6 +294,7 @@ export const mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult = 
   return withMapperError('Failed to map gRPC fetch task entries response', () => {
     return fetchTaskEntriesInternodeResultSchema.parse({
       epoch: BigInt(response.epoch),
+      lastAllocatedSequence: BigInt(response.last_allocated_sequence),
       lastCommittedSequence: BigInt(response.last_committed_sequence),
       clusterMembershipRevision: BigInt(response.cluster_membership_revision),
       entries: response.entries.map(mapGrpcTaskEntryToInternodeTaskEntry)

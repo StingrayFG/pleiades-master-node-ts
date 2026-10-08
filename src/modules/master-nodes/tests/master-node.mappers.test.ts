@@ -238,12 +238,14 @@ describe('master node mappers', () => {
     expect(
       mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult({
         epoch: '2',
+        last_allocated_sequence: '5',
         last_committed_sequence: '4',
         cluster_membership_revision: '3',
         entries: [grpcEntry]
       })
     ).toEqual({
       epoch: 2n,
+      lastAllocatedSequence: 5n,
       lastCommittedSequence: 4n,
       clusterMembershipRevision: 3n,
       entries: [taskEntry]
@@ -252,12 +254,14 @@ describe('master node mappers', () => {
 
   test.each([
     { field: 'epoch', value: '-1' },
+    { field: 'last_allocated_sequence', value: '-2' },
     { field: 'last_committed_sequence', value: '-2' },
     { field: 'cluster_membership_revision', value: '-1' }
   ])('rejects a task-entry response with an invalid $field', ({ field, value }) => {
     expect(() =>
       mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult({
         epoch: '2',
+        last_allocated_sequence: '5',
         last_committed_sequence: '4',
         cluster_membership_revision: '3',
         entries: [mapInternodeTaskEntryToGrpcTaskEntry(taskEntry)],

@@ -179,6 +179,7 @@ message FetchTaskEntriesRequest {
 
 message FetchTaskEntriesResponse {
   int64 epoch = 1 [(buf.validate.field).int64.gte = 0];
+  int64 last_allocated_sequence = 5 [(buf.validate.field).int64.gte = -1];
   int64 last_committed_sequence = 2 [(buf.validate.field).int64.gte = -1];
   repeated TaskEntry entries = 3;
   int64 cluster_membership_revision = 4 [(buf.validate.field).int64.gte = 0];

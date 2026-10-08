@@ -99,6 +99,7 @@ const createMasterNodeGrpcClientMock = (): jest.Mocked<MasterNodeGrpcClientContr
     fetchClusterMembershipSnapshot: jest.fn<MasterNodeGrpcClientContract['fetchClusterMembershipSnapshot']>(),
     fetchTaskEntries: jest.fn<MasterNodeGrpcClientContract['fetchTaskEntries']>().mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 0n,
       lastCommittedSequence: 0n,
       clusterMembershipRevision,
       entries: [entry]
@@ -237,6 +238,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
   test('synchronizes cluster membership before accepting followership', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: -1n,
       lastCommittedSequence: -1n,
       clusterMembershipRevision: 3n,
       entries: []
@@ -261,6 +263,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
   test('rejects task replication from a stale leader epoch', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 1n,
+      lastAllocatedSequence: 0n,
       lastCommittedSequence: 0n,
       clusterMembershipRevision,
       entries: [entry]
@@ -272,6 +275,21 @@ describe('MasterNodeTaskReplicationHandler', () => {
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
+  test('rejects task entries beyond the leader allocated sequence', async () => {
+    masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
+      epoch: 3n,
+      lastAllocatedSequence: -1n,
+      lastCommittedSequence: -1n,
+      clusterMembershipRevision,
+      entries: [entry]
+    });
+
+    await expect(handler.run()).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(consensusService.acceptFollowership).not.toHaveBeenCalled();
+    expect(taskService.replicateTask).not.toHaveBeenCalled();
+  });
+
   test('tolerates a leader committed sequence behind the local committed history', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
@@ -280,6 +298,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
     });
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 0n,
       lastCommittedSequence: -1n,
       clusterMembershipRevision,
       entries: []
@@ -294,6 +313,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
   test('only commits through the entries returned in the current batch', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 4n,
       lastCommittedSequence: 4n,
       clusterMembershipRevision,
       entries: [entry]
@@ -322,6 +342,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
     });
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 1n,
       lastCommittedSequence: 1n,
       clusterMembershipRevision,
       entries: [entry, nextEntry]
@@ -344,6 +365,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
   test('rejects non-contiguous task entries without advancing committed history', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 1n,
       lastCommittedSequence: 1n,
       clusterMembershipRevision,
       entries: [{ ...entry, sequence: 1n }]
@@ -358,6 +380,7 @@ describe('MasterNodeTaskReplicationHandler', () => {
   test('replicates uncommitted task entries without advancing the committed sequence', async () => {
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 0n,
       lastCommittedSequence: -1n,
       clusterMembershipRevision,
       entries: [entry]
@@ -380,21 +403,22 @@ describe('MasterNodeTaskReplicationHandler', () => {
     });
   });
 
-  test('removes a stale local tail after fully catching up with the leader', async () => {
+  test('removes a stale local tail after reaching the leader allocated sequence', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...consensusState,
       lastAllocatedSequence: 1n
     });
     masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
       epoch: 3n,
+      lastAllocatedSequence: 0n,
       lastCommittedSequence: -1n,
       clusterMembershipRevision,
-      entries: []
+      entries: [entry]
     });
 
     await expect(handler.run()).resolves.toBeUndefined();
 
-    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(0n, replicatedLeadershipContext);
+    expect(taskService.deleteTasksFromSequence).toHaveBeenCalledWith(1n, replicatedLeadershipContext);
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 });

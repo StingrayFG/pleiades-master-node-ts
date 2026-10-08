@@ -459,6 +459,7 @@ describe('MasterNodeInternodeService', () => {
   test('fetches task entries in sequence order bounds up to the allocated sequence', async () => {
     await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: -1n, limit: 32 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
+      lastAllocatedSequence: consensusState.lastAllocatedSequence,
       lastCommittedSequence: consensusState.lastCommittedSequence,
       clusterMembershipRevision: cluster.membershipRevision,
       entries: [
@@ -544,6 +545,7 @@ describe('MasterNodeInternodeService', () => {
 
     await expect(service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: 4n, limit: 8 })).resolves.toEqual({
       epoch: consensusState.currentEpoch,
+      lastAllocatedSequence: consensusState.lastAllocatedSequence,
       lastCommittedSequence: consensusState.lastCommittedSequence,
       clusterMembershipRevision: cluster.membershipRevision,
       entries: []

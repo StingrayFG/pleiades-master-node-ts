@@ -165,6 +165,7 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
 
     callback(null, {
       epoch: result.epoch.toString(),
+      last_allocated_sequence: result.lastAllocatedSequence.toString(),
       last_committed_sequence: result.lastCommittedSequence.toString(),
       cluster_membership_revision: result.clusterMembershipRevision.toString(),
       entries: result.entries.map(mapInternodeTaskEntryToGrpcTaskEntry)
