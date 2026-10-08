@@ -6,10 +6,11 @@ import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import { TaskPayloadCleanupHandler } from '../lifecycle/task-payload-cleanup.handler';
+import { TaskSubmissionCleanupHandler } from '../lifecycle/task-submission-cleanup.handler';
 import { TaskLifecycleHandler } from '../lifecycle/task.lifecycle-handler';
 import { UncommittedTaskCleanupHandler } from '../lifecycle/uncommitted-task-cleanup.handler';
 import type { TaskConfig } from '../task.config';
-import type { PersistedTask } from '../task.domain';
+import type { PersistedTask, TaskSubmission } from '../task.domain';
 import type { TaskRepositoryContract } from '../task.repository';
 
 /* fixtures */
@@ -20,6 +21,7 @@ const config: TaskConfig = {
   applyBatchSize: 32,
   executionWaitTimeoutMs: 10_000,
   lifecycle: {
+    submissionCleanup: { afterMs: 5_000, batchSize: 2 },
     uncommittedCleanup: { afterMs: 10_000, batchSize: 3 },
     payloadCleanup: { afterMs: 20_000, batchSize: 4 }
   }
@@ -53,6 +55,20 @@ const uncommittedTask: PersistedTask = {
   payloadId: null
 };
 
+const taskSubmission: TaskSubmission = {
+  id: '00000000-0000-4000-8000-000000000003',
+  originMasterNodeId: 'master-node-aaaaaaaaaaaa',
+  type: 'blob.ensure-exists',
+  data: {},
+  executionScope: 'cluster',
+  targetMasterIds: [],
+  payloadId: 'payload-2',
+  state: 'pending',
+  createdAt: now,
+  updatedAt: now,
+  revision: 0n
+};
+
 const consensusState: ConsensusState = {
   id: 'consensus-state',
 
@@ -80,21 +96,28 @@ const createTaskRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     listTasksFromSequence: jest.fn<TaskRepositoryContract['listTasksFromSequence']>(),
     listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
     listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
+    listSubmissionCleanupCandidates: jest.fn<TaskRepositoryContract['listSubmissionCleanupCandidates']>(),
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
     findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
+    createSubmission: jest.fn<TaskRepositoryContract['createSubmission']>(),
     markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),
     markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
     markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
+    transitionSubmissionState: jest.fn<TaskRepositoryContract['transitionSubmissionState']>(),
     updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
     clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>(),
-    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>()
+    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>(),
+    deleteSubmission: jest.fn<TaskRepositoryContract['deleteSubmission']>()
   };
 
   repository.listPayloadCleanupCandidates.mockResolvedValue([]);
   repository.listUncommittedCleanupCandidates.mockResolvedValue([]);
+  repository.listSubmissionCleanupCandidates.mockResolvedValue([]);
+  repository.transitionSubmissionState.mockResolvedValue(true);
+  repository.deleteSubmission.mockResolvedValue(true);
   repository.updateTaskState.mockResolvedValue(uncommittedTask);
   repository.clearPayloadId.mockResolvedValue(true);
 
@@ -122,6 +145,59 @@ const createConsensusServiceMock = (): jest.Mocked<ConsensusServiceContract> => 
 };
 
 /* tests */
+
+describe('TaskSubmissionCleanupHandler', () => {
+  let repository: jest.Mocked<TaskRepositoryContract>;
+  let byteStorageService: jest.Mocked<ByteStorageServiceContract>;
+
+  beforeEach(() => {
+    repository = createTaskRepositoryMock();
+    byteStorageService = createByteStorageServiceMock();
+  });
+
+  test('transitions stale submissions before deleting their payloads and rows', async () => {
+    repository.listSubmissionCleanupCandidates.mockResolvedValue([taskSubmission]);
+    const handler = new TaskSubmissionCleanupHandler(repository, byteStorageService, config);
+
+    await handler.run(now);
+
+    expect(repository.listSubmissionCleanupCandidates).toHaveBeenCalledWith({
+      updatedBefore: new Date(now.getTime() - config.lifecycle.submissionCleanup.afterMs),
+      limit: config.lifecycle.submissionCleanup.batchSize
+    });
+    expect(repository.transitionSubmissionState).toHaveBeenCalledWith({
+      id: taskSubmission.id,
+      revision: taskSubmission.revision,
+      from: 'pending',
+      to: 'deleting',
+      at: now
+    });
+    expect(byteStorageService.delete).toHaveBeenCalledWith(taskSubmission.payloadId!);
+    expect(repository.deleteSubmission).toHaveBeenCalledWith({ id: taskSubmission.id, state: 'deleting' });
+  });
+
+  test('resumes cleanup for submissions already marked as deleting', async () => {
+    repository.listSubmissionCleanupCandidates.mockResolvedValue([{ ...taskSubmission, state: 'deleting' }]);
+    const handler = new TaskSubmissionCleanupHandler(repository, byteStorageService, config);
+
+    await handler.run(now);
+
+    expect(repository.transitionSubmissionState).not.toHaveBeenCalled();
+    expect(byteStorageService.delete).toHaveBeenCalledWith(taskSubmission.payloadId!);
+    expect(repository.deleteSubmission).toHaveBeenCalledWith({ id: taskSubmission.id, state: 'deleting' });
+  });
+
+  test('leaves concurrently changed submissions untouched', async () => {
+    repository.listSubmissionCleanupCandidates.mockResolvedValue([taskSubmission]);
+    repository.transitionSubmissionState.mockResolvedValue(false);
+    const handler = new TaskSubmissionCleanupHandler(repository, byteStorageService, config);
+
+    await handler.run(now);
+
+    expect(byteStorageService.delete).not.toHaveBeenCalled();
+    expect(repository.deleteSubmission).not.toHaveBeenCalled();
+  });
+});
 
 describe('TaskPayloadCleanupHandler', () => {
   let repository: jest.Mocked<TaskRepositoryContract>;
@@ -268,26 +344,32 @@ describe('TaskLifecycleHandler', () => {
     jest.useRealTimers();
   });
 
-  test('runs both cleanup handlers with the same current time', async () => {
+  test('runs all cleanup handlers with the same current time', async () => {
+    const submissionRun = jest.fn<(currentTime: Date) => Promise<void>>().mockResolvedValue();
     const uncommittedRun = jest.fn<(currentTime: Date) => Promise<void>>().mockResolvedValue();
     const payloadRun = jest.fn<(currentTime: Date) => Promise<void>>().mockResolvedValue();
     const handler = new TaskLifecycleHandler(
+      { run: submissionRun } as unknown as TaskSubmissionCleanupHandler,
       { run: uncommittedRun } as unknown as UncommittedTaskCleanupHandler,
       { run: payloadRun } as unknown as TaskPayloadCleanupHandler
     );
 
     await handler.run();
 
+    expect(submissionRun).toHaveBeenCalledWith(now);
     expect(uncommittedRun).toHaveBeenCalledWith(now);
     expect(payloadRun).toHaveBeenCalledWith(now);
   });
 
-  test('runs both cleanup handlers and aggregates failures by lifecycle source', async () => {
+  test('runs all cleanup handlers and aggregates failures by lifecycle source', async () => {
+    const submissionError = new Error('submission cleanup failed');
     const uncommittedError = new Error('uncommitted cleanup failed');
     const payloadError = new Error('payload cleanup failed');
+    const submissionRun = jest.fn<(currentTime: Date) => Promise<void>>().mockRejectedValue(submissionError);
     const uncommittedRun = jest.fn<(currentTime: Date) => Promise<void>>().mockRejectedValue(uncommittedError);
     const payloadRun = jest.fn<(currentTime: Date) => Promise<void>>().mockRejectedValue(payloadError);
     const handler = new TaskLifecycleHandler(
+      { run: submissionRun } as unknown as TaskSubmissionCleanupHandler,
       { run: uncommittedRun } as unknown as UncommittedTaskCleanupHandler,
       { run: payloadRun } as unknown as TaskPayloadCleanupHandler
     );
@@ -300,11 +382,13 @@ describe('TaskLifecycleHandler', () => {
       thrown = err;
     }
 
+    expect(submissionRun).toHaveBeenCalledWith(now);
     expect(uncommittedRun).toHaveBeenCalledWith(now);
     expect(payloadRun).toHaveBeenCalledWith(now);
     expect(thrown).toBeInstanceOf(GenericInternalServerError);
     expect((thrown as Error).cause).toBeInstanceOf(AggregateError);
     expect(((thrown as Error).cause as AggregateError).errors).toEqual([
+      { source: 'submissionCleanup', error: submissionError },
       { source: 'uncommittedCleanup', error: uncommittedError },
       { source: 'payloadCleanup', error: payloadError }
     ]);

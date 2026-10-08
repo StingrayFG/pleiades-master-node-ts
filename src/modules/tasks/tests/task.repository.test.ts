@@ -2,14 +2,19 @@ import {
   Prisma,
   type Task as PrismaTask,
   type TaskExecution as PrismaTaskExecution,
+  type TaskSubmission as PrismaTaskSubmission,
   type PrismaClient
 } from '@prisma/client';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericAbortedError, GenericMapperError } from '@/errors/application.errors';
 
-import type { CreateTaskExecutionRepositoryInput, CreateTaskRepositoryInput } from '../task.application';
-import type { PersistedTask, TaskExecution } from '../task.domain';
+import type {
+  CreateTaskExecutionRepositoryInput,
+  CreateTaskRepositoryInput,
+  CreateTaskSubmissionRepositoryInput
+} from '../task.application';
+import type { PersistedTask, TaskExecution, TaskSubmission } from '../task.domain';
 import { TaskRepository } from '../task.repository';
 
 /* fixtures */
@@ -75,6 +80,34 @@ const execution: TaskExecution = {
   revision: prismaExecution.revision
 };
 
+const prismaSubmission: PrismaTaskSubmission = {
+  id: taskId,
+  origin_master_id: selfMasterNodeId,
+  type: 'test.execute',
+  data: { value: 'test' },
+  execution_scope: 'local',
+  target_master_ids: [],
+  payload_id: null,
+  state: 'pending',
+  created_at: now,
+  updated_at: now,
+  revision: 0n
+};
+
+const submission: TaskSubmission = {
+  id: prismaSubmission.id,
+  originMasterNodeId: prismaSubmission.origin_master_id,
+  type: prismaSubmission.type,
+  data: prismaSubmission.data,
+  executionScope: prismaSubmission.execution_scope,
+  targetMasterIds: [],
+  payloadId: prismaSubmission.payload_id,
+  state: prismaSubmission.state,
+  createdAt: prismaSubmission.created_at,
+  updatedAt: prismaSubmission.updated_at,
+  revision: prismaSubmission.revision
+};
+
 const createTaskInput: CreateTaskRepositoryInput<'test.execute', 'local'> = {
   id: task.id,
   originMasterNodeId: task.originMasterNodeId,
@@ -92,6 +125,18 @@ const createExecutionInput: CreateTaskExecutionRepositoryInput = {
   id: execution.id,
   taskId: execution.taskId,
   targetMasterId: execution.targetMasterId,
+  createdAt: now,
+  updatedAt: now
+};
+
+const createSubmissionInput: CreateTaskSubmissionRepositoryInput<'test.execute', 'local'> = {
+  id: submission.id,
+  originMasterNodeId: submission.originMasterNodeId,
+  type: 'test.execute',
+  data: { value: 'test' },
+  executionScope: 'local',
+  targetMasterIds: [],
+  payloadId: null,
   createdAt: now,
   updatedAt: now
 };
@@ -120,9 +165,17 @@ type TaskExecutionDelegateMock = {
   update: jest.Mock<(...args: unknown[]) => Promise<PrismaTaskExecution>>;
 };
 
+type TaskSubmissionDelegateMock = {
+  findMany: jest.Mock<(...args: unknown[]) => Promise<PrismaTaskSubmission[]>>;
+  create: jest.Mock<(...args: unknown[]) => Promise<PrismaTaskSubmission>>;
+  updateMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
+  deleteMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
+};
+
 describe('TaskRepository', () => {
   let taskDelegate: TaskDelegateMock;
   let executionDelegate: TaskExecutionDelegateMock;
+  let submissionDelegate: TaskSubmissionDelegateMock;
   let transaction: jest.Mock<(...args: unknown[]) => Promise<unknown[]>>;
   let repository: TaskRepository;
 
@@ -140,6 +193,12 @@ describe('TaskRepository', () => {
       create: jest.fn<(...args: unknown[]) => Promise<PrismaTaskExecution>>().mockResolvedValue(prismaExecution),
       update: jest.fn<(...args: unknown[]) => Promise<PrismaTaskExecution>>().mockResolvedValue(prismaExecution)
     };
+    submissionDelegate = {
+      findMany: jest.fn<(...args: unknown[]) => Promise<PrismaTaskSubmission[]>>().mockResolvedValue([]),
+      create: jest.fn<(...args: unknown[]) => Promise<PrismaTaskSubmission>>().mockResolvedValue(prismaSubmission),
+      updateMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 1 }),
+      deleteMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 1 })
+    };
     transaction = jest.fn<(...args: unknown[]) => Promise<unknown[]>>().mockImplementation(async (operations) => {
       return Promise.all(operations as Promise<unknown>[]);
     });
@@ -147,6 +206,7 @@ describe('TaskRepository', () => {
     repository = new TaskRepository({
       task: taskDelegate,
       taskExecution: executionDelegate,
+      taskSubmission: submissionDelegate,
       $transaction: transaction
     } as unknown as PrismaClient);
   });
@@ -225,6 +285,21 @@ describe('TaskRepository', () => {
     });
   });
 
+  test('lists stale task submissions for cleanup', async () => {
+    const updatedBefore = new Date('2026-01-02T00:00:00.000Z');
+
+    submissionDelegate.findMany.mockResolvedValue([prismaSubmission]);
+
+    await expect(repository.listSubmissionCleanupCandidates({ updatedBefore, limit: 2 })).resolves.toEqual([
+      submission
+    ]);
+    expect(submissionDelegate.findMany).toHaveBeenCalledWith({
+      where: { state: { in: ['pending', 'deleting'] }, updated_at: { lte: updatedBefore } },
+      orderBy: { updated_at: 'asc' },
+      take: 2
+    });
+  });
+
   test('lists task executions in creation order', async () => {
     executionDelegate.findMany.mockResolvedValue([prismaExecution]);
 
@@ -265,6 +340,24 @@ describe('TaskRepository', () => {
         type: task.type,
         execution_scope: task.executionScope,
         data: task.data,
+        payload_id: null,
+        state: 'pending',
+        created_at: now,
+        updated_at: now
+      }
+    });
+  });
+
+  test('creates an unsequenced pending task submission', async () => {
+    await expect(repository.createSubmission(createSubmissionInput)).resolves.toEqual(submission);
+    expect(submissionDelegate.create).toHaveBeenCalledWith({
+      data: {
+        id: taskId,
+        origin_master_id: selfMasterNodeId,
+        type: submission.type,
+        execution_scope: submission.executionScope,
+        data: submission.data,
+        target_master_ids: [],
         payload_id: null,
         state: 'pending',
         created_at: now,
@@ -336,6 +429,35 @@ describe('TaskRepository', () => {
     taskDelegate.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(repository.clearPayloadId({ id: taskId, revision: 1n })).resolves.toBe(false);
+  });
+
+  test('transitions and deletes task submissions conditionally', async () => {
+    await expect(
+      repository.transitionSubmissionState({
+        id: submission.id,
+        revision: submission.revision,
+        from: 'pending',
+        to: 'deleting',
+        at: now
+      })
+    ).resolves.toBe(true);
+    await expect(repository.deleteSubmission({ id: submission.id, state: 'deleting' })).resolves.toBe(true);
+
+    expect(submissionDelegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: taskId,
+        revision: submission.revision,
+        state: 'pending'
+      },
+      data: {
+        state: 'deleting',
+        updated_at: now,
+        revision: { increment: 1 }
+      }
+    });
+    expect(submissionDelegate.deleteMany).toHaveBeenCalledWith({
+      where: { id: submission.id, state: 'deleting' }
+    });
   });
 
   test('truncates a task tail from the requested sequence', async () => {

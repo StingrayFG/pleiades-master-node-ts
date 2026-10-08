@@ -313,6 +313,46 @@ enum TaskExecutionState {
   failed
 }
 
+enum TaskSubmissionState {
+  pending
+  deleting
+}
+
+model TaskSubmission {
+  // identity
+  id String @id
+
+  // origin
+  origin_master_id String
+
+  // definition
+  type              String
+  data              Json
+  execution_scope   TaskExecutionScope
+  target_master_ids Json
+
+  // payload
+  payload_id String?
+
+  // lifecycle
+  state TaskSubmissionState @default(pending)
+
+  // relations
+  origin_master MasterNode @relation(fields: [origin_master_id], references: [id])
+
+  // timestamps
+  created_at DateTime
+  updated_at DateTime
+
+  // concurrency
+  revision BigInt @default(0)
+
+  // database metadata
+  @@index([origin_master_id])
+  @@index([state, updated_at])
+  @@map("task_submissions")
+}
+
 model Task {
   // identity
   id String @id @default(uuid())
@@ -474,9 +514,10 @@ model MasterNode {
   // relations
   cluster_record_id String @default("self")
 
-  cluster         Cluster         @relation(fields: [cluster_record_id], references: [id])
-  tasks           Task[]
-  task_executions TaskExecution[]
+  cluster          Cluster          @relation(fields: [cluster_record_id], references: [id])
+  tasks            Task[]
+  task_submissions TaskSubmission[]
+  task_executions  TaskExecution[]
 
   // timestamps
   registered_at        DateTime  @default(now())

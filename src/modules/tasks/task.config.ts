@@ -1,6 +1,10 @@
 /* types  */
 
 export type TaskLifecycleConfig = {
+  submissionCleanup: {
+    afterMs: number;
+    batchSize: number;
+  };
   uncommittedCleanup: {
     afterMs: number;
     batchSize: number;
@@ -26,6 +30,10 @@ export const taskConfig: TaskConfig = {
   executionWaitTimeoutMs: 10_000,
 
   lifecycle: {
+    submissionCleanup: {
+      afterMs: 10 * 60 * 1000,
+      batchSize: 32
+    },
     uncommittedCleanup: {
       afterMs: 10 * 60 * 1000,
       batchSize: 32

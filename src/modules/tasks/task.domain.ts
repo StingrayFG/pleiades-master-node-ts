@@ -8,6 +8,7 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 export const TASK_STATES = ['pending', 'completed', 'partially_completed', 'failed'] as const;
 export const TASK_EXECUTION_STATES = ['pending', 'executing', 'completed', 'failed'] as const;
 export const TASK_EXECUTION_SCOPES = ['local', 'cluster'] as const;
+export const TASK_SUBMISSION_STATES = ['pending', 'deleting'] as const;
 
 /* field schemas */
 
@@ -24,6 +25,7 @@ export const taskPayloadIdSchema = z.uuid();
 
 export const taskExecutionIdSchema = z.uuid();
 export const taskExecutionStateSchema = z.enum(TASK_EXECUTION_STATES);
+export const taskSubmissionStateSchema = z.enum(TASK_SUBMISSION_STATES);
 
 /* object schemas */
 
@@ -69,6 +71,26 @@ export const taskExecutionSchema = z.object({
   revision: taskRevisionSchema
 });
 
+export const taskSubmissionSchema = z.object({
+  id: taskIdSchema,
+
+  originMasterNodeId: masterNodeIdSchema,
+
+  type: taskTypeSchema,
+  data: taskDataSchema,
+  executionScope: taskExecutionScopeSchema,
+  targetMasterIds: z.array(masterNodeIdSchema),
+
+  payloadId: taskPayloadIdSchema.nullable(),
+
+  state: taskSubmissionStateSchema,
+
+  createdAt: z.date(),
+  updatedAt: z.date(),
+
+  revision: taskRevisionSchema
+});
+
 /* field types */
 
 export type TaskId = z.infer<typeof taskIdSchema>;
@@ -83,9 +105,11 @@ export type TaskPayloadId = z.infer<typeof taskPayloadIdSchema>;
 
 export type TaskExecutionId = z.infer<typeof taskExecutionIdSchema>;
 export type TaskExecutionState = z.infer<typeof taskExecutionStateSchema>;
+export type TaskSubmissionState = z.infer<typeof taskSubmissionStateSchema>;
 
 /* object types */
 
 export type TaskBase = z.infer<typeof taskBaseSchema>;
 export type PersistedTask = z.infer<typeof persistedTaskSchema>;
 export type TaskExecution = z.infer<typeof taskExecutionSchema>;
+export type TaskSubmission = z.infer<typeof taskSubmissionSchema>;

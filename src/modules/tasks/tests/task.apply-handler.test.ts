@@ -26,6 +26,7 @@ const config: TaskConfig = {
   applyBatchSize: 32,
   executionWaitTimeoutMs: 10_000,
   lifecycle: {
+    submissionCleanup: { afterMs: 5_000, batchSize: 2 },
     uncommittedCleanup: { afterMs: 10_000, batchSize: 3 },
     payloadCleanup: { afterMs: 20_000, batchSize: 4 }
   }
@@ -130,17 +131,21 @@ const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     listTasksFromSequence: jest.fn<TaskRepositoryContract['listTasksFromSequence']>(),
     listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
     listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
+    listSubmissionCleanupCandidates: jest.fn<TaskRepositoryContract['listSubmissionCleanupCandidates']>(),
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
     findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
+    createSubmission: jest.fn<TaskRepositoryContract['createSubmission']>(),
     markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),
     markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
     markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
+    transitionSubmissionState: jest.fn<TaskRepositoryContract['transitionSubmissionState']>(),
     updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
     clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>(),
-    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>()
+    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>(),
+    deleteSubmission: jest.fn<TaskRepositoryContract['deleteSubmission']>()
   };
 
   repository.listTasksInSequenceRange.mockResolvedValue([]);

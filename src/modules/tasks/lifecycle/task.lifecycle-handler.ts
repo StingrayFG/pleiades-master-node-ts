@@ -2,6 +2,7 @@ import { GenericInternalServerError } from '@/errors/application.errors';
 import { createAggregateErrorCause, type ErrorCauseEntry } from '@/errors/error.causes';
 
 import { TaskPayloadCleanupHandler } from './task-payload-cleanup.handler';
+import { TaskSubmissionCleanupHandler } from './task-submission-cleanup.handler';
 import { UncommittedTaskCleanupHandler } from './uncommitted-task-cleanup.handler';
 
 /* contract */
@@ -14,6 +15,7 @@ type TaskLifecycleHandlerContract = {
 
 class TaskLifecycleHandler implements TaskLifecycleHandlerContract {
   constructor(
+    private readonly taskSubmissionCleanupHandler: TaskSubmissionCleanupHandler,
     private readonly uncommittedTaskCleanupHandler: UncommittedTaskCleanupHandler,
     private readonly taskPayloadCleanupHandler: TaskPayloadCleanupHandler
   ) {}
@@ -22,13 +24,14 @@ class TaskLifecycleHandler implements TaskLifecycleHandlerContract {
     const now = new Date();
 
     const results = await Promise.allSettled([
+      this.taskSubmissionCleanupHandler.run(now),
       this.uncommittedTaskCleanupHandler.run(now),
       this.taskPayloadCleanupHandler.run(now)
     ]);
 
     const errors: ErrorCauseEntry[] = [];
 
-    const sources = ['uncommittedCleanup', 'payloadCleanup'] as const;
+    const sources = ['submissionCleanup', 'uncommittedCleanup', 'payloadCleanup'] as const;
 
     for (let index = 0; index < results.length; index += 1) {
       const result = results[index];

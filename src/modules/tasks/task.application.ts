@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
+import { masterNodeIdSchema, type MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import {
   taskBaseSchema,
@@ -14,9 +14,11 @@ import {
   taskRevisionSchema,
   taskSequenceSchema,
   taskStateSchema,
+  taskSubmissionStateSchema,
   type TaskBase,
   type TaskExecutionScope,
-  type TaskPayloadId
+  type TaskPayloadId,
+  type TaskSubmissionState
 } from './task.domain';
 
 /* service schemas */
@@ -55,6 +57,11 @@ export const listUncommittedCleanupCandidatesRepositoryInputSchema = z.object({
   limit: z.number().int().positive()
 });
 
+export const listTaskSubmissionCleanupCandidatesRepositoryInputSchema = z.object({
+  updatedBefore: z.date(),
+  limit: z.number().int().positive()
+});
+
 // create
 export const createTaskRepositoryInputSchema = taskBaseSchema
   .pick({ id: true, originMasterNodeId: true, epoch: true, sequence: true })
@@ -76,6 +83,17 @@ export const createTaskExecutionRepositoryInputSchema = z.object({
   updatedAt: z.date()
 });
 
+export const createTaskSubmissionRepositoryInputSchema = taskBaseSchema
+  .pick({ id: true, originMasterNodeId: true })
+  .extend(taskDefinitionSchema.shape)
+  .extend({
+    targetMasterIds: z.array(masterNodeIdSchema),
+    payloadId: taskPayloadIdSchema.nullable(),
+
+    createdAt: z.date(),
+    updatedAt: z.date()
+  });
+
 // execution
 export const transitionTaskExecutionRepositoryInputSchema = z.object({
   id: taskExecutionIdSchema,
@@ -85,6 +103,15 @@ export const transitionTaskExecutionRepositoryInputSchema = z.object({
 
 export const failTaskExecutionRepositoryInputSchema = transitionTaskExecutionRepositoryInputSchema.extend({
   failureReason: z.string()
+});
+
+// submission
+export const transitionTaskSubmissionRepositoryInputSchema = z.object({
+  id: taskIdSchema,
+  revision: taskRevisionSchema,
+  from: taskSubmissionStateSchema,
+  to: taskSubmissionStateSchema,
+  at: z.date()
 });
 
 // update
@@ -118,6 +145,9 @@ export type ListPayloadCleanupCandidatesRepositoryInput = z.infer<
 export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<
   typeof listUncommittedCleanupCandidatesRepositoryInputSchema
 >;
+export type ListTaskSubmissionCleanupCandidatesRepositoryInput = z.infer<
+  typeof listTaskSubmissionCleanupCandidatesRepositoryInputSchema
+>;
 
 // create
 export type CreateTaskRepositoryInput<
@@ -136,10 +166,33 @@ export type CreateTaskRepositoryInput<
 
 export type CreateTaskExecutionRepositoryInput = z.infer<typeof createTaskExecutionRepositoryInputSchema>;
 
+export type CreateTaskSubmissionRepositoryInput<
+  TType extends string = string,
+  TScope extends TaskExecutionScope = TaskExecutionScope
+> = Pick<TaskBase, 'id' | 'originMasterNodeId'> & {
+  type: TType;
+  data: Prisma.InputJsonValue;
+  executionScope: TScope;
+  targetMasterIds: MasterNodeId[];
+  payloadId: TaskPayloadId | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 // execution
 export type TransitionTaskExecutionRepositoryInput = z.infer<typeof transitionTaskExecutionRepositoryInputSchema>;
 export type FailTaskExecutionRepositoryInput = z.infer<typeof failTaskExecutionRepositoryInputSchema>;
 
+// submission
+export type TransitionTaskSubmissionRepositoryInput = z.infer<typeof transitionTaskSubmissionRepositoryInputSchema>;
+
 // update
 export type UpdateTaskStateRepositoryInput = z.infer<typeof updateTaskStateRepositoryInputSchema>;
 export type ClearTaskPayloadIdRepositoryInput = z.infer<typeof clearTaskPayloadIdRepositoryInputSchema>;
+
+// delete
+export type DeleteTaskSubmissionRepositoryInput = {
+  id: TaskBase['id'];
+  state: TaskSubmissionState;
+};

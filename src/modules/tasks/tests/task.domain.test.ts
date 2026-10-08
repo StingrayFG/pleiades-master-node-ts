@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { persistedTaskSchema, taskBaseSchema, taskExecutionSchema } from '../task.domain';
+import { persistedTaskSchema, taskBaseSchema, taskExecutionSchema, taskSubmissionSchema } from '../task.domain';
 
 /* fixtures */
 
@@ -58,5 +58,24 @@ describe('task domain schemas', () => {
     };
 
     expect(taskExecutionSchema.parse(execution)).toEqual(execution);
+  });
+
+  test('parses an unsequenced task submission', () => {
+    const submission = {
+      id: taskBase.id,
+      originMasterNodeId: taskBase.originMasterNodeId,
+      type: 'test.execute',
+      data: { value: 'test' },
+      executionScope: 'cluster' as const,
+      targetMasterIds: ['master-node-aaaaaaaaaaaa'],
+      payloadId: '00000000-0000-4000-8000-000000000004',
+      state: 'pending' as const,
+      createdAt: now,
+      updatedAt: now,
+      revision: 0n
+    };
+
+    expect(taskSubmissionSchema.parse(submission)).toEqual(submission);
+    expect(taskSubmissionSchema.safeParse({ ...submission, state: 'unknown' }).success).toBe(false);
   });
 });

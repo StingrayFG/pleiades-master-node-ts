@@ -28,7 +28,15 @@ import {
   type TaskDefinitionHandler,
   type TaskDefinitionResult
 } from './task.definition';
-import type { PersistedTask, TaskExecutionScope, TaskId, TaskPayloadId, TaskSequence, TaskType } from './task.domain';
+import type {
+  PersistedTask,
+  TaskExecutionScope,
+  TaskId,
+  TaskPayloadId,
+  TaskSequence,
+  TaskSubmission,
+  TaskType
+} from './task.domain';
 import type { TaskForwarderContract } from './task.forwarder';
 import type { TaskHandlerRegistryContract } from './task.handler-registry';
 import type { TaskRepositoryContract } from './task.repository';
@@ -406,6 +414,8 @@ class TaskService implements TaskServiceContract {
     return { data: data as unknown as TPersistedData, payloadId: null };
   }
 
+  /* payload storage */
+
   private async storeTaskDataPayloadIfNeeded(payloadId: TaskPayloadId | null, payload?: Buffer): Promise<void> {
     if (payloadId === null) {
       return;
@@ -418,23 +428,21 @@ class TaskService implements TaskServiceContract {
     await this.byteStorageService.store(payloadId, payload);
   }
 
-  private async storeSubmittedTaskPayload(
-    task: PersistedTask,
-    leadershipContext: ConsensusLeadershipContext,
-    payload?: Buffer
-  ): Promise<void> {
+  /* task submission */
+
+  private async storeTaskSubmissionPayload(submission: TaskSubmission, payload?: Buffer): Promise<void> {
     try {
-      await this.storeTaskDataPayloadIfNeeded(task.payloadId, payload);
+      await this.storeTaskDataPayloadIfNeeded(submission.payloadId, payload);
     } catch (storageError) {
       try {
-        await this.rollbackTaskSubmission(task, leadershipContext);
-      } catch (rollbackError) {
+        await this.cleanupTaskSubmission(submission);
+      } catch (cleanupError) {
         const cause = createAggregateErrorCause([
           { source: 'payload storage', error: storageError },
-          { source: 'task submission rollback', error: rollbackError }
+          { source: 'task submission cleanup', error: cleanupError }
         ]);
 
-        throw new GenericInternalServerError('Task submission rollback failed after payload storage failed', {
+        throw new GenericInternalServerError('Failed to clean up task submission after payload storage failed', {
           cause
         });
       }
@@ -443,85 +451,132 @@ class TaskService implements TaskServiceContract {
     }
   }
 
-  private async rollbackTaskSubmission(
-    task: PersistedTask,
-    leadershipContext: ConsensusLeadershipContext
-  ): Promise<void> {
-    // reusing the rewound sequence in the same epoch is safe only because followers
-    // compare task contents and replace conflicting uncommitted tails.
-    await this.consensusService.withRewoundLastAllocatedSequence(
+  private async cleanupTaskSubmission(submission: TaskSubmission): Promise<void> {
+    const transitioned = await this.repository.transitionSubmissionState({
+      id: submission.id,
+      revision: submission.revision,
+      from: 'pending',
+      to: 'deleting',
+      at: new Date()
+    });
+
+    if (!transitioned) {
+      return;
+    }
+
+    if (submission.payloadId !== null) {
+      await this.byteStorageService.delete(submission.payloadId);
+    }
+
+    await this.repository.deleteSubmission({
+      id: submission.id,
+      state: 'deleting'
+    });
+  }
+
+  private async appendTaskSubmission(
+    submission: TaskSubmission,
+    consensusState: ConsensusState
+  ): Promise<PersistedTask> {
+    return this.consensusService.withAdvancedLastAllocatedSequence(
       {
-        leadershipContext,
-        sequence: task.sequence - 1n
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
       },
-      async (tx) => {
-        const tail = await this.repository.listTasksFromSequence(task.sequence, tx);
+      async (tx, sequence) => {
+        const task = await this.repository.create(
+          {
+            id: submission.id,
 
-        if (tail.length !== 1 || tail[0].id !== task.id) {
-          throw new GenericAbortedError('Task submission rollback was aborted because the allocated tail changed');
+            originMasterNodeId: submission.originMasterNodeId,
+            epoch: consensusState.currentEpoch,
+            sequence,
+
+            type: submission.type,
+            executionScope: submission.executionScope,
+            data: submission.data as Prisma.InputJsonValue,
+
+            payloadId: submission.payloadId,
+
+            createdAt: submission.createdAt,
+            updatedAt: submission.updatedAt
+          },
+          tx
+        );
+
+        if (submission.targetMasterIds.length > 0) {
+          await this.repository.createExecutions(
+            submission.targetMasterIds.map((targetMasterId) => ({
+              id: randomUUID(),
+              taskId: task.id,
+
+              targetMasterId,
+
+              createdAt: submission.createdAt,
+              updatedAt: submission.updatedAt
+            })),
+            tx
+          );
         }
 
-        const deletedCount = await this.repository.truncateFromSequence(task.sequence, tx);
+        const deleted = await this.repository.deleteSubmission(
+          {
+            id: submission.id,
+            state: 'pending'
+          },
+          tx
+        );
 
-        if (deletedCount !== 1) {
-          throw new GenericAbortedError('Task submission rollback was aborted because the task was not deleted');
+        if (!deleted) {
+          throw new GenericAbortedError('Task submission was changed before it could be appended');
         }
+
+        return task;
       }
     );
   }
 
-  /* task creation flows */
-
-  private async submitTaskWithId<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
+  private async prepareTaskSubmission<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
     definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
     data: TData,
+    targetMasterIds: MasterNodeId[],
     id: TaskId
-  ): Promise<PersistedTask> {
+  ): Promise<{ submission: TaskSubmission; consensusState: ConsensusState }> {
     const now = new Date();
 
     const consensusState = await this.requireLeadershipState();
 
     const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
 
-    const task = await this.consensusService.withAdvancedLastAllocatedSequence(
-      {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: this.selfMasterNodeId
-      },
-      (tx, sequence) =>
-        this.repository.create(
-          {
-            id,
+    const submission = await this.repository.createSubmission({
+      id,
 
-            originMasterNodeId: this.selfMasterNodeId,
-            epoch: consensusState.currentEpoch,
-            sequence,
+      originMasterNodeId: this.selfMasterNodeId,
 
-            type: definition.type,
-            executionScope: definition.executionScope,
-            data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
+      type: definition.type,
+      executionScope: definition.executionScope,
+      data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
+      targetMasterIds,
 
-            payloadId: dehydratedData.payloadId,
+      payloadId: dehydratedData.payloadId,
 
-            createdAt: now,
-            updatedAt: now
-          },
-          tx
-        )
-    );
+      createdAt: now,
+      updatedAt: now
+    });
 
-    // store the payload after task creation to avoid unreferenced bytes;
-    // if storage fails, roll back the uncommitted task.
-    await this.storeSubmittedTaskPayload(
-      task,
-      {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: this.selfMasterNodeId
-      },
-      dehydratedData.payload
-    );
+    await this.storeTaskSubmissionPayload(submission, dehydratedData.payload);
 
-    return task;
+    return { submission, consensusState };
+  }
+
+  private async submitTaskWithId<TType extends string, TData, TPersistedData, TScope extends TaskExecutionScope>(
+    definition: TaskDefinition<TType, TScope, TData, TPersistedData, unknown>,
+    data: TData,
+    id: TaskId
+  ): Promise<PersistedTask> {
+    const { submission, consensusState } = await this.prepareTaskSubmission(definition, data, [], id);
+
+    return this.appendTaskSubmission(submission, consensusState);
   }
 
   private async submitTaskWithExecutions<
@@ -535,67 +590,9 @@ class TaskService implements TaskServiceContract {
     targetMasterIds: MasterNodeId[],
     id: TaskId
   ): Promise<PersistedTask> {
-    const now = new Date();
+    const { submission, consensusState } = await this.prepareTaskSubmission(definition, data, targetMasterIds, id);
 
-    const consensusState = await this.requireLeadershipState();
-
-    const dehydratedData = this.dehydrateTaskDataIfNeeded(definition, data);
-
-    const task = await this.consensusService.withAdvancedLastAllocatedSequence(
-      {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: this.selfMasterNodeId
-      },
-      async (tx, sequence) => {
-        const createdTask = await this.repository.create(
-          {
-            id,
-
-            originMasterNodeId: this.selfMasterNodeId,
-            epoch: consensusState.currentEpoch,
-            sequence,
-
-            type: definition.type,
-            executionScope: definition.executionScope,
-            data: z.encode(definition.persistedDataSchema, dehydratedData.data) as Prisma.InputJsonValue,
-
-            payloadId: dehydratedData.payloadId,
-
-            createdAt: now,
-            updatedAt: now
-          },
-          tx
-        );
-
-        await this.repository.createExecutions(
-          targetMasterIds.map((targetMasterId) => ({
-            id: randomUUID(),
-            taskId: createdTask.id,
-
-            targetMasterId,
-
-            createdAt: now,
-            updatedAt: now
-          })),
-          tx
-        );
-
-        return createdTask;
-      }
-    );
-
-    // store the payload after task creation to avoid unreferenced bytes;
-    // if storage fails, roll back the uncommitted task.
-    await this.storeSubmittedTaskPayload(
-      task,
-      {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: this.selfMasterNodeId
-      },
-      dehydratedData.payload
-    );
-
-    return task;
+    return this.appendTaskSubmission(submission, consensusState);
   }
 }
 

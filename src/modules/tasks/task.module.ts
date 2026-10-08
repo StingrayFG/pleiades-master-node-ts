@@ -6,6 +6,7 @@ import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import { TaskLifecycleHandler, type TaskLifecycleHandlerContract } from './lifecycle/task.lifecycle-handler';
 import { TaskPayloadCleanupHandler } from './lifecycle/task-payload-cleanup.handler';
+import { TaskSubmissionCleanupHandler } from './lifecycle/task-submission-cleanup.handler';
 import { UncommittedTaskCleanupHandler } from './lifecycle/uncommitted-task-cleanup.handler';
 import { TaskApplyHandler } from './task.apply-handler';
 import type { TaskConfig } from './task.config';
@@ -73,9 +74,15 @@ const createTaskModule = ({
 
   const taskPayloadCleanupHandler = new TaskPayloadCleanupHandler(repository, byteStorageService, taskConfig);
 
+  const taskSubmissionCleanupHandler = new TaskSubmissionCleanupHandler(repository, byteStorageService, taskConfig);
+
   const uncommittedTaskCleanupHandler = new UncommittedTaskCleanupHandler(repository, consensusService, taskConfig);
 
-  const lifecycleHandler = new TaskLifecycleHandler(uncommittedTaskCleanupHandler, taskPayloadCleanupHandler);
+  const lifecycleHandler = new TaskLifecycleHandler(
+    taskSubmissionCleanupHandler,
+    uncommittedTaskCleanupHandler,
+    taskPayloadCleanupHandler
+  );
 
   return {
     repository,

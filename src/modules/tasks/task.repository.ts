@@ -7,15 +7,30 @@ import type {
   ClearTaskPayloadIdRepositoryInput,
   CreateTaskExecutionRepositoryInput,
   CreateTaskRepositoryInput,
+  CreateTaskSubmissionRepositoryInput,
+  DeleteTaskSubmissionRepositoryInput,
   FailTaskExecutionRepositoryInput,
   ListPayloadCleanupCandidatesRepositoryInput,
+  ListTaskSubmissionCleanupCandidatesRepositoryInput,
   ListTasksInSequenceRangeRepositoryInput,
   ListUncommittedCleanupCandidatesRepositoryInput,
+  TransitionTaskSubmissionRepositoryInput,
   TransitionTaskExecutionRepositoryInput,
   UpdateTaskStateRepositoryInput
 } from './task.application';
-import type { PersistedTask, TaskExecution, TaskExecutionScope, TaskId, TaskSequence } from './task.domain';
-import { mapPrismaTaskExecutionToDomainTaskExecution, mapPrismaTaskToDomainTask } from './task.mappers';
+import type {
+  PersistedTask,
+  TaskExecution,
+  TaskExecutionScope,
+  TaskId,
+  TaskSequence,
+  TaskSubmission
+} from './task.domain';
+import {
+  mapPrismaTaskExecutionToDomainTaskExecution,
+  mapPrismaTaskSubmissionToDomainTaskSubmission,
+  mapPrismaTaskToDomainTask
+} from './task.mappers';
 
 /* contract */
 
@@ -25,6 +40,7 @@ type TaskRepositoryContract = {
   listTasksFromSequence(sequence: TaskSequence, tx?: Prisma.TransactionClient): Promise<PersistedTask[]>;
   listPayloadCleanupCandidates(input: ListPayloadCleanupCandidatesRepositoryInput): Promise<PersistedTask[]>;
   listUncommittedCleanupCandidates(input: ListUncommittedCleanupCandidatesRepositoryInput): Promise<PersistedTask[]>;
+  listSubmissionCleanupCandidates(input: ListTaskSubmissionCleanupCandidatesRepositoryInput): Promise<TaskSubmission[]>;
   listExecutionsByTaskId(taskId: TaskId): Promise<TaskExecution[]>;
 
   // find
@@ -40,11 +56,17 @@ type TaskRepositoryContract = {
     inputs: CreateTaskExecutionRepositoryInput[],
     tx?: Prisma.TransactionClient
   ): Promise<TaskExecution[]>;
+  createSubmission<TType extends string, TScope extends TaskExecutionScope>(
+    input: CreateTaskSubmissionRepositoryInput<TType, TScope>
+  ): Promise<TaskSubmission>;
 
   // execution
   markExecutionExecuting(input: TransitionTaskExecutionRepositoryInput): Promise<TaskExecution>;
   markExecutionCompleted(input: TransitionTaskExecutionRepositoryInput): Promise<TaskExecution>;
   markExecutionFailed(input: FailTaskExecutionRepositoryInput): Promise<TaskExecution>;
+
+  // submission
+  transitionSubmissionState(input: TransitionTaskSubmissionRepositoryInput): Promise<boolean>;
 
   // update
   updateTaskState(input: UpdateTaskStateRepositoryInput): Promise<PersistedTask>;
@@ -52,6 +74,7 @@ type TaskRepositoryContract = {
 
   // delete
   truncateFromSequence(sequence: TaskSequence, tx?: Prisma.TransactionClient): Promise<number>;
+  deleteSubmission(input: DeleteTaskSubmissionRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean>;
 };
 
 /* repository */
@@ -176,6 +199,33 @@ class TaskRepository implements TaskRepositoryContract {
     return tasks.map(mapPrismaTaskToDomainTask);
   }
 
+  async listSubmissionCleanupCandidates(
+    input: ListTaskSubmissionCleanupCandidatesRepositoryInput
+  ): Promise<TaskSubmission[]> {
+    let submissions;
+
+    try {
+      submissions = await this.prisma.taskSubmission.findMany({
+        where: {
+          state: {
+            in: ['pending', 'deleting']
+          },
+          updated_at: {
+            lte: input.updatedBefore
+          }
+        },
+        orderBy: {
+          updated_at: 'asc'
+        },
+        take: input.limit
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return submissions.map(mapPrismaTaskSubmissionToDomainTaskSubmission);
+  }
+
   async listExecutionsByTaskId(taskId: TaskId): Promise<TaskExecution[]> {
     let executions;
 
@@ -292,6 +342,38 @@ class TaskRepository implements TaskRepositoryContract {
     return executions.map(mapPrismaTaskExecutionToDomainTaskExecution);
   }
 
+  async createSubmission<TType extends string, TScope extends TaskExecutionScope>(
+    input: CreateTaskSubmissionRepositoryInput<TType, TScope>
+  ): Promise<TaskSubmission> {
+    let submission;
+
+    try {
+      submission = await this.prisma.taskSubmission.create({
+        data: {
+          id: input.id,
+
+          origin_master_id: input.originMasterNodeId,
+
+          type: input.type,
+          execution_scope: input.executionScope,
+          data: input.data,
+          target_master_ids: input.targetMasterIds,
+
+          payload_id: input.payloadId,
+
+          state: 'pending',
+
+          created_at: input.createdAt,
+          updated_at: input.updatedAt
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaTaskSubmissionToDomainTaskSubmission(submission);
+  }
+
   private toExecutionCreateData(input: CreateTaskExecutionRepositoryInput) {
     return {
       id: input.id,
@@ -383,6 +465,33 @@ class TaskRepository implements TaskRepositoryContract {
     return mapPrismaTaskExecutionToDomainTaskExecution(execution);
   }
 
+  /* submission methods */
+
+  async transitionSubmissionState(input: TransitionTaskSubmissionRepositoryInput): Promise<boolean> {
+    let transitionResult;
+
+    try {
+      transitionResult = await this.prisma.taskSubmission.updateMany({
+        where: {
+          id: input.id,
+          revision: input.revision,
+          state: input.from
+        },
+        data: {
+          state: input.to,
+          updated_at: input.at,
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return transitionResult.count === 1;
+  }
+
   /* update methods */
 
   async updateTaskState(input: UpdateTaskStateRepositoryInput): Promise<PersistedTask> {
@@ -455,6 +564,25 @@ class TaskRepository implements TaskRepositoryContract {
     }
 
     return truncationResult.count;
+  }
+
+  async deleteSubmission(input: DeleteTaskSubmissionRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const client = tx ?? this.prisma;
+
+    let deletionResult;
+
+    try {
+      deletionResult = await client.taskSubmission.deleteMany({
+        where: {
+          id: input.id,
+          state: input.state
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return deletionResult.count === 1;
   }
 }
 

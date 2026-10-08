@@ -18,7 +18,7 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { TaskApplyHandlerContract } from '../task.apply-handler';
 import type { TaskConfig } from '../task.config';
 import { createDehydratedTaskDefinition, createTaskDefinition } from '../task.definition';
-import type { PersistedTask, TaskExecution } from '../task.domain';
+import type { PersistedTask, TaskExecution, TaskSubmission } from '../task.domain';
 import type { TaskForwarderContract } from '../task.forwarder';
 import type { TaskHandlerRegistryContract } from '../task.handler-registry';
 import type { TaskRepositoryContract } from '../task.repository';
@@ -34,6 +34,7 @@ const config: TaskConfig = {
   applyBatchSize: 32,
   executionWaitTimeoutMs: 10_000,
   lifecycle: {
+    submissionCleanup: { afterMs: 5_000, batchSize: 2 },
     uncommittedCleanup: { afterMs: 10_000, batchSize: 3 },
     payloadCleanup: { afterMs: 20_000, batchSize: 4 }
   }
@@ -52,6 +53,20 @@ const task: PersistedTask = {
   payloadId: null,
   createdAt: now,
   updatedAt: now
+};
+
+const submission: TaskSubmission = {
+  id: task.id,
+  originMasterNodeId: selfMasterNodeId,
+  type: task.type,
+  data: task.data,
+  executionScope: task.executionScope,
+  targetMasterIds: [],
+  payloadId: null,
+  state: 'pending',
+  createdAt: now,
+  updatedAt: now,
+  revision: 0n
 };
 
 const execution: TaskExecution = {
@@ -111,17 +126,21 @@ const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     listTasksFromSequence: jest.fn<TaskRepositoryContract['listTasksFromSequence']>(),
     listPayloadCleanupCandidates: jest.fn<TaskRepositoryContract['listPayloadCleanupCandidates']>(),
     listUncommittedCleanupCandidates: jest.fn<TaskRepositoryContract['listUncommittedCleanupCandidates']>(),
+    listSubmissionCleanupCandidates: jest.fn<TaskRepositoryContract['listSubmissionCleanupCandidates']>(),
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
     findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
+    createSubmission: jest.fn<TaskRepositoryContract['createSubmission']>(),
     markExecutionExecuting: jest.fn<TaskRepositoryContract['markExecutionExecuting']>(),
     markExecutionCompleted: jest.fn<TaskRepositoryContract['markExecutionCompleted']>(),
     markExecutionFailed: jest.fn<TaskRepositoryContract['markExecutionFailed']>(),
+    transitionSubmissionState: jest.fn<TaskRepositoryContract['transitionSubmissionState']>(),
     updateTaskState: jest.fn<TaskRepositoryContract['updateTaskState']>(),
     clearPayloadId: jest.fn<TaskRepositoryContract['clearPayloadId']>(),
-    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>()
+    truncateFromSequence: jest.fn<TaskRepositoryContract['truncateFromSequence']>(),
+    deleteSubmission: jest.fn<TaskRepositoryContract['deleteSubmission']>()
   };
 
   repository.findById.mockResolvedValue(null);
@@ -129,6 +148,13 @@ const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
   repository.listTasksFromSequence.mockResolvedValue([]);
   repository.create.mockResolvedValue(task);
   repository.createExecutions.mockResolvedValue([execution]);
+  repository.createSubmission.mockImplementation(async (input) => ({
+    ...submission,
+    ...input,
+    data: input.data as TaskSubmission['data']
+  }));
+  repository.transitionSubmissionState.mockResolvedValue(true);
+  repository.deleteSubmission.mockResolvedValue(true);
 
   return repository;
 };
@@ -784,6 +810,17 @@ describe('TaskService', () => {
   test('submits an inline task under the next allocated sequence without committing it', async () => {
     await expect(service.submitTask(definition, { value: 'test' })).resolves.toBe(task);
 
+    expect(repository.createSubmission).toHaveBeenCalledWith({
+      id: expect.any(String),
+      originMasterNodeId: selfMasterNodeId,
+      type: definition.type,
+      executionScope: definition.executionScope,
+      data: { value: 'test' },
+      targetMasterIds: [],
+      payloadId: null,
+      createdAt: now,
+      updatedAt: now
+    });
     expect(consensusService.withAdvancedLastAllocatedSequence).toHaveBeenCalledWith(
       leadershipContext,
       expect.any(Function)
@@ -803,6 +840,10 @@ describe('TaskService', () => {
       },
       expect.any(Object)
     );
+    expect(repository.deleteSubmission).toHaveBeenCalledWith(
+      { id: expect.any(String), state: 'pending' },
+      expect.any(Object)
+    );
     expect(byteStorageService.store).not.toHaveBeenCalled();
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
@@ -814,69 +855,96 @@ describe('TaskService', () => {
       GenericFailedPreconditionError
     );
 
+    expect(repository.createSubmission).not.toHaveBeenCalled();
     expect(repository.create).not.toHaveBeenCalled();
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
-  test('stores dehydrated task payloads after creating their task rows', async () => {
+  test('stores dehydrated task payloads before allocating their task entries', async () => {
     const bytes = Buffer.from('payload');
 
     repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
 
     await service.submitTask(dehydratedDefinition, { name: 'test', bytes });
 
+    const submissionInput = repository.createSubmission.mock.calls[0][0];
     const createInput = repository.create.mock.calls[0][0];
 
-    expect(createInput).toMatchObject({
+    expect(submissionInput).toMatchObject({
       type: dehydratedDefinition.type,
       data: { name: 'test' },
       payloadId: expect.any(String)
     });
-    expect(byteStorageService.store).toHaveBeenCalledWith(createInput.payloadId!, bytes);
+    expect(createInput.payloadId).toBe(submissionInput.payloadId);
+    expect(byteStorageService.store).toHaveBeenCalledWith(submissionInput.payloadId!, bytes);
+    expect(repository.createSubmission.mock.invocationCallOrder[0]).toBeLessThan(
+      byteStorageService.store.mock.invocationCallOrder[0]
+    );
+    expect(byteStorageService.store.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.create.mock.invocationCallOrder[0]
+    );
   });
 
-  test('rolls back a dehydrated task when payload storage fails', async () => {
+  test('removes the unsequenced submission when payload storage fails', async () => {
     const storageError = new Error('storage failed');
 
-    repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
     byteStorageService.store.mockRejectedValue(storageError);
-    repository.listTasksFromSequence.mockResolvedValue([task]);
-    repository.truncateFromSequence.mockResolvedValue(1);
 
     await expect(
       service.submitTask(dehydratedDefinition, { name: 'test', bytes: Buffer.from('payload') })
     ).rejects.toBe(storageError);
 
-    expect(repository.create).toHaveBeenCalled();
-    expect(consensusService.withRewoundLastAllocatedSequence).toHaveBeenCalledWith(
-      {
-        leadershipContext,
-        sequence: task.sequence - 1n
-      },
-      expect.any(Function)
-    );
-    expect(repository.listTasksFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
-    expect(repository.truncateFromSequence).toHaveBeenCalledWith(task.sequence, expect.any(Object));
-    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(repository.transitionSubmissionState).toHaveBeenCalledWith({
+      id: expect.any(String),
+      revision: submission.revision,
+      from: 'pending',
+      to: 'deleting',
+      at: now
+    });
+    expect(byteStorageService.delete).toHaveBeenCalledWith(expect.any(String));
+    expect(repository.deleteSubmission).toHaveBeenCalledWith({ id: expect.any(String), state: 'deleting' });
+    expect(consensusService.withAdvancedLastAllocatedSequence).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
-  test('preserves a changed task tail when payload storage and submission rollback fail', async () => {
+  test('reports both failures when a failed payload submission cannot be cleaned up', async () => {
     const storageError = new Error('storage failed');
-    const laterTask = {
-      ...task,
-      id: '00000000-0000-4000-8000-000000000003',
-      sequence: task.sequence + 1n
-    };
+    const cleanupError = new Error('cleanup failed');
 
-    repository.create.mockImplementation(async (input) => ({ ...task, payloadId: input.payloadId }));
     byteStorageService.store.mockRejectedValue(storageError);
-    repository.listTasksFromSequence.mockResolvedValue([task, laterTask]);
+    repository.transitionSubmissionState.mockRejectedValue(cleanupError);
 
     const result = service.submitTask(dehydratedDefinition, { name: 'test', bytes: Buffer.from('payload') });
 
-    await expect(result).rejects.toThrow('Task submission rollback failed after payload storage failed');
+    await expect(result).rejects.toThrow('Failed to clean up task submission after payload storage failed');
     await expect(result).rejects.toBeInstanceOf(GenericInternalServerError);
-    expect(repository.truncateFromSequence).not.toHaveBeenCalled();
+    expect(consensusService.withAdvancedLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('does not store a payload when task submission staging fails', async () => {
+    const submissionError = new Error('submission failed');
+
+    repository.createSubmission.mockRejectedValue(submissionError);
+
+    await expect(
+      service.submitTask(dehydratedDefinition, { name: 'test', bytes: Buffer.from('payload') })
+    ).rejects.toBe(submissionError);
+
+    expect(byteStorageService.store).not.toHaveBeenCalled();
+    expect(consensusService.withAdvancedLastAllocatedSequence).not.toHaveBeenCalled();
+  });
+
+  test('leaves a staged submission for cleanup when task entry allocation fails', async () => {
+    const appendError = new Error('append failed');
+    const bytes = Buffer.from('payload');
+
+    repository.create.mockRejectedValue(appendError);
+
+    await expect(service.submitTask(dehydratedDefinition, { name: 'test', bytes })).rejects.toBe(appendError);
+
+    expect(byteStorageService.store).toHaveBeenCalledWith(expect.any(String), bytes);
+    expect(repository.transitionSubmissionState).not.toHaveBeenCalled();
+    expect(repository.deleteSubmission).not.toHaveBeenCalled();
   });
 
   test('executes a registered task against targets resolved from its scope', async () => {
