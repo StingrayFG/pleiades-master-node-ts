@@ -48,11 +48,12 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
     const leader = await this.masterNodeService.getMasterNodeById(consensusState.leaderMasterId);
 
     const leaderEndpoint = mapMasterNodeToMasterNodeEndpoint(leader);
+    const replicationStartSequence = consensusState.lastMatchedSequence;
 
     const fetchResult = await this.masterNodeGrpcClient.fetchTaskEntries({
       masterNodeEndpoint: leaderEndpoint,
       expectedCertificateFingerprint: leader.certificateFingerprint,
-      afterSequence: consensusState.lastCommittedSequence,
+      afterSequence: replicationStartSequence,
       limit: this.masterNodeConfig.replication.batchSize
     });
 
@@ -79,6 +80,10 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
       throw new GenericAbortedError('Task replication was aborted because cluster leadership changed');
     }
 
+    if (followerState.lastMatchedSequence !== replicationStartSequence) {
+      return;
+    }
+
     const leadershipContext: ConsensusLeadershipContext = {
       epoch: fetchResult.epoch,
       leaderMasterId: consensusState.leaderMasterId
@@ -88,7 +93,7 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
       masterNodeEndpoint: leaderEndpoint,
       expectedCertificateFingerprint: leader.certificateFingerprint,
       entries: fetchResult.entries,
-      initialSequence: consensusState.lastCommittedSequence,
+      initialSequence: replicationStartSequence,
       leaderLastCommittedSequence: fetchResult.lastCommittedSequence,
       leadershipContext
     });
@@ -125,8 +130,6 @@ class MasterNodeTaskReplicationHandler implements MasterNodeTaskReplicationHandl
       throw new GenericFailedPreconditionError('The leader returned task entries beyond its allocated sequence');
     }
 
-    // the leader's committed sequence may transiently lag the local one after an
-    // election; the local committed sequence never moves backward regardless
     if (input.fetchResult.entries.length > this.masterNodeConfig.replication.batchSize) {
       throw new GenericFailedPreconditionError('The leader returned more task entries than requested');
     }

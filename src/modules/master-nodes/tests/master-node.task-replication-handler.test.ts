@@ -222,6 +222,87 @@ describe('MasterNodeTaskReplicationHandler', () => {
     );
   });
 
+  test('continues task replication after the last matched sequence', async () => {
+    const nextEntry: InternodeTaskEntry = {
+      ...entry,
+      id: '00000000-0000-4000-8000-000000000004',
+      sequence: 1n,
+      payloadId: null
+    };
+    const matchedConsensusState: ConsensusState = {
+      ...consensusState,
+      currentEpoch: 3n,
+      lastAllocatedSequence: 0n,
+      lastMatchedSequence: 0n
+    };
+
+    consensusService.getConsensusState.mockResolvedValue(matchedConsensusState);
+    consensusService.acceptFollowership.mockResolvedValue(matchedConsensusState);
+    masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
+      epoch: 3n,
+      lastAllocatedSequence: 1n,
+      lastCommittedSequence: -1n,
+      clusterMembershipRevision,
+      entries: [nextEntry]
+    });
+
+    await expect(handler.run()).resolves.toBeUndefined();
+
+    expect(masterNodeGrpcClient.fetchTaskEntries).toHaveBeenCalledWith({
+      masterNodeEndpoint: {
+        hostname: leader.hostname,
+        port: leader.port,
+        scheme: leader.scheme
+      },
+      expectedCertificateFingerprint: leaderCertificateFingerprint,
+      afterSequence: matchedConsensusState.lastMatchedSequence,
+      limit: config.replication.batchSize
+    });
+    expect(taskService.replicateTask).toHaveBeenCalledWith(
+      {
+        ...nextEntry,
+        payload: undefined
+      },
+      replicatedLeadershipContext
+    );
+    expect(consensusService.advanceLastMatchedSequence).toHaveBeenCalledWith({
+      leadershipContext: replicatedLeadershipContext,
+      sequence: nextEntry.sequence
+    });
+  });
+
+  test('defers fetched entries when a newer leader epoch resets matched progress', async () => {
+    const previousEpochConsensusState: ConsensusState = {
+      ...consensusState,
+      lastAllocatedSequence: 0n,
+      lastMatchedSequence: 0n
+    };
+
+    consensusService.getConsensusState.mockResolvedValue(previousEpochConsensusState);
+    consensusService.acceptFollowership.mockResolvedValue({
+      ...previousEpochConsensusState,
+      currentEpoch: 3n,
+      lastMatchedSequence: previousEpochConsensusState.lastCommittedSequence
+    });
+    masterNodeGrpcClient.fetchTaskEntries.mockResolvedValue({
+      epoch: 3n,
+      lastAllocatedSequence: 1n,
+      lastCommittedSequence: -1n,
+      clusterMembershipRevision,
+      entries: [{ ...entry, sequence: 1n }]
+    });
+
+    await expect(handler.run()).resolves.toBeUndefined();
+
+    expect(masterNodeGrpcClient.fetchTaskEntries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        afterSequence: previousEpochConsensusState.lastMatchedSequence
+      })
+    );
+    expect(taskService.replicateTask).not.toHaveBeenCalled();
+    expect(consensusService.advanceLastMatchedSequence).not.toHaveBeenCalled();
+  });
+
   test('rejects a fetched batch when consensus advances before replication begins', async () => {
     consensusService.acceptFollowership.mockResolvedValue({
       ...consensusState,
