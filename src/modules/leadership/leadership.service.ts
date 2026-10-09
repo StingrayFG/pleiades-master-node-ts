@@ -22,11 +22,11 @@ import { leadershipBarrierTaskDefinition } from './leadership.tasks';
 /* contract */
 
 type LeadershipServiceContract = {
-  // rpc
+  // heartbeats
   recordLeaderHeartbeat(input: RecordLeaderHeartbeatInput): Promise<RecordLeaderHeartbeatResult>;
-
-  // leadership
   broadcastLeaderHeartbeat(now?: Date): Promise<void>;
+
+  // commitment
   evaluateCommitment(): Promise<void>;
 };
 
@@ -55,7 +55,7 @@ class LeadershipService implements LeadershipServiceContract {
 
   /* public methods */
 
-  /* rpc methods */
+  /* heartbeat methods */
 
   // handles a heartbeat from the current leader by validating its epoch,
   // refreshing local followership, and returning local matched sequence progress.
@@ -97,8 +97,6 @@ class LeadershipService implements LeadershipServiceContract {
       };
     }
   }
-
-  /* leadership methods */
 
   // broadcasts the leader's epoch and committed sequence to voting followers,
   // collects their matched sequence progress, and releases leadership if a quorum
