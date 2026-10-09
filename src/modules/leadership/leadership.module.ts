@@ -7,6 +7,7 @@ import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { LeadershipConfig } from './leadership.config';
 import { LeadershipService } from './leadership.service';
+import { leadershipBarrierTaskDefinition } from './leadership.tasks';
 import { LeadershipCommitmentHandler } from './lifecycle/leadership.commitment-handler';
 
 /* contract */
@@ -37,6 +38,8 @@ const createLeadershipModule = ({
   selfMasterNodeId,
   config
 }: LeadershipModuleDependencies): LeadershipModule => {
+  taskService.registerHandler(leadershipBarrierTaskDefinition, async () => undefined);
+
   const service = new LeadershipService(
     consensusService,
     masterNodeService,

@@ -1,5 +1,5 @@
 import { GenericAbortedError, GenericConflictError, GenericInternalServerError } from '@/errors/application.errors';
-import type { ConsensusEpoch } from '@/modules/consensus/consensus.domain';
+import type { ConsensusEpoch, ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import {
   isMasterNodeEligibleForElection,
@@ -15,6 +15,7 @@ import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { RecordLeaderHeartbeatInput, RecordLeaderHeartbeatResult } from './leadership.application';
 import type { LeadershipConfig } from './leadership.config';
+import { leadershipBarrierTaskDefinition } from './leadership.tasks';
 
 /* contract */
 
@@ -30,6 +31,7 @@ type LeadershipServiceContract = {
 /* service */
 
 class LeadershipService implements LeadershipServiceContract {
+  private barrierSubmissionFailureStartedAtMs: number | null = null;
   private quorumLossStartedAtMs: number | null = null;
   private matchSequenceEpoch: ConsensusEpoch | null = null;
 
@@ -118,6 +120,21 @@ class LeadershipService implements LeadershipServiceContract {
       return;
     }
 
+    const hasLeadershipBarrier = await this.ensureLeadershipBarrier(consensusState);
+
+    if (hasLeadershipBarrier) {
+      this.barrierSubmissionFailureStartedAtMs = null;
+    } else if (this.barrierSubmissionFailureStartedAtMs === null) {
+      this.barrierSubmissionFailureStartedAtMs = now.getTime();
+    } else if (now.getTime() - this.barrierSubmissionFailureStartedAtMs >= this.config.barrierFailureTimeoutMs) {
+      this.clearLeadershipProgress();
+      await this.consensusService.releaseLeadership({
+        epoch: consensusState.currentEpoch,
+        leaderMasterId: this.selfMasterNodeId
+      });
+      return;
+    }
+
     this.synchronizeMatchSequenceProgress(consensusState.currentEpoch);
 
     const peers = masterNodes.filter(
@@ -183,7 +200,11 @@ class LeadershipService implements LeadershipServiceContract {
 
     if (acceptedNodeCount >= resolveElectionQuorumSize(masterNodes.filter(isMasterNodeVotingMember).length)) {
       this.quorumLossStartedAtMs = null;
-      await this.evaluateCommitment();
+
+      if (hasLeadershipBarrier) {
+        await this.evaluateCommitment();
+      }
+
       return;
     }
 
@@ -271,6 +292,33 @@ class LeadershipService implements LeadershipServiceContract {
 
   /* private methods */
 
+  /* leadership barrier */
+
+  private async ensureLeadershipBarrier(consensusState: ConsensusState): Promise<boolean> {
+    if (consensusState.lastAllocatedSequence >= 0n) {
+      const lastTask = await this.taskService.findTaskBySequence(consensusState.lastAllocatedSequence);
+
+      if (!lastTask) {
+        throw new GenericInternalServerError('Consensus state references a missing final task entry');
+      }
+
+      if (lastTask.epoch === consensusState.currentEpoch) {
+        return true;
+      }
+    }
+
+    try {
+      await this.taskService.submitTask(leadershipBarrierTaskDefinition, {});
+
+      return true;
+    } catch {
+      // defer the failed submission without aborting the heartbeat round.
+      return false;
+    }
+  }
+
+  /* progress tracking */
+
   private synchronizeMatchSequenceProgress(epoch: ConsensusEpoch): void {
     if (this.matchSequenceEpoch === epoch) {
       return;
@@ -281,6 +329,7 @@ class LeadershipService implements LeadershipServiceContract {
   }
 
   private clearLeadershipProgress(): void {
+    this.barrierSubmissionFailureStartedAtMs = null;
     this.quorumLossStartedAtMs = null;
     this.matchSequenceEpoch = null;
     this.latestMatchedSequencesByMasterNodeId.clear();

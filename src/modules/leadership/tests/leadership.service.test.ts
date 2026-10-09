@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
+import { GenericInternalServerError } from '@/errors/application.errors';
 import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
@@ -11,12 +12,14 @@ import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
 import type { LeadershipConfig } from '../leadership.config';
 import { LeadershipService } from '../leadership.service';
+import { leadershipBarrierTaskDefinition } from '../leadership.tasks';
 
 /* fixtures */
 
 const now = new Date('2026-01-01T00:00:00.000Z');
 const selfMasterNodeId = 'master-node-aaaaaaaaaaaa';
 const config: LeadershipConfig = {
+  barrierFailureTimeoutMs: 5_000,
   quorumLossTimeoutMs: 5_000
 };
 
@@ -76,7 +79,7 @@ const masterNodes = [
 const lastTask: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000001',
   originMasterNodeId: selfMasterNodeId,
-  epoch: 2n,
+  epoch: 3n,
   sequence: 4n,
   type: 'bucket.create',
   executionScope: 'cluster',
@@ -105,9 +108,7 @@ describe('LeadershipService', () => {
         ...consensusState,
         currentEpoch: 3n
       }),
-      releaseLeadership: jest
-        .fn<ConsensusServiceContract['releaseLeadership']>()
-        .mockResolvedValue(electionState),
+      releaseLeadership: jest.fn<ConsensusServiceContract['releaseLeadership']>().mockResolvedValue(electionState),
       adoptNewerEpoch: jest.fn<ConsensusServiceContract['adoptNewerEpoch']>().mockImplementation(async (epoch) => ({
         ...electionState,
         currentEpoch: epoch
@@ -129,7 +130,8 @@ describe('LeadershipService', () => {
     } as unknown as jest.Mocked<MasterNodeGrpcClientContract>;
 
     taskService = {
-      findTaskBySequence: jest.fn<TaskServiceContract['findTaskBySequence']>().mockResolvedValue(lastTask)
+      findTaskBySequence: jest.fn<TaskServiceContract['findTaskBySequence']>().mockResolvedValue(lastTask),
+      submitTask: jest.fn<TaskServiceContract['submitTask']>()
     } as unknown as jest.Mocked<TaskServiceContract>;
 
     taskApplyHandler = {
@@ -213,6 +215,99 @@ describe('LeadershipService', () => {
       epoch: leaderState.currentEpoch,
       leaderMasterId: selfMasterNodeId
     });
+  });
+
+  test('submits a leadership barrier when the final task belongs to an older epoch', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, epoch: 2n });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(taskService.submitTask).toHaveBeenCalledWith(leadershipBarrierTaskDefinition, {});
+    expect(taskService.submitTask.mock.invocationCallOrder[0]).toBeLessThan(
+      masterNodeGrpcClient.recordLeaderHeartbeat.mock.invocationCallOrder[0]
+    );
+  });
+
+  test('continues heartbeats while a leadership barrier submission failure is transient', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, epoch: 2n });
+    taskService.submitTask.mockRejectedValue(new Error('submission failed'));
+
+    await service.broadcastLeaderHeartbeat(now);
+
+    expect(masterNodeGrpcClient.recordLeaderHeartbeat).toHaveBeenCalledTimes(2);
+    expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
+    expect(consensusService.releaseLeadership).not.toHaveBeenCalled();
+  });
+
+  test('releases leadership when barrier submission keeps failing through the timeout', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, epoch: 2n });
+    taskService.submitTask.mockRejectedValue(new Error('submission failed'));
+
+    await service.broadcastLeaderHeartbeat(now);
+    await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.barrierFailureTimeoutMs));
+
+    expect(masterNodeGrpcClient.recordLeaderHeartbeat).toHaveBeenCalledTimes(2);
+    expect(consensusService.releaseLeadership).toHaveBeenCalledWith({
+      epoch: leaderState.currentEpoch,
+      leaderMasterId: selfMasterNodeId
+    });
+  });
+
+  test('clears a pending barrier failure timeout after the barrier is submitted', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, epoch: 2n });
+    taskService.submitTask.mockRejectedValueOnce(new Error('submission failed'));
+
+    await service.broadcastLeaderHeartbeat(now);
+    await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.barrierFailureTimeoutMs));
+
+    taskService.submitTask.mockRejectedValueOnce(new Error('submission failed'));
+
+    await service.broadcastLeaderHeartbeat(new Date(now.getTime() + config.barrierFailureTimeoutMs * 2));
+
+    expect(masterNodeGrpcClient.recordLeaderHeartbeat).toHaveBeenCalledTimes(6);
+    expect(consensusService.releaseLeadership).not.toHaveBeenCalled();
+  });
+
+  test('submits a leadership barrier when the task log is empty', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: -1n,
+      lastMatchedSequence: -1n,
+      lastCommittedSequence: -1n,
+      lastAppliedSequence: -1n
+    });
+    masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
+      epoch: leaderState.currentEpoch,
+      accepted: true,
+      lastMatchedSequence: -1n
+    });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(taskService.findTaskBySequence).not.toHaveBeenCalled();
+    expect(taskService.submitTask).toHaveBeenCalledWith(leadershipBarrierTaskDefinition, {});
+  });
+
+  test('does not submit a leadership barrier when the final task belongs to the current epoch', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(taskService.submitTask).not.toHaveBeenCalled();
+  });
+
+  test('rejects heartbeat broadcasting when the final allocated task is missing', async () => {
+    consensusService.getConsensusState.mockResolvedValue(leaderState);
+    taskService.findTaskBySequence.mockResolvedValue(null);
+
+    await expect(service.broadcastLeaderHeartbeat()).rejects.toBeInstanceOf(GenericInternalServerError);
+
+    expect(taskService.submitTask).not.toHaveBeenCalled();
+    expect(masterNodeGrpcClient.recordLeaderHeartbeat).not.toHaveBeenCalled();
   });
 
   test('retains leadership through a transient heartbeat quorum failure', async () => {
@@ -381,6 +476,7 @@ describe('LeadershipService', () => {
 
     consensusService.getConsensusState.mockImplementation(async () => currentState);
     taskService.findTaskBySequence
+      .mockResolvedValueOnce({ ...lastTask, sequence: 6n, epoch: 3n })
       .mockResolvedValueOnce({ ...lastTask, sequence: 6n, epoch: 2n })
       .mockResolvedValueOnce({ ...lastTask, sequence: 6n, epoch: 4n });
     masterNodeGrpcClient.recordLeaderHeartbeat
@@ -399,7 +495,7 @@ describe('LeadershipService', () => {
 
     await service.broadcastLeaderHeartbeat();
 
-    expect(taskService.findTaskBySequence).toHaveBeenCalledTimes(1);
+    expect(taskService.findTaskBySequence).toHaveBeenCalledTimes(3);
     expect(consensusService.advanceLastCommittedSequence).not.toHaveBeenCalled();
   });
 
@@ -439,6 +535,7 @@ describe('LeadershipService', () => {
       lastAllocatedSequence: 6n,
       lastCommittedSequence: 4n
     });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 2n });
     masterNodeGrpcClient.recordLeaderHeartbeat.mockResolvedValue({
       epoch: 3n,
       accepted: true,
