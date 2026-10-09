@@ -86,7 +86,6 @@ describe('ClusterService', () => {
     await expect(service.initializeCluster()).resolves.toBe(cluster);
 
     expect(repository.create).toHaveBeenCalledWith({
-      id: CLUSTER_RECORD_ID,
       clusterId: expect.any(String)
     });
 
@@ -140,7 +139,6 @@ describe('ClusterService', () => {
   test('registers an existing cluster identity locally', async () => {
     await expect(service.registerCluster(cluster.clusterId)).resolves.toBe(cluster);
     expect(repository.create).toHaveBeenCalledWith({
-      id: CLUSTER_RECORD_ID,
       clusterId: cluster.clusterId
     });
   });

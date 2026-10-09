@@ -7,7 +7,7 @@ import {
   GenericFailedPreconditionError
 } from '@/errors/application.errors';
 
-import { CLUSTER_RECORD_ID, type Cluster, type ClusterId } from './cluster.domain';
+import type { Cluster, ClusterId } from './cluster.domain';
 import type { MembershipRevisionTransactionAction } from './cluster.application';
 import type { ClusterRepositoryContract } from './cluster.repository';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
@@ -56,7 +56,6 @@ class ClusterService implements ClusterServiceContract {
 
     try {
       return await this.repository.create({
-        id: CLUSTER_RECORD_ID,
         clusterId: randomUUID()
       });
     } catch (err) {
@@ -87,7 +86,6 @@ class ClusterService implements ClusterServiceContract {
 
     try {
       return await this.repository.create({
-        id: CLUSTER_RECORD_ID,
         clusterId
       });
     } catch (err) {

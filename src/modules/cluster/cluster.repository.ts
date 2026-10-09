@@ -78,7 +78,7 @@ class ClusterRepository implements ClusterRepositoryContract {
     try {
       cluster = await this.prisma.cluster.create({
         data: {
-          id: input.id,
+          id: CLUSTER_RECORD_ID,
           cluster_id: input.clusterId
         }
       });

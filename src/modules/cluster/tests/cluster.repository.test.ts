@@ -35,7 +35,6 @@ const cluster: Cluster = {
 };
 
 const createInput: CreateClusterRepositoryInput = {
-  id: CLUSTER_RECORD_ID,
   clusterId: cluster.clusterId
 };
 
