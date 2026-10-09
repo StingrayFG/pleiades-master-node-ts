@@ -7,11 +7,41 @@ import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 import type { Cluster } from './cluster.domain';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
 
-/* helpers */
+/* types */
+
+type ComparableMasterNode = Pick<
+  MasterNode,
+  | 'id'
+  | 'certificateFingerprint'
+  | 'sessionId'
+  | 'state'
+  | 'mode'
+  | 'hostname'
+  | 'port'
+  | 'scheme'
+  | 'registeredAt'
+  | 'revision'
+>;
+
+type ComparableDataNode = Pick<
+  DataNode,
+  | 'id'
+  | 'certificateFingerprint'
+  | 'sessionId'
+  | 'state'
+  | 'mode'
+  | 'hostname'
+  | 'port'
+  | 'scheme'
+  | 'registeredAt'
+  | 'revision'
+>;
+
+/* membership comparison */
 
 // operational fields can change independently of the membership revision,
 // so membership consistency compares only membership fields.
-const toComparableMasterNode = (masterNode: MasterNode) => ({
+const toComparableMasterNode = (masterNode: MasterNode): ComparableMasterNode => ({
   id: masterNode.id,
   certificateFingerprint: masterNode.certificateFingerprint,
   sessionId: masterNode.sessionId,
@@ -24,7 +54,7 @@ const toComparableMasterNode = (masterNode: MasterNode) => ({
   revision: masterNode.revision
 });
 
-const toComparableDataNode = (dataNode: DataNode) => ({
+const toComparableDataNode = (dataNode: DataNode): ComparableDataNode => ({
   id: dataNode.id,
   certificateFingerprint: dataNode.certificateFingerprint,
   sessionId: dataNode.sessionId,

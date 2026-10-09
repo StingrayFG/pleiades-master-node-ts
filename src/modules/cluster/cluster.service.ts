@@ -7,7 +7,7 @@ import {
   GenericFailedPreconditionError
 } from '@/errors/application.errors';
 
-import { CLUSTER_RECORD_ID, clusterIdSchema, type Cluster, type ClusterId } from './cluster.domain';
+import { CLUSTER_RECORD_ID, type Cluster, type ClusterId } from './cluster.domain';
 import type { MembershipRevisionTransactionAction } from './cluster.application';
 import type { ClusterRepositoryContract } from './cluster.repository';
 import type { ClusterMembershipSnapshot } from './cluster.membership-snapshot';
@@ -16,20 +16,18 @@ import { verifyMembershipSnapshotCluster } from './cluster.verifiers';
 /* contract */
 
 type ClusterServiceContract = {
-  // query
+  // cluster
   getCluster(): Promise<Cluster>;
-  captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot>;
-
-  // initialization
   initializeCluster(): Promise<Cluster>;
   registerCluster(clusterId: ClusterId): Promise<Cluster>;
 
   // membership
+  captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot>;
+  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
   withAdvancedMembershipRevision<TResult>(
     action: MembershipRevisionTransactionAction<TResult>,
     tx?: Prisma.TransactionClient
   ): Promise<TResult>;
-  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
 /* service */
@@ -37,7 +35,7 @@ type ClusterServiceContract = {
 class ClusterService implements ClusterServiceContract {
   constructor(private readonly repository: ClusterRepositoryContract) {}
 
-  /* query methods */
+  /* cluster methods */
 
   async getCluster(): Promise<Cluster> {
     const cluster = await this.repository.find();
@@ -49,18 +47,6 @@ class ClusterService implements ClusterServiceContract {
     return cluster;
   }
 
-  async captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot> {
-    const snapshot = await this.repository.findMembershipSnapshot();
-
-    if (!snapshot) {
-      throw new GenericFailedPreconditionError('The cluster has not been initialized');
-    }
-
-    return snapshot;
-  }
-
-  /* initialization methods */
-
   async initializeCluster(): Promise<Cluster> {
     const existingCluster = await this.repository.find();
 
@@ -71,7 +57,7 @@ class ClusterService implements ClusterServiceContract {
     try {
       return await this.repository.create({
         id: CLUSTER_RECORD_ID,
-        clusterId: clusterIdSchema.parse(randomUUID())
+        clusterId: randomUUID()
       });
     } catch (err) {
       if (!(err instanceof GenericAlreadyExistsError)) {
@@ -125,14 +111,14 @@ class ClusterService implements ClusterServiceContract {
 
   /* membership methods */
 
-  // runs the action in the same transaction that advances the membership revision.
-  async withAdvancedMembershipRevision<TResult>(
-    action: MembershipRevisionTransactionAction<TResult>,
-    tx?: Prisma.TransactionClient
-  ): Promise<TResult> {
-    await this.getCluster();
+  async captureMembershipSnapshot(): Promise<ClusterMembershipSnapshot> {
+    const snapshot = await this.repository.findMembershipSnapshot();
 
-    return this.repository.withAdvancedMembershipRevision(action, tx);
+    if (!snapshot) {
+      throw new GenericFailedPreconditionError('The cluster has not been initialized');
+    }
+
+    return snapshot;
   }
 
   async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
@@ -141,6 +127,16 @@ class ClusterService implements ClusterServiceContract {
     verifyMembershipSnapshotCluster(cluster, snapshot);
 
     await this.repository.applyMembershipSnapshot(snapshot);
+  }
+
+  // runs the action in the same transaction that advances the membership revision.
+  async withAdvancedMembershipRevision<TResult>(
+    action: MembershipRevisionTransactionAction<TResult>,
+    tx?: Prisma.TransactionClient
+  ): Promise<TResult> {
+    await this.getCluster();
+
+    return this.repository.withAdvancedMembershipRevision(action, tx);
   }
 }
 

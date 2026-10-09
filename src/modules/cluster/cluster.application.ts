@@ -1,13 +1,13 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import { clusterSchema } from './cluster.domain';
+import { clusterIdSchema, clusterRecordIdSchema } from './cluster.domain';
 
 /* schemas */
 
-export const createClusterRepositoryInputSchema = clusterSchema.pick({
-  id: true,
-  clusterId: true
+export const createClusterRepositoryInputSchema = z.object({
+  id: clusterRecordIdSchema,
+  clusterId: clusterIdSchema
 });
 
 /* types */

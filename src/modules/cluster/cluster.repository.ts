@@ -25,19 +25,17 @@ import {
 /* contract */
 
 type ClusterRepositoryContract = {
-  // find
+  // cluster
   find(): Promise<Cluster | null>;
-  findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null>;
-
-  // create
   create(input: CreateClusterRepositoryInput): Promise<Cluster>;
 
   // membership
+  findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null>;
+  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
   withAdvancedMembershipRevision<TResult>(
     action: MembershipRevisionTransactionAction<TResult>,
     tx?: Prisma.TransactionClient
   ): Promise<TResult>;
-  applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void>;
 };
 
 /* repository */
@@ -56,7 +54,7 @@ class ClusterRepository implements ClusterRepositoryContract {
 
   /* public methods */
 
-  /* find methods */
+  /* cluster methods */
 
   async find(): Promise<Cluster | null> {
     let cluster;
@@ -73,6 +71,25 @@ class ClusterRepository implements ClusterRepositoryContract {
 
     return cluster ? mapPrismaClusterToDomainCluster(cluster) : null;
   }
+
+  async create(input: CreateClusterRepositoryInput): Promise<Cluster> {
+    let cluster;
+
+    try {
+      cluster = await this.prisma.cluster.create({
+        data: {
+          id: input.id,
+          cluster_id: input.clusterId
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return mapPrismaClusterToDomainCluster(cluster);
+  }
+
+  /* membership methods */
 
   // captures local membership as a cluster snapshot.
   async findMembershipSnapshot(): Promise<ClusterMembershipSnapshot | null> {
@@ -115,26 +132,38 @@ class ClusterRepository implements ClusterRepositoryContract {
     return mapPrismaClusterMembershipSnapshotToDomainClusterMembershipSnapshot(snapshot);
   }
 
-  /* create methods */
-
-  async create(input: CreateClusterRepositoryInput): Promise<Cluster> {
-    let cluster;
-
+  // synchronizes local membership with a cluster snapshot.
+  // older revisions are ignored, matching revisions are verified, and newer revisions are applied.
+  async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
     try {
-      cluster = await this.prisma.cluster.create({
-        data: {
-          id: input.id,
-          cluster_id: input.clusterId
+      await this.prisma.$transaction(
+        async (transaction) => {
+          const cluster = await this.requireSnapshotCluster(transaction, snapshot);
+
+          const action = resolveMembershipSnapshotAction(
+            cluster.membershipRevision,
+            snapshot.cluster.membershipRevision
+          );
+
+          if (action === 'ignore') {
+            return;
+          }
+
+          if (action === 'reconcile') {
+            await this.verifySnapshotConsistency(transaction, snapshot);
+            return;
+          }
+
+          await this.applyNewerSnapshot(transaction, snapshot);
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead
         }
-      });
+      );
     } catch (err) {
       throw mapPrismaError(err, errorMap) ?? err;
     }
-
-    return mapPrismaClusterToDomainCluster(cluster);
   }
-
-  /* membership methods */
 
   async withAdvancedMembershipRevision<TResult>(
     action: MembershipRevisionTransactionAction<TResult>,
@@ -178,39 +207,6 @@ class ClusterRepository implements ClusterRepositoryContract {
     }
 
     return result;
-  }
-
-  // synchronizes local membership with a cluster snapshot.
-  // older revisions are ignored, matching revisions are verified, and newer revisions are applied.
-  async applyMembershipSnapshot(snapshot: ClusterMembershipSnapshot): Promise<void> {
-    try {
-      await this.prisma.$transaction(
-        async (transaction) => {
-          const cluster = await this.requireSnapshotCluster(transaction, snapshot);
-
-          const action = resolveMembershipSnapshotAction(
-            cluster.membershipRevision,
-            snapshot.cluster.membershipRevision
-          );
-
-          if (action === 'ignore') {
-            return;
-          }
-
-          if (action === 'reconcile') {
-            await this.verifySnapshotConsistency(transaction, snapshot);
-            return;
-          }
-
-          await this.applyNewerSnapshot(transaction, snapshot);
-        },
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead
-        }
-      );
-    } catch (err) {
-      throw mapPrismaError(err, errorMap) ?? err;
-    }
   }
 
   /* private methods */
