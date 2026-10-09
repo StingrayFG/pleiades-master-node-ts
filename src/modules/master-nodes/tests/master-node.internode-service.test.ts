@@ -16,6 +16,7 @@ import { CLUSTER_RECORD_ID, type Cluster } from '@/modules/cluster/cluster.domai
 import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 import type { PersistedTask } from '@/modules/tasks/task.domain';
@@ -200,6 +201,7 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
 describe('MasterNodeInternodeService', () => {
   let taskService: jest.Mocked<TaskServiceContract>;
   let consensusService: jest.Mocked<ConsensusServiceContract>;
+  let consensusVotingConfigurationService: jest.Mocked<ConsensusVotingConfigurationServiceContract>;
   let electionService: jest.Mocked<ElectionServiceContract>;
   let leadershipService: jest.Mocked<LeadershipServiceContract>;
   let clusterService: jest.Mocked<ClusterServiceContract>;
@@ -209,6 +211,10 @@ describe('MasterNodeInternodeService', () => {
   beforeEach(() => {
     taskService = createTaskServiceMock();
     consensusService = createConsensusServiceMock();
+    consensusVotingConfigurationService = {
+      resolveVotingConfiguration: jest.fn<ConsensusVotingConfigurationServiceContract['resolveVotingConfiguration']>(),
+      requestVoterAddition: jest.fn<ConsensusVotingConfigurationServiceContract['requestVoterAddition']>()
+    };
     electionService = createElectionServiceMock();
     leadershipService = createLeadershipServiceMock();
     clusterService = createClusterServiceMock();
@@ -216,6 +222,7 @@ describe('MasterNodeInternodeService', () => {
     service = new MasterNodeInternodeService(
       taskService,
       consensusService,
+      consensusVotingConfigurationService,
       electionService,
       leadershipService,
       selfMasterNodeId,
@@ -484,12 +491,10 @@ describe('MasterNodeInternodeService', () => {
     });
   });
 
-  test('promotes a caught-up joining follower to an active member', async () => {
+  test('requests voting configuration membership for a caught-up joining follower', async () => {
     const joiningCaller = { ...callerMasterNode, state: 'joining' as const };
-    const promotedCluster = { ...cluster, membershipRevision: cluster.membershipRevision + 1n };
 
     masterNodeService.getMasterNodeById.mockResolvedValue(joiningCaller);
-    clusterService.getCluster.mockResolvedValue(promotedCluster);
 
     await expect(
       service.fetchTaskEntries({
@@ -498,32 +503,14 @@ describe('MasterNodeInternodeService', () => {
         limit: 8
       })
     ).resolves.toMatchObject({
-      clusterMembershipRevision: promotedCluster.membershipRevision
+      clusterMembershipRevision: cluster.membershipRevision
     });
 
-    expect(masterNodeService.registerMasterNode).toHaveBeenCalledWith(
-      {
-        id: callerMasterNode.id,
-        certificateFingerprint: callerMasterNode.certificateFingerprint,
-        sessionId: callerMasterNode.sessionId,
-        state: 'active',
-        mode: callerMasterNode.mode,
-        endpoint: {
-          hostname: callerMasterNode.hostname,
-          port: callerMasterNode.port,
-          scheme: callerMasterNode.scheme
-        }
-      },
-      expect.anything()
+    expect(consensusVotingConfigurationService.requestVoterAddition).toHaveBeenCalledWith(
+      callerMasterNode.id,
+      callerMasterNode.sessionId
     );
-    expect(consensusService.withLeadershipContext).toHaveBeenCalledWith(
-      {
-        epoch: consensusState.currentEpoch,
-        leaderMasterId: selfMasterNodeId
-      },
-      expect.any(Function)
-    );
-    expect(masterNodeService.registerMasterNode.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(consensusVotingConfigurationService.requestVoterAddition.mock.invocationCallOrder[0]).toBeLessThan(
       clusterService.getCluster.mock.invocationCallOrder[0]
     );
   });
@@ -537,7 +524,23 @@ describe('MasterNodeInternodeService', () => {
       service.fetchTaskEntries({ ...authenticatedCaller, afterSequence: 0n, limit: 8 })
     ).resolves.toBeDefined();
 
-    expect(masterNodeService.registerMasterNode).not.toHaveBeenCalled();
+    expect(consensusVotingConfigurationService.requestVoterAddition).not.toHaveBeenCalled();
+  });
+
+  test('continues serving task entries when a voting configuration transition fails', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({ ...callerMasterNode, state: 'joining' });
+    consensusVotingConfigurationService.requestVoterAddition.mockRejectedValue(
+      new GenericFailedPreconditionError('Another configuration change is in progress')
+    );
+
+    await expect(
+      service.fetchTaskEntries({
+        ...authenticatedCaller,
+        afterSequence: consensusState.lastCommittedSequence,
+        limit: 8
+      })
+    ).resolves.toBeDefined();
+    expect(taskService.listTasksInSequenceRange).toHaveBeenCalled();
   });
 
   test('returns an empty entry list when no committed tasks are available', async () => {
@@ -581,6 +584,22 @@ describe('MasterNodeInternodeService', () => {
 
     expect(taskService.getTaskDefinitionByType).toHaveBeenCalledWith(resultTaskDefinition.type);
     expect(taskService.executeTaskByDefinition).toHaveBeenCalledWith(resultTaskDefinition, { value: 'input' });
+  });
+
+  test('rejects forwarding for an internal task definition', async () => {
+    taskService.getTaskDefinitionByType.mockReturnValue({
+      ...voidTaskDefinition,
+      forwardable: false
+    });
+
+    await expect(
+      service.forwardTask({
+        ...authenticatedCaller,
+        type: voidTaskDefinition.type,
+        data: { value: 'input' }
+      })
+    ).rejects.toBeInstanceOf(GenericForbiddenError);
+    expect(taskService.executeTaskByDefinition).not.toHaveBeenCalled();
   });
 
   test('rejects a missing declared result from forwarded task execution', async () => {

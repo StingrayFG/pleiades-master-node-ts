@@ -135,6 +135,7 @@ const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
     findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
+    findLatestByTypeUpToSequence: jest.fn<TaskRepositoryContract['findLatestByTypeUpToSequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
     createSubmission: jest.fn<TaskRepositoryContract['createSubmission']>(),

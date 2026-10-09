@@ -13,6 +13,7 @@ import type { ClusterServiceContract } from '@/modules/cluster/cluster.service';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
 import type { ConsensusState } from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
 import type { RequestVoteResult } from '@/modules/election/election.application';
@@ -67,6 +68,7 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   constructor(
     private readonly taskService: TaskServiceContract,
     private readonly consensusService: ConsensusServiceContract,
+    private readonly consensusVotingConfigurationService: ConsensusVotingConfigurationServiceContract,
     private readonly electionService: ElectionServiceContract,
     private readonly leadershipService: LeadershipServiceContract,
     private readonly selfMasterNodeId: MasterNodeId,
@@ -150,33 +152,15 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     const consensusState = await this.requireLeadershipState();
     const caller = await this.requireAuthenticatedMasterNodeCaller(input);
 
-    // a joining follower that has replicated through the leader's committed sequence
-    // has caught up with the committed log and can become an active voting member.
+    // a joining follower that has replicated through the committed log can begin
+    // the consensus-backed transition into the voting configuration.
     if (caller.state === 'joining' && input.afterSequence >= consensusState.lastCommittedSequence) {
-      await this.consensusService.withLeadershipContext(
-        {
-          epoch: consensusState.currentEpoch,
-          leaderMasterId: this.selfMasterNodeId
-        },
-        (tx) =>
-          this.masterNodeService.registerMasterNode(
-            {
-              id: caller.id,
-
-              certificateFingerprint: caller.certificateFingerprint,
-              sessionId: caller.sessionId,
-              state: 'active',
-              mode: caller.mode,
-
-              endpoint: {
-                hostname: caller.hostname,
-                port: caller.port,
-                scheme: caller.scheme
-              }
-            },
-            tx
-          )
-      );
+      try {
+        await this.consensusVotingConfigurationService.requestVoterAddition(caller.id, caller.sessionId);
+      } catch {
+        // ignore membership transition failures here;
+        // a later replication fetch will retry the transition.
+      }
     }
 
     const cluster = await this.clusterService.getCluster();
@@ -227,6 +211,10 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
     await this.requireAuthenticatedMasterNodeCaller(input);
 
     const definition = this.taskService.getTaskDefinitionByType(input.type);
+
+    if (!definition.forwardable) {
+      throw new GenericForbiddenError('Task type cannot be submitted through follower forwarding');
+    }
 
     const data = z.decode(definition.dataSchema, input.data);
 

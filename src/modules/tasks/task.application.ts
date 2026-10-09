@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
+import { consensusLastSequenceSchema } from '@/modules/consensus/consensus.domain';
 import { masterNodeIdSchema, type MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import {
@@ -15,6 +16,7 @@ import {
   taskSequenceSchema,
   taskStateSchema,
   taskSubmissionStateSchema,
+  taskTypeSchema,
   type TaskBase,
   type TaskExecutionScope,
   type TaskPayloadId,
@@ -28,6 +30,11 @@ export const listTasksInSequenceRangeInputSchema = z.object({
   afterSequence: taskSequenceSchema,
   upToSequence: taskSequenceSchema,
   limit: z.number().int().positive()
+});
+
+export const findLatestTaskByTypeUpToSequenceInputSchema = z.object({
+  type: taskTypeSchema,
+  upToSequence: consensusLastSequenceSchema
 });
 
 // replication
@@ -61,6 +68,9 @@ export const listTaskSubmissionCleanupCandidatesRepositoryInputSchema = z.object
   updatedBefore: z.date(),
   limit: z.number().int().positive()
 });
+
+// find
+export const findLatestTaskByTypeUpToSequenceRepositoryInputSchema = findLatestTaskByTypeUpToSequenceInputSchema;
 
 // create
 export const createTaskRepositoryInputSchema = taskBaseSchema
@@ -131,6 +141,7 @@ export const clearTaskPayloadIdRepositoryInputSchema = z.object({
 
 // query
 export type ListTasksInSequenceRangeInput = z.infer<typeof listTasksInSequenceRangeInputSchema>;
+export type FindLatestTaskByTypeUpToSequenceInput = z.infer<typeof findLatestTaskByTypeUpToSequenceInputSchema>;
 
 // replication
 export type ReplicateTaskInput = z.infer<typeof replicateTaskInputSchema>;
@@ -147,6 +158,11 @@ export type ListUncommittedCleanupCandidatesRepositoryInput = z.infer<
 >;
 export type ListTaskSubmissionCleanupCandidatesRepositoryInput = z.infer<
   typeof listTaskSubmissionCleanupCandidatesRepositoryInputSchema
+>;
+
+// find
+export type FindLatestTaskByTypeUpToSequenceRepositoryInput = z.infer<
+  typeof findLatestTaskByTypeUpToSequenceRepositoryInputSchema
 >;
 
 // create

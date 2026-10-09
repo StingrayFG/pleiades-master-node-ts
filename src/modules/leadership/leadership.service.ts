@@ -1,11 +1,13 @@
 import { GenericAbortedError, GenericConflictError, GenericInternalServerError } from '@/errors/application.errors';
 import type { ConsensusEpoch, ConsensusState } from '@/modules/consensus/consensus.domain';
-import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import {
-  isMasterNodeEligibleForElection,
-  isMasterNodeVotingMember,
-  resolveElectionQuorumSize
-} from '@/modules/election/election.policies';
+  hasConsensusVotingQuorum,
+  listConsensusVoterMasterNodeIds,
+  resolveConsensusQuorumSequence
+} from '@/modules/consensus/consensus.policies';
+import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
+import { isMasterNodeEligibleForElection } from '@/modules/election/election.policies';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import { mapMasterNodeToMasterNodeEndpoint } from '@/modules/master-nodes/master-node.mappers';
@@ -42,6 +44,7 @@ class LeadershipService implements LeadershipServiceContract {
 
   constructor(
     private readonly consensusService: ConsensusServiceContract,
+    private readonly consensusVotingConfigurationService: ConsensusVotingConfigurationServiceContract,
     private readonly masterNodeService: MasterNodeServiceContract,
     private readonly masterNodeGrpcClient: MasterNodeGrpcClientContract,
     private readonly taskService: TaskServiceContract,
@@ -111,7 +114,15 @@ class LeadershipService implements LeadershipServiceContract {
       return;
     }
 
-    if (!selfMasterNode || !isMasterNodeEligibleForElection(selfMasterNode)) {
+    const votingConfiguration = await this.consensusVotingConfigurationService.resolveVotingConfiguration(
+      consensusState.lastAllocatedSequence
+    );
+
+    if (
+      !selfMasterNode ||
+      !listConsensusVoterMasterNodeIds(votingConfiguration).includes(selfMasterNode.id) ||
+      !isMasterNodeEligibleForElection(selfMasterNode)
+    ) {
       this.clearLeadershipProgress();
       await this.consensusService.releaseLeadership({
         epoch: consensusState.currentEpoch,
@@ -137,8 +148,9 @@ class LeadershipService implements LeadershipServiceContract {
 
     this.synchronizeMatchSequenceProgress(consensusState.currentEpoch);
 
+    const voterMasterNodeIds = new Set(listConsensusVoterMasterNodeIds(votingConfiguration));
     const peers = masterNodes.filter(
-      (masterNode) => isMasterNodeVotingMember(masterNode) && masterNode.id !== this.selfMasterNodeId
+      (masterNode) => voterMasterNodeIds.has(masterNode.id) && masterNode.id !== this.selfMasterNodeId
     );
 
     const results = await Promise.allSettled(
@@ -196,9 +208,9 @@ class LeadershipService implements LeadershipServiceContract {
       )
     );
 
-    const acceptedNodeCount = 1 + acceptedPeers.length;
+    const acceptedMasterNodeIds = [this.selfMasterNodeId, ...acceptedPeers.map((masterNode) => masterNode.id)];
 
-    if (acceptedNodeCount >= resolveElectionQuorumSize(masterNodes.filter(isMasterNodeVotingMember).length)) {
+    if (hasConsensusVotingQuorum(votingConfiguration, acceptedMasterNodeIds)) {
       this.quorumLossStartedAtMs = null;
 
       if (hasLeadershipBarrier) {
@@ -235,20 +247,14 @@ class LeadershipService implements LeadershipServiceContract {
     }
 
     this.synchronizeMatchSequenceProgress(consensusState.currentEpoch);
-
-    const masterNodes = await this.masterNodeService.listMasterNodes();
-    const voters = masterNodes.filter(isMasterNodeVotingMember);
-    const quorumSize = resolveElectionQuorumSize(voters.length);
-
-    const matchedSequences = voters.map((voter) =>
-      voter.id === this.selfMasterNodeId
-        ? consensusState.lastAllocatedSequence
-        : (this.latestMatchedSequencesByMasterNodeId.get(voter.id) ?? -1n)
+    const votingConfiguration = await this.consensusVotingConfigurationService.resolveVotingConfiguration(
+      consensusState.lastAllocatedSequence
     );
+    const matchedSequencesByMasterNodeId = new Map(this.latestMatchedSequencesByMasterNodeId);
 
-    matchedSequences.sort((left, right) => (left > right ? -1 : left < right ? 1 : 0));
+    matchedSequencesByMasterNodeId.set(this.selfMasterNodeId, consensusState.lastAllocatedSequence);
 
-    const candidateSequence = matchedSequences[quorumSize - 1];
+    const candidateSequence = resolveConsensusQuorumSequence(votingConfiguration, matchedSequencesByMasterNodeId);
 
     if (candidateSequence <= consensusState.lastCommittedSequence) {
       return;

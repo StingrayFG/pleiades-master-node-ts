@@ -8,7 +8,8 @@ import {
   consensusLeadershipContextWithSequenceSchema,
   consensusLastSequenceSchema,
   consensusSequenceSchema,
-  consensusStateSchema
+  consensusStateSchema,
+  consensusVotingConfigurationSchema
 } from '../consensus.domain';
 
 /* fixtures */
@@ -76,6 +77,44 @@ describe('consensus domain schemas', () => {
     expect(consensusEpochSchema.parse(1n)).toBe(1n);
     expect(consensusSequenceSchema.parse(0n)).toBe(0n);
     expect(consensusLastSequenceSchema.parse(-1n)).toBe(-1n);
+  });
+
+  test('accepts stable and joint voting configurations with unique voters', () => {
+    expect(
+      consensusVotingConfigurationSchema.parse({
+        phase: 'stable',
+        voterMasterNodeIds: ['master-node-aaaaaaaaaaaa']
+      })
+    ).toEqual({
+      phase: 'stable',
+      voterMasterNodeIds: ['master-node-aaaaaaaaaaaa']
+    });
+    expect(
+      consensusVotingConfigurationSchema.parse({
+        phase: 'joint',
+        previousVoterMasterNodeIds: ['master-node-aaaaaaaaaaaa'],
+        nextVoterMasterNodeIds: ['master-node-aaaaaaaaaaaa', 'master-node-bbbbbbbbbbbb']
+      })
+    ).toEqual({
+      phase: 'joint',
+      previousVoterMasterNodeIds: ['master-node-aaaaaaaaaaaa'],
+      nextVoterMasterNodeIds: ['master-node-aaaaaaaaaaaa', 'master-node-bbbbbbbbbbbb']
+    });
+  });
+
+  test('rejects empty or duplicate voting configurations', () => {
+    expect(() =>
+      consensusVotingConfigurationSchema.parse({
+        phase: 'stable',
+        voterMasterNodeIds: []
+      })
+    ).toThrow();
+    expect(() =>
+      consensusVotingConfigurationSchema.parse({
+        phase: 'stable',
+        voterMasterNodeIds: ['master-node-aaaaaaaaaaaa', 'master-node-aaaaaaaaaaaa']
+      })
+    ).toThrow();
   });
 
   test('rejects invalid epochs, sequences, and revisions', () => {

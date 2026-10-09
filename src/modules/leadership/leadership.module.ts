@@ -1,4 +1,5 @@
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
@@ -14,6 +15,7 @@ import { LeadershipCommitmentHandler } from './lifecycle/leadership.commitment-h
 
 type LeadershipModuleDependencies = {
   consensusService: ConsensusServiceContract;
+  consensusVotingConfigurationService: ConsensusVotingConfigurationServiceContract;
   masterNodeService: MasterNodeServiceContract;
   masterNodeGrpcClient: MasterNodeGrpcClientContract;
   taskService: TaskServiceContract;
@@ -31,6 +33,7 @@ type LeadershipModule = {
 
 const createLeadershipModule = ({
   consensusService,
+  consensusVotingConfigurationService,
   masterNodeService,
   masterNodeGrpcClient,
   taskService,
@@ -42,6 +45,7 @@ const createLeadershipModule = ({
 
   const service = new LeadershipService(
     consensusService,
+    consensusVotingConfigurationService,
     masterNodeService,
     masterNodeGrpcClient,
     taskService,

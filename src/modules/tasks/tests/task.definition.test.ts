@@ -17,6 +17,7 @@ describe('task definitions', () => {
     });
 
     expect(definition.persistedDataSchema).toBe(dataSchema);
+    expect(definition.forwardable).toBe(true);
     expect(isDehydratedTaskDefinition(definition)).toBe(false);
     expect(
       definition.taskSchema.parse({
@@ -31,6 +32,17 @@ describe('task definitions', () => {
         executionScope: 'local'
       })
     ).toMatchObject({ type: 'test.simple', data: { value: 'test' }, executionScope: 'local' });
+  });
+
+  test('creates a task definition that cannot be forwarded when requested', () => {
+    const definition = createTaskDefinition({
+      type: 'test.internal',
+      dataSchema: z.object({}),
+      executionScope: 'cluster',
+      forwardable: false
+    });
+
+    expect(definition.forwardable).toBe(false);
   });
 
   test('creates a dehydrated definition that splits and restores payload data', () => {

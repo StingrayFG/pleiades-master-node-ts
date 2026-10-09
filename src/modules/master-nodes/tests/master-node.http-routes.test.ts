@@ -65,12 +65,14 @@ const createMasterNodeServiceMock = (): jest.Mocked<MasterNodeServiceContract> =
     getMasterNodeById: jest.fn<MasterNodeServiceContract['getMasterNodeById']>(),
     applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>(),
     registerMasterNode: jest.fn<MasterNodeServiceContract['registerMasterNode']>(),
+    activateMasterNode: jest.fn<MasterNodeServiceContract['activateMasterNode']>(),
     transitionMasterNodeMode: jest.fn<MasterNodeServiceContract['transitionMasterNodeMode']>()
   };
 
   service.listMasterNodes.mockResolvedValue([]);
   service.getMasterNodeById.mockResolvedValue(masterNode);
   service.registerMasterNode.mockResolvedValue(masterNode);
+  service.activateMasterNode.mockResolvedValue(masterNode);
   service.transitionMasterNodeMode.mockResolvedValue(masterNode);
 
   return service;

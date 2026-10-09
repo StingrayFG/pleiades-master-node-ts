@@ -5,6 +5,7 @@ import { GenericConflictError } from '@/errors/application.errors';
 import { CLUSTER_RECORD_ID } from '@/modules/cluster/cluster.domain';
 
 import type {
+  ActivateMasterNodeRepositoryInput,
   ApplyMasterNodeHeartbeatRepositoryInput,
   ApplyMasterNodeRegistrationRepositoryInput,
   TransitionMasterNodeModeRepositoryInput
@@ -28,6 +29,7 @@ type MasterNodeRepositoryContract = {
     tx?: Prisma.TransactionClient
   ): Promise<MasterNode>;
   transitionMode(input: TransitionMasterNodeModeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean>;
+  activate(input: ActivateMasterNodeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean>;
 };
 
 /* repository */
@@ -216,6 +218,35 @@ class MasterNodeRepository implements MasterNodeRepositoryContract {
     }
 
     return transitionResult.count === 1;
+  }
+
+  async activate(input: ActivateMasterNodeRepositoryInput, tx?: Prisma.TransactionClient): Promise<boolean> {
+    let activationResult;
+
+    try {
+      const client = tx ?? this.prisma;
+
+      activationResult = await client.masterNode.updateMany({
+        where: {
+          id: input.id,
+          cluster_record_id: CLUSTER_RECORD_ID,
+          removed_at: null,
+          session_id: input.sessionId,
+          state: 'joining',
+          revision: input.expectedRevision
+        },
+        data: {
+          state: 'active',
+          revision: {
+            increment: 1
+          }
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return activationResult.count === 1;
   }
 }
 

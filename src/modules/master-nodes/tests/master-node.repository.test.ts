@@ -316,6 +316,44 @@ describe('MasterNodeRepository', () => {
     ).resolves.toBe(false);
   });
 
+  test('activates a joining master node under its current session and revision', async () => {
+    await expect(
+      repository.activate({
+        id: masterNodeId,
+        sessionId: prismaMasterNode.session_id,
+        expectedRevision: 1n
+      })
+    ).resolves.toBe(true);
+    expect(delegate.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: masterNodeId,
+        cluster_record_id: 'self',
+        removed_at: null,
+        session_id: prismaMasterNode.session_id,
+        state: 'joining',
+        revision: 1n
+      },
+      data: {
+        state: 'active',
+        revision: {
+          increment: 1
+        }
+      }
+    });
+  });
+
+  test('returns false when master node activation loses its concurrency gate', async () => {
+    delegate.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.activate({
+        id: masterNodeId,
+        sessionId: prismaMasterNode.session_id,
+        expectedRevision: 1n
+      })
+    ).resolves.toBe(false);
+  });
+
   test('preserves unmapped Prisma failures', async () => {
     const repositoryError = new Error('Unexpected repository failure');
 

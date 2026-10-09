@@ -1,27 +1,24 @@
+import type { ConsensusVotingConfiguration } from '@/modules/consensus/consensus.domain';
+import { isConsensusVoter } from '@/modules/consensus/consensus.policies';
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 
 import type { ElectionConfig } from './election.config';
 
 // unavailable members remain voters until explicitly removed.
 // quorum must never shrink automatically based on liveness.
-export const isMasterNodeVotingMember = (masterNode: MasterNode): boolean => {
-  return masterNode.state !== 'joining';
-};
-
 export const isMasterNodeEligibleForElection = (masterNode: MasterNode): boolean => {
   return masterNode.state === 'active' && masterNode.mode === 'serving';
 };
 
-export const isSelfMasterNodeEligibleForElection = (selfMasterNode: MasterNode | undefined): boolean => {
+export const isSelfMasterNodeEligibleForElection = (
+  selfMasterNode: MasterNode | undefined,
+  votingConfiguration: ConsensusVotingConfiguration
+): boolean => {
   return (
     selfMasterNode !== undefined &&
-    isMasterNodeVotingMember(selfMasterNode) &&
+    isConsensusVoter(votingConfiguration, selfMasterNode.id) &&
     isMasterNodeEligibleForElection(selfMasterNode)
   );
-};
-
-export const resolveElectionQuorumSize = (voterCount: number): number => {
-  return Math.floor(voterCount / 2) + 1;
 };
 
 export const resolveElectionTimeoutMs = (config: ElectionConfig): number => {

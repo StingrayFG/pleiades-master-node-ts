@@ -241,6 +241,12 @@ export const transitionMasterNodeModeRepositoryInputSchema = z.object({
   expectedRevision: z.bigint().nonnegative()
 });
 
+export const activateMasterNodeRepositoryInputSchema = z.object({
+  id: masterNodeIdSchema,
+  sessionId: masterNodeSessionIdSchema,
+  expectedRevision: z.bigint().nonnegative()
+});
+
 /* service types */
 
 export type RegisterMasterNodeInput = z.infer<typeof registerMasterNodeInputSchema>;
@@ -289,7 +295,6 @@ export type ReconcileTaskHistoryInput = z.infer<typeof reconcileTaskHistoryInput
 export type ApplyMasterNodeRegistrationRepositoryInput = z.infer<
   typeof applyMasterNodeRegistrationRepositoryInputSchema
 >;
-export type ApplyMasterNodeHeartbeatRepositoryInput = z.infer<
-  typeof applyMasterNodeHeartbeatRepositoryInputSchema
->;
+export type ApplyMasterNodeHeartbeatRepositoryInput = z.infer<typeof applyMasterNodeHeartbeatRepositoryInputSchema>;
 export type TransitionMasterNodeModeRepositoryInput = z.infer<typeof transitionMasterNodeModeRepositoryInputSchema>;
+export type ActivateMasterNodeRepositoryInput = z.infer<typeof activateMasterNodeRepositoryInputSchema>;

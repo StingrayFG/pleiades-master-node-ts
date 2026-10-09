@@ -10,6 +10,7 @@ import type {
   CreateTaskSubmissionRepositoryInput,
   DeleteTaskSubmissionRepositoryInput,
   FailTaskExecutionRepositoryInput,
+  FindLatestTaskByTypeUpToSequenceRepositoryInput,
   ListPayloadCleanupCandidatesRepositoryInput,
   ListTaskSubmissionCleanupCandidatesRepositoryInput,
   ListTasksInSequenceRangeRepositoryInput,
@@ -46,6 +47,7 @@ type TaskRepositoryContract = {
   // find
   findById(id: TaskId): Promise<PersistedTask | null>;
   findBySequence(sequence: TaskSequence): Promise<PersistedTask | null>;
+  findLatestByTypeUpToSequence(input: FindLatestTaskByTypeUpToSequenceRepositoryInput): Promise<PersistedTask | null>;
 
   // create
   create<TType extends string, TScope extends TaskExecutionScope>(
@@ -270,6 +272,34 @@ class TaskRepository implements TaskRepositoryContract {
       task = await this.prisma.task.findUnique({
         where: {
           sequence
+        }
+      });
+    } catch (err) {
+      throw mapPrismaError(err, errorMap) ?? err;
+    }
+
+    return task ? mapPrismaTaskToDomainTask(task) : null;
+  }
+
+  async findLatestByTypeUpToSequence(
+    input: FindLatestTaskByTypeUpToSequenceRepositoryInput
+  ): Promise<PersistedTask | null> {
+    if (input.upToSequence < 0n) {
+      return null;
+    }
+
+    let task;
+
+    try {
+      task = await this.prisma.task.findFirst({
+        where: {
+          type: input.type,
+          sequence: {
+            lte: input.upToSequence
+          }
+        },
+        orderBy: {
+          sequence: 'desc'
         }
       });
     } catch (err) {

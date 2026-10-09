@@ -11,6 +11,7 @@ export const leadershipBarrierTaskDataSchema = z.object({});
 export const leadershipBarrierTaskDefinition = createTaskDefinition({
   type: 'leadership.barrier',
   executionScope: 'cluster',
+  forwardable: false,
 
   dataSchema: leadershipBarrierTaskDataSchema
 });

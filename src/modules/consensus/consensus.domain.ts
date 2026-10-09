@@ -5,6 +5,7 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 /* constants */
 
 export const CONSENSUS_STATE_ID = 'self';
+export const CONSENSUS_VOTING_CONFIGURATION_PHASES = ['stable', 'joint'] as const;
 
 /* field schemas */
 
@@ -12,6 +13,7 @@ export const consensusStateIdSchema = z.string().min(1);
 export const consensusEpochSchema = z.bigint().nonnegative();
 export const consensusSequenceSchema = z.bigint().nonnegative();
 export const consensusLastSequenceSchema = z.bigint().min(-1n);
+export const consensusVotingConfigurationPhaseSchema = z.enum(CONSENSUS_VOTING_CONFIGURATION_PHASES);
 
 /* object schemas */
 
@@ -34,6 +36,27 @@ export const consensusLeadershipContextWithLastSequenceSchema = z.object({
   leadershipContext: consensusLeadershipContextSchema,
   sequence: consensusLastSequenceSchema
 });
+
+const consensusVoterMasterNodeIdsSchema = z
+  .array(masterNodeIdSchema)
+  .min(1)
+  .refine((ids) => new Set(ids).size === ids.length, 'Voting configuration contains duplicate master node IDs');
+
+export const stableConsensusVotingConfigurationSchema = z.object({
+  phase: z.literal('stable'),
+  voterMasterNodeIds: consensusVoterMasterNodeIdsSchema
+});
+
+export const jointConsensusVotingConfigurationSchema = z.object({
+  phase: z.literal('joint'),
+  previousVoterMasterNodeIds: consensusVoterMasterNodeIdsSchema,
+  nextVoterMasterNodeIds: consensusVoterMasterNodeIdsSchema
+});
+
+export const consensusVotingConfigurationSchema = z.discriminatedUnion('phase', [
+  stableConsensusVotingConfigurationSchema,
+  jointConsensusVotingConfigurationSchema
+]);
 
 export const consensusStateSchema = z
   .object({
@@ -76,6 +99,7 @@ export type ConsensusStateId = z.infer<typeof consensusStateIdSchema>;
 export type ConsensusEpoch = z.infer<typeof consensusEpochSchema>;
 export type ConsensusSequence = z.infer<typeof consensusSequenceSchema>;
 export type ConsensusLastSequence = z.infer<typeof consensusLastSequenceSchema>;
+export type ConsensusVotingConfigurationPhase = z.infer<typeof consensusVotingConfigurationPhaseSchema>;
 
 /* object types */
 
@@ -85,4 +109,7 @@ export type ConsensusLeadershipContextWithSequence = z.infer<typeof consensusLea
 export type ConsensusLeadershipContextWithLastSequence = z.infer<
   typeof consensusLeadershipContextWithLastSequenceSchema
 >;
+export type StableConsensusVotingConfiguration = z.infer<typeof stableConsensusVotingConfigurationSchema>;
+export type JointConsensusVotingConfiguration = z.infer<typeof jointConsensusVotingConfigurationSchema>;
+export type ConsensusVotingConfiguration = z.infer<typeof consensusVotingConfigurationSchema>;
 export type ConsensusState = z.infer<typeof consensusStateSchema>;

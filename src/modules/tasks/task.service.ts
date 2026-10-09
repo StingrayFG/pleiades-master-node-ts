@@ -14,12 +14,20 @@ import {
 } from '@/errors/application.errors';
 import { createAggregateErrorCause } from '@/errors/error.causes';
 import type { ByteStorageServiceContract } from '@/modules/byte-storage/byte-storage.service';
-import type { ConsensusLeadershipContext, ConsensusState } from '@/modules/consensus/consensus.domain';
+import type {
+  ConsensusLastSequence,
+  ConsensusLeadershipContext,
+  ConsensusState
+} from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 
 import type { TaskApplyHandlerContract } from './task.apply-handler';
-import type { ListTasksInSequenceRangeInput, ReplicateTaskInput } from './task.application';
+import type {
+  FindLatestTaskByTypeUpToSequenceInput,
+  ListTasksInSequenceRangeInput,
+  ReplicateTaskInput
+} from './task.application';
 import type { TaskConfig } from './task.config';
 import {
   isDehydratedTaskDefinition,
@@ -49,6 +57,7 @@ type TaskServiceContract = {
   // query
   getTaskById(id: TaskId): Promise<PersistedTask>;
   findTaskBySequence(sequence: TaskSequence): Promise<PersistedTask | null>;
+  findLatestTaskByTypeUpToSequence(type: TaskType, upToSequence: ConsensusLastSequence): Promise<PersistedTask | null>;
   listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]>;
   retrieveTaskPayload(payloadId: TaskPayloadId): Promise<Buffer>;
 
@@ -112,6 +121,18 @@ class TaskService implements TaskServiceContract {
 
   async findTaskBySequence(sequence: TaskSequence): Promise<PersistedTask | null> {
     return this.repository.findBySequence(sequence);
+  }
+
+  async findLatestTaskByTypeUpToSequence(
+    type: TaskType,
+    upToSequence: ConsensusLastSequence
+  ): Promise<PersistedTask | null> {
+    const input: FindLatestTaskByTypeUpToSequenceInput = {
+      type,
+      upToSequence
+    };
+
+    return this.repository.findLatestByTypeUpToSequence(input);
   }
 
   async listTasksInSequenceRange(input: ListTasksInSequenceRangeInput): Promise<PersistedTask[]> {

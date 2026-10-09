@@ -152,6 +152,7 @@ const createPrismaError = (code: string): Prisma.PrismaClientKnownRequestError =
 
 type TaskDelegateMock = {
   findMany: jest.Mock<(...args: unknown[]) => Promise<PrismaTask[]>>;
+  findFirst: jest.Mock<(...args: unknown[]) => Promise<PrismaTask | null>>;
   findUnique: jest.Mock<(...args: unknown[]) => Promise<PrismaTask | null>>;
   create: jest.Mock<(...args: unknown[]) => Promise<PrismaTask>>;
   deleteMany: jest.Mock<(...args: unknown[]) => Promise<{ count: number }>>;
@@ -182,6 +183,7 @@ describe('TaskRepository', () => {
   beforeEach(() => {
     taskDelegate = {
       findMany: jest.fn<(...args: unknown[]) => Promise<PrismaTask[]>>().mockResolvedValue([]),
+      findFirst: jest.fn<(...args: unknown[]) => Promise<PrismaTask | null>>().mockResolvedValue(null),
       findUnique: jest.fn<(...args: unknown[]) => Promise<PrismaTask | null>>().mockResolvedValue(null),
       create: jest.fn<(...args: unknown[]) => Promise<PrismaTask>>().mockResolvedValue(prismaTask),
       deleteMany: jest.fn<(...args: unknown[]) => Promise<{ count: number }>>().mockResolvedValue({ count: 1 }),
@@ -327,6 +329,30 @@ describe('TaskRepository', () => {
         sequence: task.sequence
       }
     });
+  });
+
+  test('finds the latest task of a type up to a sequence', async () => {
+    taskDelegate.findFirst.mockResolvedValue(prismaTask);
+
+    await expect(
+      repository.findLatestByTypeUpToSequence({ type: task.type, upToSequence: task.sequence })
+    ).resolves.toEqual(task);
+    expect(taskDelegate.findFirst).toHaveBeenCalledWith({
+      where: {
+        type: task.type,
+        sequence: {
+          lte: task.sequence
+        }
+      },
+      orderBy: {
+        sequence: 'desc'
+      }
+    });
+  });
+
+  test('returns no latest task before the first allocated sequence', async () => {
+    await expect(repository.findLatestByTypeUpToSequence({ type: task.type, upToSequence: -1n })).resolves.toBeNull();
+    expect(taskDelegate.findFirst).not.toHaveBeenCalled();
   });
 
   test('creates a pending task with explicit ordering and timestamps', async () => {

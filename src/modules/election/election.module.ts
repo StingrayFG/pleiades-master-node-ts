@@ -1,4 +1,5 @@
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { MasterNodeId } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
@@ -12,6 +13,7 @@ import { ElectionLifecycleHandler } from './lifecycle/election.lifecycle-handler
 
 type ElectionModuleDependencies = {
   consensusService: ConsensusServiceContract;
+  consensusVotingConfigurationService: ConsensusVotingConfigurationServiceContract;
   masterNodeService: MasterNodeServiceContract;
   masterNodeGrpcClient: MasterNodeGrpcClientContract;
   taskService: TaskServiceContract;
@@ -28,6 +30,7 @@ type ElectionModule = {
 
 const createElectionModule = ({
   consensusService,
+  consensusVotingConfigurationService,
   masterNodeService,
   masterNodeGrpcClient,
   taskService,
@@ -36,6 +39,7 @@ const createElectionModule = ({
 }: ElectionModuleDependencies): ElectionModule => {
   const service = new ElectionService(
     consensusService,
+    consensusVotingConfigurationService,
     masterNodeService,
     masterNodeGrpcClient,
     taskService,

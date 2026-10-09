@@ -6,7 +6,7 @@ import type { ConsensusLeadershipContext } from '@/modules/consensus/consensus.d
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
 
 import type { ApplyMasterNodeHeartbeatInput, RegisterMasterNodeInput } from './master-node.application';
-import type { MasterNode, MasterNodeId, MasterNodeMode } from './master-node.domain';
+import type { MasterNode, MasterNodeId, MasterNodeMode, MasterNodeSessionId } from './master-node.domain';
 import type { MasterNodeRepositoryContract } from './master-node.repository';
 
 /* contract */
@@ -21,6 +21,7 @@ type MasterNodeServiceContract = {
 
   // membership
   registerMasterNode(input: RegisterMasterNodeInput, tx?: Prisma.TransactionClient): Promise<MasterNode>;
+  activateMasterNode(id: MasterNodeId, sessionId: MasterNodeSessionId): Promise<MasterNode>;
   transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode>;
 };
 
@@ -84,6 +85,55 @@ class MasterNodeService implements MasterNodeServiceContract {
         ),
       tx
     );
+  }
+
+  async activateMasterNode(id: MasterNodeId, sessionId: MasterNodeSessionId): Promise<MasterNode> {
+    const masterNode = await this.getMasterNodeById(id);
+
+    if (masterNode.sessionId !== sessionId) {
+      throw new GenericAbortedError('Master node activation was aborted because its session changed');
+    }
+
+    if (masterNode.state === 'active') {
+      return masterNode;
+    }
+
+    if (masterNode.state !== 'joining') {
+      throw new GenericFailedPreconditionError('Only a joining master node can be activated');
+    }
+
+    const failedActivation = new Error('Master node activation lost its concurrency gate');
+
+    try {
+      await this.clusterService.withAdvancedMembershipRevision(async (tx) => {
+        const activated = await this.repository.activate(
+          {
+            id,
+            sessionId,
+            expectedRevision: masterNode.revision
+          },
+          tx
+        );
+
+        if (!activated) {
+          throw failedActivation;
+        }
+      });
+    } catch (err) {
+      if (err !== failedActivation) {
+        throw err;
+      }
+
+      const currentMasterNode = await this.getMasterNodeById(id);
+
+      if (currentMasterNode.sessionId === sessionId && currentMasterNode.state === 'active') {
+        return currentMasterNode;
+      }
+
+      throw new GenericAbortedError('Master node activation was aborted by a concurrent change');
+    }
+
+    return this.getMasterNodeById(id);
   }
 
   async transitionMasterNodeMode(id: MasterNodeId, mode: MasterNodeMode): Promise<MasterNode> {

@@ -130,6 +130,7 @@ const createRepositoryMock = (): jest.Mocked<TaskRepositoryContract> => {
     listExecutionsByTaskId: jest.fn<TaskRepositoryContract['listExecutionsByTaskId']>(),
     findById: jest.fn<TaskRepositoryContract['findById']>(),
     findBySequence: jest.fn<TaskRepositoryContract['findBySequence']>(),
+    findLatestByTypeUpToSequence: jest.fn<TaskRepositoryContract['findLatestByTypeUpToSequence']>(),
     create: jest.fn<TaskRepositoryContract['create']>(),
     createExecutions: jest.fn<TaskRepositoryContract['createExecutions']>(),
     createSubmission: jest.fn<TaskRepositoryContract['createSubmission']>(),
@@ -286,6 +287,16 @@ describe('TaskService', () => {
 
     await expect(service.findTaskBySequence(task.sequence)).resolves.toBe(task);
     expect(repository.findBySequence).toHaveBeenCalledWith(task.sequence);
+  });
+
+  test('finds the latest task of a type up to a sequence', async () => {
+    repository.findLatestByTypeUpToSequence.mockResolvedValue(task);
+
+    await expect(service.findLatestTaskByTypeUpToSequence(task.type, task.sequence)).resolves.toBe(task);
+    expect(repository.findLatestByTypeUpToSequence).toHaveBeenCalledWith({
+      type: task.type,
+      upToSequence: task.sequence
+    });
   });
 
   test('rejects task replication before writing when the cluster has no leader', async () => {

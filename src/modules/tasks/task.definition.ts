@@ -9,6 +9,7 @@ import { taskBaseSchema, type TaskExecutionScope } from './task.domain';
 type SimpleTaskDefinition<TType extends string, TScope extends TaskExecutionScope, TData, TResult> = {
   type: TType;
   executionScope: TScope;
+  forwardable: boolean;
 
   dataSchema: z.ZodType<TData>;
 
@@ -40,6 +41,7 @@ type DehydratedTaskDefinition<
 > = {
   type: TType;
   executionScope: TScope;
+  forwardable: boolean;
 
   dataSchema: z.ZodType<TData>;
   persistedDataSchema: z.ZodType<TPersistedData>;
@@ -73,6 +75,7 @@ type CreateTaskDefinitionInput<
 > = {
   type: TType;
   executionScope: TScope;
+  forwardable?: boolean;
 
   dataSchema: TDataSchema;
 };
@@ -162,6 +165,7 @@ function createTaskDefinition(
   const taskDefinition = {
     type: definition.type,
     executionScope: definition.executionScope,
+    forwardable: definition.forwardable ?? true,
 
     dataSchema: definition.dataSchema,
     persistedDataSchema: definition.dataSchema,
@@ -209,6 +213,7 @@ function createDehydratedTaskDefinition(
   const taskDefinition = {
     type: definition.type,
     executionScope: definition.executionScope,
+    forwardable: definition.forwardable ?? true,
 
     dataSchema: definition.dataSchema,
     persistedDataSchema: definition.persistedDataSchema,

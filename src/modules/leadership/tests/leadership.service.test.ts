@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
+import {
+  CONSENSUS_STATE_ID,
+  type ConsensusState,
+  type ConsensusVotingConfiguration
+} from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
@@ -76,6 +81,11 @@ const masterNodes = [
   createMasterNode('master-node-aaaaaaaaaaab')
 ];
 
+const votingConfiguration: ConsensusVotingConfiguration = {
+  phase: 'stable',
+  voterMasterNodeIds: masterNodes.map((masterNode) => masterNode.id)
+};
+
 const lastTask: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000001',
   originMasterNodeId: selfMasterNodeId,
@@ -95,6 +105,7 @@ const lastTask: PersistedTask = {
 
 describe('LeadershipService', () => {
   let consensusService: jest.Mocked<ConsensusServiceContract>;
+  let consensusVotingConfigurationService: jest.Mocked<ConsensusVotingConfigurationServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let masterNodeGrpcClient: jest.Mocked<MasterNodeGrpcClientContract>;
   let taskService: jest.Mocked<TaskServiceContract>;
@@ -118,6 +129,13 @@ describe('LeadershipService', () => {
         .mockResolvedValue(leaderState)
     } as unknown as jest.Mocked<ConsensusServiceContract>;
 
+    consensusVotingConfigurationService = {
+      resolveVotingConfiguration: jest
+        .fn<ConsensusVotingConfigurationServiceContract['resolveVotingConfiguration']>()
+        .mockResolvedValue(votingConfiguration),
+      requestVoterAddition: jest.fn<ConsensusVotingConfigurationServiceContract['requestVoterAddition']>()
+    };
+
     masterNodeService = {
       listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue(masterNodes),
       applyMasterNodeHeartbeat: jest.fn<MasterNodeServiceContract['applyMasterNodeHeartbeat']>()
@@ -140,6 +158,7 @@ describe('LeadershipService', () => {
 
     service = new LeadershipService(
       consensusService,
+      consensusVotingConfigurationService,
       masterNodeService,
       masterNodeGrpcClient,
       taskService,
@@ -405,6 +424,41 @@ describe('LeadershipService', () => {
     });
   });
 
+  test('commits only through matched progress held by both joint voter-set majorities', async () => {
+    const joiningMasterNode = {
+      ...createMasterNode('master-node-cccccccccccc'),
+      state: 'joining' as const
+    };
+
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastAllocatedSequence: 6n,
+      lastCommittedSequence: 4n
+    });
+    masterNodeService.listMasterNodes.mockResolvedValue([...masterNodes, joiningMasterNode]);
+    consensusVotingConfigurationService.resolveVotingConfiguration.mockResolvedValue({
+      phase: 'joint',
+      previousVoterMasterNodeIds: [selfMasterNodeId, masterNodes[1].id, masterNodes[2].id],
+      nextVoterMasterNodeIds: [selfMasterNodeId, masterNodes[2].id, joiningMasterNode.id]
+    });
+    taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 3n });
+    masterNodeGrpcClient.recordLeaderHeartbeat
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 6n })
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 4n })
+      .mockResolvedValueOnce({ epoch: 3n, accepted: true, lastMatchedSequence: 6n });
+
+    await service.broadcastLeaderHeartbeat();
+
+    expect(consensusService.advanceLastCommittedSequence).toHaveBeenCalledWith({
+      leadershipContext: {
+        epoch: 3n,
+        leaderMasterId: selfMasterNodeId
+      },
+      sequence: 6n
+    });
+    expect(masterNodeGrpcClient.recordLeaderHeartbeat).toHaveBeenCalledTimes(3);
+  });
+
   test('evaluates commitment even when a heartbeat activity stamp fails', async () => {
     consensusService.getConsensusState.mockResolvedValue({
       ...leaderState,
@@ -506,6 +560,10 @@ describe('LeadershipService', () => {
       lastCommittedSequence: 4n
     });
     masterNodeService.listMasterNodes.mockResolvedValue([createMasterNode(selfMasterNodeId)]);
+    consensusVotingConfigurationService.resolveVotingConfiguration.mockResolvedValue({
+      phase: 'stable',
+      voterMasterNodeIds: [selfMasterNodeId]
+    });
     taskService.findTaskBySequence.mockResolvedValue({ ...lastTask, sequence: 6n, epoch: 3n });
 
     await service.evaluateCommitment();

@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { GenericInternalServerError } from '@/errors/application.errors';
-import { CONSENSUS_STATE_ID, type ConsensusState } from '@/modules/consensus/consensus.domain';
+import {
+  CONSENSUS_STATE_ID,
+  type ConsensusState,
+  type ConsensusVotingConfiguration
+} from '@/modules/consensus/consensus.domain';
 import type { ConsensusServiceContract } from '@/modules/consensus/consensus.service';
+import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { MasterNode } from '@/modules/master-nodes/master-node.domain';
 import type { MasterNodeGrpcClientContract } from '@/modules/master-nodes/master-node.grpc-client';
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
@@ -74,6 +79,11 @@ const masterNodes = [
   createMasterNode('master-node-aaaaaaaaaaab')
 ];
 
+const votingConfiguration: ConsensusVotingConfiguration = {
+  phase: 'stable',
+  voterMasterNodeIds: masterNodes.map((masterNode) => masterNode.id)
+};
+
 const lastTask: PersistedTask = {
   id: '00000000-0000-4000-8000-000000000001',
   originMasterNodeId: selfMasterNodeId,
@@ -93,6 +103,7 @@ const lastTask: PersistedTask = {
 
 describe('ElectionService', () => {
   let consensusService: jest.Mocked<ConsensusServiceContract>;
+  let consensusVotingConfigurationService: jest.Mocked<ConsensusVotingConfigurationServiceContract>;
   let masterNodeService: jest.Mocked<MasterNodeServiceContract>;
   let masterNodeGrpcClient: jest.Mocked<MasterNodeGrpcClientContract>;
   let taskService: jest.Mocked<TaskServiceContract>;
@@ -113,6 +124,13 @@ describe('ElectionService', () => {
       }))
     } as unknown as jest.Mocked<ConsensusServiceContract>;
 
+    consensusVotingConfigurationService = {
+      resolveVotingConfiguration: jest
+        .fn<ConsensusVotingConfigurationServiceContract['resolveVotingConfiguration']>()
+        .mockResolvedValue(votingConfiguration),
+      requestVoterAddition: jest.fn<ConsensusVotingConfigurationServiceContract['requestVoterAddition']>()
+    };
+
     masterNodeService = {
       listMasterNodes: jest.fn<MasterNodeServiceContract['listMasterNodes']>().mockResolvedValue(masterNodes)
     } as unknown as jest.Mocked<MasterNodeServiceContract>;
@@ -130,6 +148,7 @@ describe('ElectionService', () => {
 
     service = new ElectionService(
       consensusService,
+      consensusVotingConfigurationService,
       masterNodeService,
       masterNodeGrpcClient,
       taskService,
@@ -161,6 +180,41 @@ describe('ElectionService', () => {
     });
   });
 
+  test('does not vote for an election starter outside the voting configuration', async () => {
+    await expect(
+      service.requestVote({
+        electionStarterMasterNodeId: 'master-node-cccccccccccc',
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 5n
+      })
+    ).resolves.toEqual({
+      epoch: consensusState.currentEpoch,
+      voteGranted: false
+    });
+    expect(consensusService.requestVote).not.toHaveBeenCalled();
+  });
+
+  test('does not vote after the local master node leaves the voting configuration', async () => {
+    consensusVotingConfigurationService.resolveVotingConfiguration.mockResolvedValue({
+      phase: 'stable',
+      voterMasterNodeIds: [masterNodes[1].id, masterNodes[2].id]
+    });
+
+    await expect(
+      service.requestVote({
+        electionStarterMasterNodeId: masterNodes[1].id,
+        epoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 5n
+      })
+    ).resolves.toEqual({
+      epoch: consensusState.currentEpoch,
+      voteGranted: false
+    });
+    expect(consensusService.requestVote).not.toHaveBeenCalled();
+  });
+
   test('wins an election after receiving a majority', async () => {
     consensusService.getConsensusState.mockResolvedValue(leaderState);
     masterNodeGrpcClient.requestVote
@@ -181,19 +235,49 @@ describe('ElectionService', () => {
     expect(consensusService.completeElection).not.toHaveBeenCalled();
   });
 
+  test('requires a majority of both voter sets during a joint configuration', async () => {
+    const nextMasterNode = createMasterNode('master-node-cccccccccccc');
+
+    masterNodeService.listMasterNodes.mockResolvedValue([...masterNodes, nextMasterNode]);
+    consensusVotingConfigurationService.resolveVotingConfiguration.mockResolvedValue({
+      phase: 'joint',
+      previousVoterMasterNodeIds: [selfMasterNodeId, masterNodes[1].id, masterNodes[2].id],
+      nextVoterMasterNodeIds: [selfMasterNodeId, masterNodes[2].id, nextMasterNode.id]
+    });
+    masterNodeGrpcClient.requestVote
+      .mockResolvedValueOnce({ epoch: 3n, voteGranted: true })
+      .mockResolvedValueOnce({ epoch: 3n, voteGranted: false })
+      .mockResolvedValueOnce({ epoch: 3n, voteGranted: false });
+
+    await expect(service.runElection()).resolves.toBe(false);
+
+    expect(consensusService.completeElection).not.toHaveBeenCalled();
+  });
+
+  test('does not complete an election after the voting configuration changes', async () => {
+    consensusVotingConfigurationService.resolveVotingConfiguration
+      .mockResolvedValueOnce(votingConfiguration)
+      .mockResolvedValueOnce({
+        phase: 'stable',
+        voterMasterNodeIds: [selfMasterNodeId, masterNodes[1].id]
+      });
+
+    await expect(service.runElection()).resolves.toBe(false);
+
+    expect(consensusService.completeElection).not.toHaveBeenCalled();
+  });
+
   test('does not complete an election after the election starter becomes ineligible', async () => {
-    masterNodeService.listMasterNodes
-      .mockResolvedValueOnce(masterNodes)
-      .mockResolvedValueOnce(
-        masterNodes.map((masterNode) =>
-          masterNode.id === selfMasterNodeId
-            ? {
-                ...masterNode,
-                mode: 'draining'
-              }
-            : masterNode
-        )
-      );
+    masterNodeService.listMasterNodes.mockResolvedValueOnce(masterNodes).mockResolvedValueOnce(
+      masterNodes.map((masterNode) =>
+        masterNode.id === selfMasterNodeId
+          ? {
+              ...masterNode,
+              mode: 'draining'
+            }
+          : masterNode
+      )
+    );
 
     await expect(service.runElection()).resolves.toBe(false);
 

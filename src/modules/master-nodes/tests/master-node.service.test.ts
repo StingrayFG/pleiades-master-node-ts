@@ -81,7 +81,8 @@ const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContr
     findMemberById: jest.fn<MasterNodeRepositoryContract['findMemberById']>(),
     applyHeartbeat: jest.fn<MasterNodeRepositoryContract['applyHeartbeat']>(),
     applyRegistration: jest.fn<MasterNodeRepositoryContract['applyRegistration']>(),
-    transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>()
+    transitionMode: jest.fn<MasterNodeRepositoryContract['transitionMode']>(),
+    activate: jest.fn<MasterNodeRepositoryContract['activate']>()
   };
 
   repository.listAll.mockResolvedValue([]);
@@ -89,6 +90,7 @@ const createMasterNodeRepositoryMock = (): jest.Mocked<MasterNodeRepositoryContr
   repository.applyHeartbeat.mockResolvedValue(true);
   repository.applyRegistration.mockResolvedValue(masterNode);
   repository.transitionMode.mockResolvedValue(true);
+  repository.activate.mockResolvedValue(true);
 
   return repository;
 };
@@ -214,6 +216,43 @@ describe('MasterNodeService', () => {
     };
 
     await expect(service.registerMasterNode(conflictingInput)).rejects.toBeInstanceOf(GenericConflictError);
+  });
+
+  test('activates a joining master node and advances the membership revision', async () => {
+    const joiningMasterNode: MasterNode = { ...masterNode, state: 'joining' };
+    const activeMasterNode: MasterNode = { ...masterNode, revision: 2n };
+
+    repository.findMemberById.mockResolvedValueOnce(joiningMasterNode).mockResolvedValueOnce(activeMasterNode);
+
+    await expect(service.activateMasterNode(joiningMasterNode.id, joiningMasterNode.sessionId)).resolves.toBe(
+      activeMasterNode
+    );
+    expect(repository.activate).toHaveBeenCalledWith(
+      {
+        id: joiningMasterNode.id,
+        sessionId: joiningMasterNode.sessionId,
+        expectedRevision: joiningMasterNode.revision
+      },
+      expect.anything()
+    );
+    expect(clusterService.withAdvancedMembershipRevision).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  test('returns an already active master node without advancing the membership revision', async () => {
+    repository.findMemberById.mockResolvedValue(masterNode);
+
+    await expect(service.activateMasterNode(masterNode.id, masterNode.sessionId)).resolves.toBe(masterNode);
+    expect(repository.activate).not.toHaveBeenCalled();
+    expect(clusterService.withAdvancedMembershipRevision).not.toHaveBeenCalled();
+  });
+
+  test('aborts master node activation after its session changes', async () => {
+    repository.findMemberById.mockResolvedValue({ ...masterNode, state: 'joining' });
+
+    await expect(
+      service.activateMasterNode(masterNode.id, '00000000-0000-4000-8000-000000000099')
+    ).rejects.toBeInstanceOf(GenericAbortedError);
+    expect(repository.activate).not.toHaveBeenCalled();
   });
 
   test('changes a master node mode and advances the membership revision', async () => {

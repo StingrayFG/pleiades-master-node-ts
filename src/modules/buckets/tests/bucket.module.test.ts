@@ -22,6 +22,10 @@ class TaskServiceStub implements TaskServiceContract {
     throw new Error('Unexpected findTaskBySequence call');
   };
 
+  findLatestTaskByTypeUpToSequence: TaskServiceContract['findLatestTaskByTypeUpToSequence'] = async () => {
+    throw new Error('Unexpected findLatestTaskByTypeUpToSequence call');
+  };
+
   listTasksInSequenceRange: TaskServiceContract['listTasksInSequenceRange'] = async () => {
     throw new Error('Unexpected listTasksInSequenceRange call');
   };
