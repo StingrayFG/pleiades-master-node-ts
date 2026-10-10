@@ -157,6 +157,133 @@ describe('ElectionService', () => {
     );
   });
 
+  test('grants a pre-vote without mutating consensus state after the leader contact expires', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastLeaderContactAt: new Date(now.getTime() - config.timeoutMinMs)
+    });
+
+    await expect(
+      service.requestPreVote(
+        {
+          electionStarterMasterNodeId: masterNodes[1].id,
+          prospectiveEpoch: consensusState.currentEpoch + 1n,
+          lastLogEpoch: lastTask.epoch,
+          lastLogSequence: lastTask.sequence
+        },
+        now
+      )
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: true
+    });
+
+    expect(consensusService.startElection).not.toHaveBeenCalled();
+    expect(consensusService.requestVote).not.toHaveBeenCalled();
+    expect(consensusService.adoptNewerEpoch).not.toHaveBeenCalled();
+  });
+
+  test('rejects a pre-vote while contact with the current leader remains recent', async () => {
+    await expect(
+      service.requestPreVote(
+        {
+          electionStarterMasterNodeId: masterNodes[1].id,
+          prospectiveEpoch: consensusState.currentEpoch + 1n,
+          lastLogEpoch: lastTask.epoch,
+          lastLogSequence: lastTask.sequence
+        },
+        now
+      )
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    });
+
+    expect(taskService.findTaskBySequence).not.toHaveBeenCalled();
+  });
+
+  test('rejects a pre-vote on the current leader', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...leaderState,
+      lastLeaderContactAt: new Date(now.getTime() - config.timeoutMinMs)
+    });
+
+    await expect(
+      service.requestPreVote(
+        {
+          electionStarterMasterNodeId: masterNodes[1].id,
+          prospectiveEpoch: leaderState.currentEpoch + 1n,
+          lastLogEpoch: lastTask.epoch,
+          lastLogSequence: lastTask.sequence
+        },
+        now
+      )
+    ).resolves.toEqual({
+      currentEpoch: leaderState.currentEpoch,
+      preVoteGranted: false
+    });
+  });
+
+  test('rejects a pre-vote for a stale prospective epoch', async () => {
+    await expect(
+      service.requestPreVote({
+        electionStarterMasterNodeId: masterNodes[1].id,
+        prospectiveEpoch: consensusState.currentEpoch,
+        lastLogEpoch: lastTask.epoch,
+        lastLogSequence: lastTask.sequence
+      })
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    });
+  });
+
+  test('rejects a pre-vote from an election starter outside the voting configuration', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastLeaderContactAt: new Date(now.getTime() - config.timeoutMinMs)
+    });
+
+    await expect(
+      service.requestPreVote(
+        {
+          electionStarterMasterNodeId: 'master-node-cccccccccccc',
+          prospectiveEpoch: consensusState.currentEpoch + 1n,
+          lastLogEpoch: lastTask.epoch,
+          lastLogSequence: lastTask.sequence
+        },
+        now
+      )
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    });
+
+    expect(taskService.findTaskBySequence).not.toHaveBeenCalled();
+  });
+
+  test('rejects a pre-vote from an election starter with an older log', async () => {
+    consensusService.getConsensusState.mockResolvedValue({
+      ...consensusState,
+      lastLeaderContactAt: new Date(now.getTime() - config.timeoutMinMs)
+    });
+
+    await expect(
+      service.requestPreVote(
+        {
+          electionStarterMasterNodeId: masterNodes[1].id,
+          prospectiveEpoch: consensusState.currentEpoch + 1n,
+          lastLogEpoch: lastTask.epoch - 1n,
+          lastLogSequence: lastTask.sequence + 1n
+        },
+        now
+      )
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    });
+  });
+
   test('grants a vote through durable consensus state after comparing log freshness', async () => {
     await expect(
       service.requestVote({

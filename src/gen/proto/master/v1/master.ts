@@ -189,6 +189,19 @@ export interface ForwardTaskResponse {
   result?: Buffer | undefined;
 }
 
+export interface RequestPreVoteRequest {
+  prospective_epoch: string;
+  last_log_sequence: string;
+  caller_master_id: string;
+  caller_session_id: string;
+  last_log_epoch: string;
+}
+
+export interface RequestPreVoteResponse {
+  current_epoch: string;
+  pre_vote_granted: boolean;
+}
+
 export interface RequestVoteRequest {
   epoch: string;
   last_log_sequence: string;
@@ -2427,6 +2440,240 @@ export const ForwardTaskResponse: MessageFns<ForwardTaskResponse> = {
   },
 };
 
+function createBaseRequestPreVoteRequest(): RequestPreVoteRequest {
+  return {
+    prospective_epoch: "0",
+    last_log_sequence: "0",
+    caller_master_id: "",
+    caller_session_id: "",
+    last_log_epoch: "0",
+  };
+}
+
+export const RequestPreVoteRequest: MessageFns<RequestPreVoteRequest> = {
+  encode(message: RequestPreVoteRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.prospective_epoch !== "0") {
+      writer.uint32(8).int64(message.prospective_epoch);
+    }
+    if (message.last_log_sequence !== "0") {
+      writer.uint32(16).int64(message.last_log_sequence);
+    }
+    if (message.caller_master_id !== "") {
+      writer.uint32(26).string(message.caller_master_id);
+    }
+    if (message.caller_session_id !== "") {
+      writer.uint32(34).string(message.caller_session_id);
+    }
+    if (message.last_log_epoch !== "0") {
+      writer.uint32(40).int64(message.last_log_epoch);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RequestPreVoteRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRequestPreVoteRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.prospective_epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.last_log_sequence = reader.int64().toString();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.caller_master_id = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.caller_session_id = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.last_log_epoch = reader.int64().toString();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RequestPreVoteRequest {
+    return {
+      prospective_epoch: isSet(object.prospectiveEpoch)
+        ? globalThis.String(object.prospectiveEpoch)
+        : isSet(object.prospective_epoch)
+        ? globalThis.String(object.prospective_epoch)
+        : "0",
+      last_log_sequence: isSet(object.lastLogSequence)
+        ? globalThis.String(object.lastLogSequence)
+        : isSet(object.last_log_sequence)
+        ? globalThis.String(object.last_log_sequence)
+        : "0",
+      caller_master_id: isSet(object.callerMasterId)
+        ? globalThis.String(object.callerMasterId)
+        : isSet(object.caller_master_id)
+        ? globalThis.String(object.caller_master_id)
+        : "",
+      caller_session_id: isSet(object.callerSessionId)
+        ? globalThis.String(object.callerSessionId)
+        : isSet(object.caller_session_id)
+        ? globalThis.String(object.caller_session_id)
+        : "",
+      last_log_epoch: isSet(object.lastLogEpoch)
+        ? globalThis.String(object.lastLogEpoch)
+        : isSet(object.last_log_epoch)
+        ? globalThis.String(object.last_log_epoch)
+        : "0",
+    };
+  },
+
+  toJSON(message: RequestPreVoteRequest): unknown {
+    const obj: any = {};
+    if (message.prospective_epoch !== "0") {
+      obj.prospectiveEpoch = message.prospective_epoch;
+    }
+    if (message.last_log_sequence !== "0") {
+      obj.lastLogSequence = message.last_log_sequence;
+    }
+    if (message.caller_master_id !== "") {
+      obj.callerMasterId = message.caller_master_id;
+    }
+    if (message.caller_session_id !== "") {
+      obj.callerSessionId = message.caller_session_id;
+    }
+    if (message.last_log_epoch !== "0") {
+      obj.lastLogEpoch = message.last_log_epoch;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RequestPreVoteRequest>, I>>(base?: I): RequestPreVoteRequest {
+    return RequestPreVoteRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RequestPreVoteRequest>, I>>(object: I): RequestPreVoteRequest {
+    const message = createBaseRequestPreVoteRequest();
+    message.prospective_epoch = object.prospective_epoch ?? "0";
+    message.last_log_sequence = object.last_log_sequence ?? "0";
+    message.caller_master_id = object.caller_master_id ?? "";
+    message.caller_session_id = object.caller_session_id ?? "";
+    message.last_log_epoch = object.last_log_epoch ?? "0";
+    return message;
+  },
+};
+
+function createBaseRequestPreVoteResponse(): RequestPreVoteResponse {
+  return { current_epoch: "0", pre_vote_granted: false };
+}
+
+export const RequestPreVoteResponse: MessageFns<RequestPreVoteResponse> = {
+  encode(message: RequestPreVoteResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.current_epoch !== "0") {
+      writer.uint32(8).int64(message.current_epoch);
+    }
+    if (message.pre_vote_granted !== false) {
+      writer.uint32(16).bool(message.pre_vote_granted);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RequestPreVoteResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRequestPreVoteResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.current_epoch = reader.int64().toString();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.pre_vote_granted = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RequestPreVoteResponse {
+    return {
+      current_epoch: isSet(object.currentEpoch)
+        ? globalThis.String(object.currentEpoch)
+        : isSet(object.current_epoch)
+        ? globalThis.String(object.current_epoch)
+        : "0",
+      pre_vote_granted: isSet(object.preVoteGranted)
+        ? globalThis.Boolean(object.preVoteGranted)
+        : isSet(object.pre_vote_granted)
+        ? globalThis.Boolean(object.pre_vote_granted)
+        : false,
+    };
+  },
+
+  toJSON(message: RequestPreVoteResponse): unknown {
+    const obj: any = {};
+    if (message.current_epoch !== "0") {
+      obj.currentEpoch = message.current_epoch;
+    }
+    if (message.pre_vote_granted !== false) {
+      obj.preVoteGranted = message.pre_vote_granted;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RequestPreVoteResponse>, I>>(base?: I): RequestPreVoteResponse {
+    return RequestPreVoteResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RequestPreVoteResponse>, I>>(object: I): RequestPreVoteResponse {
+    const message = createBaseRequestPreVoteResponse();
+    message.current_epoch = object.current_epoch ?? "0";
+    message.pre_vote_granted = object.pre_vote_granted ?? false;
+    return message;
+  },
+};
+
 function createBaseRequestVoteRequest(): RequestVoteRequest {
   return { epoch: "0", last_log_sequence: "0", caller_master_id: "", caller_session_id: "", last_log_epoch: "0" };
 }
@@ -2933,6 +3180,17 @@ export const MasterService = {
     responseSerialize: (value: ForwardTaskResponse): Buffer => Buffer.from(ForwardTaskResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): ForwardTaskResponse => ForwardTaskResponse.decode(value),
   },
+  requestPreVote: {
+    path: "/master.v1.Master/RequestPreVote" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RequestPreVoteRequest): Buffer =>
+      Buffer.from(RequestPreVoteRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RequestPreVoteRequest => RequestPreVoteRequest.decode(value),
+    responseSerialize: (value: RequestPreVoteResponse): Buffer =>
+      Buffer.from(RequestPreVoteResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RequestPreVoteResponse => RequestPreVoteResponse.decode(value),
+  },
   requestVote: {
     path: "/master.v1.Master/RequestVote" as const,
     requestStream: false as const,
@@ -2965,6 +3223,7 @@ export interface MasterServer extends UntypedServiceImplementation {
   fetchTaskEntries: handleUnaryCall<FetchTaskEntriesRequest, FetchTaskEntriesResponse>;
   fetchTaskPayload: handleUnaryCall<FetchTaskPayloadRequest, FetchTaskPayloadResponse>;
   forwardTask: handleUnaryCall<ForwardTaskRequest, ForwardTaskResponse>;
+  requestPreVote: handleUnaryCall<RequestPreVoteRequest, RequestPreVoteResponse>;
   requestVote: handleUnaryCall<RequestVoteRequest, RequestVoteResponse>;
   recordLeaderHeartbeat: handleUnaryCall<RecordLeaderHeartbeatRequest, RecordLeaderHeartbeatResponse>;
 }
@@ -3059,6 +3318,21 @@ export interface MasterClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ForwardTaskResponse) => void,
+  ): ClientUnaryCall;
+  requestPreVote(
+    request: RequestPreVoteRequest,
+    callback: (error: ServiceError | null, response: RequestPreVoteResponse) => void,
+  ): ClientUnaryCall;
+  requestPreVote(
+    request: RequestPreVoteRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: RequestPreVoteResponse) => void,
+  ): ClientUnaryCall;
+  requestPreVote(
+    request: RequestPreVoteRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: RequestPreVoteResponse) => void,
   ): ClientUnaryCall;
   requestVote(
     request: RequestVoteRequest,

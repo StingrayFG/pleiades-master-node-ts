@@ -16,6 +16,8 @@ import type {
   FetchTaskPayloadResponse,
   ForwardTaskRequest,
   ForwardTaskResponse,
+  RequestPreVoteRequest,
+  RequestPreVoteResponse,
   RequestVoteRequest,
   RequestVoteResponse,
   RecordLeaderHeartbeatRequest,
@@ -32,6 +34,7 @@ import {
   mapInternodeTaskEntryToGrpcTaskEntry,
   mapGrpcFetchTaskPayloadRequestToFetchTaskPayloadInternodeInput,
   mapGrpcForwardTaskRequestToForwardTaskInternodeInput,
+  mapGrpcRequestPreVoteRequestToRequestPreVoteInternodeInput,
   mapGrpcRequestVoteRequestToRequestVoteInternodeInput,
   mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput
 } from './master-node.mappers';
@@ -62,6 +65,10 @@ type MasterNodeGrpcControllerContract = {
   forwardTask(
     call: ServerUnaryCall<ForwardTaskRequest, ForwardTaskResponse>,
     callback: sendUnaryData<ForwardTaskResponse>
+  ): Promise<void>;
+  requestPreVote(
+    call: ServerUnaryCall<RequestPreVoteRequest, RequestPreVoteResponse>,
+    callback: sendUnaryData<RequestPreVoteResponse>
   ): Promise<void>;
   requestVote(
     call: ServerUnaryCall<RequestVoteRequest, RequestVoteResponse>,
@@ -219,6 +226,32 @@ class MasterNodeGrpcController implements MasterNodeGrpcControllerContract {
 
     callback(null, {
       result: result === undefined ? undefined : Buffer.from(JSON.stringify(result))
+    });
+  }
+
+  async requestPreVote(
+    call: ServerUnaryCall<RequestPreVoteRequest, RequestPreVoteResponse>,
+    callback: sendUnaryData<RequestPreVoteResponse>
+  ): Promise<void> {
+    const certificateFingerprint = getGrpcPeerCertificateFingerprint(call);
+
+    let input;
+
+    try {
+      input = mapGrpcRequestPreVoteRequestToRequestPreVoteInternodeInput(call.request, certificateFingerprint);
+    } catch (err) {
+      if (err instanceof GenericMapperError) {
+        throw new GenericBadRequestError('Invalid pre-vote request', { cause: err });
+      }
+
+      throw err;
+    }
+
+    const result = await this.internodeService.requestPreVote(input);
+
+    callback(null, {
+      current_epoch: result.currentEpoch.toString(),
+      pre_vote_granted: result.preVoteGranted
     });
   }
 

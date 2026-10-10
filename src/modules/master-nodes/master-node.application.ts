@@ -115,6 +115,12 @@ export const forwardTaskInternodeInputSchema = authenticatedMasterNodeCallerSche
   data: z.unknown()
 });
 
+export const requestPreVoteInternodeInputSchema = authenticatedMasterNodeCallerSchema.extend({
+  prospectiveEpoch: consensusEpochSchema,
+  lastLogEpoch: consensusEpochSchema,
+  lastLogSequence: consensusLastSequenceSchema
+});
+
 export const requestVoteInternodeInputSchema = authenticatedMasterNodeCallerSchema.extend({
   epoch: consensusEpochSchema,
   lastLogEpoch: consensusEpochSchema,
@@ -169,6 +175,15 @@ export const forwardTaskClientInputSchema = z.object({
 
   type: taskTypeSchema,
   data: z.instanceof(Buffer)
+});
+
+export const requestPreVoteClientInputSchema = z.object({
+  masterNodeEndpoint: masterNodeEndpointSchema,
+  expectedCertificateFingerprint: masterNodeCertificateFingerprintSchema,
+
+  prospectiveEpoch: consensusEpochSchema,
+  lastLogEpoch: consensusEpochSchema,
+  lastLogSequence: consensusLastSequenceSchema
 });
 
 export const requestVoteClientInputSchema = z.object({
@@ -265,6 +280,7 @@ export type FetchTaskEntriesInternodeInput = z.infer<typeof fetchTaskEntriesInte
 export type FetchTaskEntriesInternodeResult = z.infer<typeof fetchTaskEntriesInternodeResultSchema>;
 export type FetchTaskPayloadInternodeInput = z.infer<typeof fetchTaskPayloadInternodeInputSchema>;
 export type ForwardTaskInternodeInput = z.infer<typeof forwardTaskInternodeInputSchema>;
+export type RequestPreVoteInternodeInput = z.infer<typeof requestPreVoteInternodeInputSchema>;
 export type RequestVoteInternodeInput = z.infer<typeof requestVoteInternodeInputSchema>;
 export type RecordLeaderHeartbeatInternodeInput = z.infer<typeof recordLeaderHeartbeatInternodeInputSchema>;
 
@@ -276,6 +292,7 @@ export type FetchClusterMembershipSnapshotClientInput = z.infer<typeof fetchClus
 export type FetchTaskEntriesClientInput = z.infer<typeof fetchTaskEntriesClientInputSchema>;
 export type FetchTaskPayloadClientInput = z.infer<typeof fetchTaskPayloadClientInputSchema>;
 export type ForwardTaskClientInput = z.infer<typeof forwardTaskClientInputSchema>;
+export type RequestPreVoteClientInput = z.infer<typeof requestPreVoteClientInputSchema>;
 export type RequestVoteClientInput = z.infer<typeof requestVoteClientInputSchema>;
 export type RecordLeaderHeartbeatClientInput = z.infer<typeof recordLeaderHeartbeatClientInputSchema>;
 

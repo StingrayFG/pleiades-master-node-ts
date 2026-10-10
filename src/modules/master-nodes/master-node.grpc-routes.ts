@@ -23,6 +23,7 @@ const createMasterNodeGrpcRoutes = ({ controller }: MasterNodeGrpcRoutesDependen
       fetchTaskEntries: (call, callback) => controller.fetchTaskEntries(call, callback),
       fetchTaskPayload: (call, callback) => controller.fetchTaskPayload(call, callback),
       forwardTask: (call, callback) => controller.forwardTask(call, callback),
+      requestPreVote: (call, callback) => controller.requestPreVote(call, callback),
       requestVote: (call, callback) => controller.requestVote(call, callback),
       recordLeaderHeartbeat: (call, callback) => controller.recordLeaderHeartbeat(call, callback)
     }

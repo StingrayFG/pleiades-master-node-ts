@@ -10,11 +10,12 @@ import {
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadResponse,
   type ForwardTaskResponse,
+  type RequestPreVoteResponse,
   type RequestVoteResponse,
   type RecordLeaderHeartbeatResponse
 } from '@/gen/proto/master/v1/master';
 import type { ClusterMembershipSnapshot } from '@/modules/cluster/cluster.membership-snapshot';
-import type { RequestVoteResult } from '@/modules/election/election.application';
+import type { RequestPreVoteResult, RequestVoteResult } from '@/modules/election/election.application';
 import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
 import type { GrpcClientCredentialsContract } from '@/transports/grpc/client/credentials/grpc-client-credentials.contract';
 import type { GrpcClientConfig } from '@/transports/grpc/client/grpc-client.config';
@@ -30,6 +31,7 @@ import type {
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadClientInput,
   ForwardTaskClientInput,
+  RequestPreVoteClientInput,
   RequestVoteClientInput,
   RecordLeaderHeartbeatClientInput
 } from './master-node.application';
@@ -38,6 +40,7 @@ import {
   mapGrpcFetchMasterInfoResponseToFetchMasterInfoInternodeResult,
   mapGrpcClusterMembershipSnapshotToClusterMembershipSnapshot,
   mapGrpcFetchTaskEntriesResponseToFetchTaskEntriesInternodeResult,
+  mapGrpcRequestPreVoteResponseToRequestPreVoteResult,
   mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult
 } from './master-node.mappers';
@@ -51,6 +54,7 @@ type MasterNodeGrpcClientContract = {
   fetchTaskEntries(input: FetchTaskEntriesClientInput): Promise<FetchTaskEntriesInternodeResult>;
   fetchTaskPayload(input: FetchTaskPayloadClientInput): Promise<Buffer>;
   forwardTask(input: ForwardTaskClientInput): Promise<Buffer | undefined>;
+  requestPreVote(input: RequestPreVoteClientInput): Promise<RequestPreVoteResult>;
   requestVote(input: RequestVoteClientInput): Promise<RequestVoteResult>;
   recordLeaderHeartbeat(input: RecordLeaderHeartbeatClientInput): Promise<RecordLeaderHeartbeatResult>;
   close(): void;
@@ -227,6 +231,34 @@ class MasterNodeGrpcClient implements MasterNodeGrpcClientContract {
     return response.result;
   }
 
+  async requestPreVote(input: RequestPreVoteClientInput): Promise<RequestPreVoteResult> {
+    const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
+
+    const response = await new Promise<RequestPreVoteResponse>((resolve, reject) => {
+      client.requestPreVote(
+        {
+          prospective_epoch: input.prospectiveEpoch.toString(),
+          last_log_sequence: input.lastLogSequence.toString(),
+          caller_master_id: this.selfMasterNodeId,
+          caller_session_id: this.selfMasterNodeSessionId,
+          last_log_epoch: input.lastLogEpoch.toString()
+        },
+        new Metadata(),
+        createDefaultGrpcCallOptions(),
+        (err, response) => {
+          if (err) {
+            reject(mapGrpcErrorToInternodeApplicationError(err));
+            return;
+          }
+
+          resolve(response);
+        }
+      );
+    });
+
+    return mapGrpcRequestPreVoteResponseToRequestPreVoteResult(response);
+  }
+
   async requestVote(input: RequestVoteClientInput): Promise<RequestVoteResult> {
     const client = this.getClient(input.masterNodeEndpoint, input.expectedCertificateFingerprint);
 
@@ -319,6 +351,7 @@ export type {
   ForwardTaskClientInput,
   MasterNodeGrpcClientContract,
   RegisterMasterNodeClientInput,
+  RequestPreVoteClientInput,
   RequestVoteClientInput,
   RecordLeaderHeartbeatClientInput
 };

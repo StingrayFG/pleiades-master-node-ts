@@ -14,6 +14,8 @@ import {
   type FetchTaskEntriesResponse,
   type FetchTaskPayloadRequest,
   type ForwardTaskRequest,
+  type RequestPreVoteRequest,
+  type RequestPreVoteResponse,
   type RequestVoteRequest,
   type RequestVoteResponse,
   type RecordLeaderHeartbeatRequest,
@@ -25,7 +27,12 @@ import {
   clusterMembershipSnapshotSchema,
   type ClusterMembershipSnapshot
 } from '@/modules/cluster/cluster.membership-snapshot';
-import { requestVoteResultSchema, type RequestVoteResult } from '@/modules/election/election.application';
+import {
+  requestPreVoteResultSchema,
+  requestVoteResultSchema,
+  type RequestPreVoteResult,
+  type RequestVoteResult
+} from '@/modules/election/election.application';
 import {
   recordLeaderHeartbeatResultSchema,
   type RecordLeaderHeartbeatResult
@@ -41,6 +48,7 @@ import {
   fetchTaskEntriesInternodeResultSchema,
   fetchTaskPayloadInternodeInputSchema,
   forwardTaskInternodeInputSchema,
+  requestPreVoteInternodeInputSchema,
   requestVoteInternodeInputSchema,
   recordLeaderHeartbeatInternodeInputSchema,
   type InternodeTaskEntry,
@@ -51,6 +59,7 @@ import {
   type FetchTaskEntriesInternodeResult,
   type FetchTaskPayloadInternodeInput,
   type ForwardTaskInternodeInput,
+  type RequestPreVoteInternodeInput,
   type RequestVoteInternodeInput,
   type RecordLeaderHeartbeatInternodeInput
 } from './master-node.application';
@@ -329,6 +338,34 @@ export const mapGrpcForwardTaskRequestToForwardTaskInternodeInput = (
       callerMasterNodeId: request.caller_master_id,
       callerMasterNodeSessionId: request.caller_session_id,
       callerCertificateFingerprint
+    });
+  });
+};
+
+export const mapGrpcRequestPreVoteRequestToRequestPreVoteInternodeInput = (
+  request: RequestPreVoteRequest,
+  callerCertificateFingerprint: MasterNodeCertificateFingerprint
+): RequestPreVoteInternodeInput => {
+  return withMapperError('Failed to map gRPC request pre-vote request', () => {
+    return requestPreVoteInternodeInputSchema.parse({
+      prospectiveEpoch: BigInt(request.prospective_epoch),
+      lastLogEpoch: BigInt(request.last_log_epoch),
+      lastLogSequence: BigInt(request.last_log_sequence),
+
+      callerMasterNodeId: request.caller_master_id,
+      callerMasterNodeSessionId: request.caller_session_id,
+      callerCertificateFingerprint
+    });
+  });
+};
+
+export const mapGrpcRequestPreVoteResponseToRequestPreVoteResult = (
+  response: RequestPreVoteResponse
+): RequestPreVoteResult => {
+  return withMapperError('Failed to map gRPC request pre-vote response', () => {
+    return requestPreVoteResultSchema.parse({
+      currentEpoch: BigInt(response.current_epoch),
+      preVoteGranted: response.pre_vote_granted
     });
   });
 };

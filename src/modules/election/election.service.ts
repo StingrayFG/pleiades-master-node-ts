@@ -8,6 +8,7 @@ import type {
 import {
   areConsensusVotingConfigurationsEqual,
   hasConsensusVotingQuorum,
+  isElectionStarterLogUpToDate,
   isConsensusVoter,
   listConsensusVoterMasterNodeIds
 } from '@/modules/consensus/consensus.policies';
@@ -19,14 +20,20 @@ import { mapMasterNodeToMasterNodeEndpoint } from '@/modules/master-nodes/master
 import type { MasterNodeServiceContract } from '@/modules/master-nodes/master-node.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
-import type { RequestVoteInput, RequestVoteResult } from './election.application';
+import type {
+  RequestPreVoteInput,
+  RequestPreVoteResult,
+  RequestVoteInput,
+  RequestVoteResult
+} from './election.application';
 import type { ElectionConfig } from './election.config';
 import { isSelfMasterNodeEligibleForElection } from './election.policies';
 
 /* contract */
 
 type ElectionServiceContract = {
-  // rpc
+  // voting
+  requestPreVote(input: RequestPreVoteInput, now?: Date): Promise<RequestPreVoteResult>;
   requestVote(input: RequestVoteInput): Promise<RequestVoteResult>;
 
   // election
@@ -48,7 +55,45 @@ class ElectionService implements ElectionServiceContract {
 
   /* public methods */
 
-  /* rpc methods */
+  /* voting methods */
+
+  async requestPreVote(input: RequestPreVoteInput, now = new Date()): Promise<RequestPreVoteResult> {
+    const consensusState = await this.consensusService.getConsensusState();
+    const votingConfiguration = await this.consensusVotingConfigurationService.resolveVotingConfiguration(
+      consensusState.lastAllocatedSequence
+    );
+    const leaderContactIsRecent =
+      consensusState.lastLeaderContactAt !== null &&
+      now.getTime() - consensusState.lastLeaderContactAt.getTime() < this.config.timeoutMinMs;
+
+    if (
+      !isConsensusVoter(votingConfiguration, this.selfMasterNodeId) ||
+      !isConsensusVoter(votingConfiguration, input.electionStarterMasterNodeId) ||
+      input.prospectiveEpoch <= consensusState.currentEpoch ||
+      consensusState.leaderMasterId === this.selfMasterNodeId ||
+      leaderContactIsRecent
+    ) {
+      return {
+        currentEpoch: consensusState.currentEpoch,
+        preVoteGranted: false
+      };
+    }
+
+    const localLog = await this.resolveLocalLogPosition(consensusState);
+    const preVoteGranted = isElectionStarterLogUpToDate({
+      epoch: input.prospectiveEpoch,
+      electionStarterMasterNodeId: input.electionStarterMasterNodeId,
+      electionStarterLastLogEpoch: input.lastLogEpoch,
+      electionStarterLastLogSequence: input.lastLogSequence,
+      localLastLogEpoch: localLog.epoch,
+      localLastLogSequence: localLog.sequence
+    });
+
+    return {
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted
+    };
+  }
 
   async requestVote(input: RequestVoteInput): Promise<RequestVoteResult> {
     const consensusState = await this.consensusService.getConsensusState();

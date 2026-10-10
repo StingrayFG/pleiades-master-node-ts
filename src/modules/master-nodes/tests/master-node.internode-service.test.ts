@@ -170,6 +170,10 @@ const createClusterServiceMock = (): jest.Mocked<ClusterServiceContract> => {
 
 const createElectionServiceMock = (): jest.Mocked<ElectionServiceContract> => {
   return {
+    requestPreVote: jest.fn<ElectionServiceContract['requestPreVote']>().mockResolvedValue({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    }),
     requestVote: jest.fn<ElectionServiceContract['requestVote']>().mockResolvedValue({
       epoch: consensusState.currentEpoch,
       voteGranted: false
@@ -279,6 +283,45 @@ describe('MasterNodeInternodeService', () => {
       },
       expect.any(Function)
     );
+  });
+
+  test('delegates authenticated pre-vote requests to the election service', async () => {
+    await expect(
+      service.requestPreVote({
+        ...authenticatedCaller,
+        prospectiveEpoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).resolves.toEqual({
+      currentEpoch: consensusState.currentEpoch,
+      preVoteGranted: false
+    });
+
+    expect(electionService.requestPreVote).toHaveBeenCalledWith({
+      electionStarterMasterNodeId: callerMasterNodeId,
+      prospectiveEpoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n
+    });
+  });
+
+  test('rejects pre-vote requests from a joining election starter', async () => {
+    masterNodeService.getMasterNodeById.mockResolvedValue({
+      ...callerMasterNode,
+      state: 'joining'
+    });
+
+    await expect(
+      service.requestPreVote({
+        ...authenticatedCaller,
+        prospectiveEpoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).rejects.toBeInstanceOf(GenericFailedPreconditionError);
+
+    expect(electionService.requestPreVote).not.toHaveBeenCalled();
   });
 
   test('delegates authenticated vote requests to the election service', async () => {

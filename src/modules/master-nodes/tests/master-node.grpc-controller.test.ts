@@ -19,6 +19,8 @@ import {
   type RecordLeaderHeartbeatResponse,
   type RegisterMasterNodeRequest,
   type RegisterMasterNodeResponse,
+  type RequestPreVoteRequest,
+  type RequestPreVoteResponse,
   type RequestVoteRequest,
   type RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
@@ -80,6 +82,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
     fetchTaskEntries: jest.fn<MasterNodeInternodeServiceContract['fetchTaskEntries']>(),
     fetchTaskPayload: jest.fn<MasterNodeInternodeServiceContract['fetchTaskPayload']>(),
     forwardTask: jest.fn<MasterNodeInternodeServiceContract['forwardTask']>(),
+    requestPreVote: jest.fn<MasterNodeInternodeServiceContract['requestPreVote']>(),
     requestVote: jest.fn<MasterNodeInternodeServiceContract['requestVote']>(),
     recordLeaderHeartbeat: jest.fn<MasterNodeInternodeServiceContract['recordLeaderHeartbeat']>()
   };
@@ -94,6 +97,7 @@ const createInternodeServiceMock = (): jest.Mocked<MasterNodeInternodeServiceCon
   service.fetchClusterMembershipSnapshot.mockResolvedValue(clusterMembershipSnapshot);
   service.fetchTaskPayload.mockResolvedValue(Buffer.from('task payload'));
   service.forwardTask.mockResolvedValue({ result: 'done' });
+  service.requestPreVote.mockResolvedValue({ currentEpoch: 2n, preVoteGranted: false });
   service.requestVote.mockResolvedValue({ epoch: 2n, voteGranted: false });
   service.recordLeaderHeartbeat.mockResolvedValue({ epoch: 3n, accepted: true, lastMatchedSequence: 5n });
 
@@ -318,6 +322,36 @@ describe('MasterNodeGrpcController', () => {
       }
     });
     expect(callback).toHaveBeenCalledWith(null, {});
+  });
+
+  test('maps authenticated pre-vote requests and responses', async () => {
+    const service = createInternodeServiceMock();
+    const controller = new MasterNodeGrpcController(service);
+    const callback = jest.fn<sendUnaryData<RequestPreVoteResponse>>();
+
+    await controller.requestPreVote(
+      createCall<RequestPreVoteRequest, RequestPreVoteResponse>({
+        prospective_epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: callerMasterNodeId,
+        caller_session_id: callerSessionId,
+        last_log_epoch: '2'
+      }),
+      callback
+    );
+
+    expect(service.requestPreVote).toHaveBeenCalledWith({
+      callerMasterNodeId,
+      callerMasterNodeSessionId: callerSessionId,
+      callerCertificateFingerprint,
+      prospectiveEpoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n
+    });
+    expect(callback).toHaveBeenCalledWith(null, {
+      current_epoch: '2',
+      pre_vote_granted: false
+    });
   });
 
   test('maps authenticated vote requests and responses', async () => {

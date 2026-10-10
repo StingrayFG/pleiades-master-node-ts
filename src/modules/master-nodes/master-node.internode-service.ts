@@ -16,7 +16,7 @@ import type { ConsensusServiceContract } from '@/modules/consensus/consensus.ser
 import type { ConsensusVotingConfigurationServiceContract } from '@/modules/consensus/consensus.voting-configuration-service';
 import type { RecordLeaderHeartbeatResult } from '@/modules/leadership/leadership.application';
 import type { LeadershipServiceContract } from '@/modules/leadership/leadership.service';
-import type { RequestVoteResult } from '@/modules/election/election.application';
+import type { RequestPreVoteResult, RequestVoteResult } from '@/modules/election/election.application';
 import type { ElectionServiceContract } from '@/modules/election/election.service';
 import type { TaskServiceContract } from '@/modules/tasks/task.service';
 
@@ -30,6 +30,7 @@ import type {
   FetchTaskEntriesInternodeResult,
   FetchTaskPayloadInternodeInput,
   ForwardTaskInternodeInput,
+  RequestPreVoteInternodeInput,
   RequestVoteInternodeInput,
   RecordLeaderHeartbeatInternodeInput
 } from './master-node.application';
@@ -56,6 +57,7 @@ type MasterNodeInternodeServiceContract = {
   forwardTask(input: ForwardTaskInternodeInput): Promise<unknown>;
 
   // election
+  requestPreVote(input: RequestPreVoteInternodeInput): Promise<RequestPreVoteResult>;
   requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult>;
 
   // leadership
@@ -236,6 +238,22 @@ class MasterNodeInternodeService implements MasterNodeInternodeServiceContract {
   }
 
   /* election methods */
+
+  // handles a pre-vote request without advancing the local epoch or recording a vote.
+  async requestPreVote(input: RequestPreVoteInternodeInput): Promise<RequestPreVoteResult> {
+    const electionStarter = await this.requireAuthenticatedMasterNodeCaller(input);
+
+    if (electionStarter.state !== 'active' || electionStarter.mode !== 'serving') {
+      throw new GenericFailedPreconditionError('Calling master node is not eligible to become the cluster leader');
+    }
+
+    return this.electionService.requestPreVote({
+      electionStarterMasterNodeId: input.callerMasterNodeId,
+      prospectiveEpoch: input.prospectiveEpoch,
+      lastLogEpoch: input.lastLogEpoch,
+      lastLogSequence: input.lastLogSequence
+    });
+  }
 
   // handles a vote request from an election starter.
   async requestVote(input: RequestVoteInternodeInput): Promise<RequestVoteResult> {

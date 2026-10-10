@@ -5,6 +5,18 @@ import { masterNodeIdSchema } from '@/modules/master-nodes/master-node.domain';
 
 /* schemas */
 
+export const requestPreVoteInputSchema = z.object({
+  electionStarterMasterNodeId: masterNodeIdSchema,
+  prospectiveEpoch: consensusEpochSchema,
+  lastLogEpoch: consensusEpochSchema,
+  lastLogSequence: consensusLastSequenceSchema
+});
+
+export const requestPreVoteResultSchema = z.object({
+  currentEpoch: consensusEpochSchema,
+  preVoteGranted: z.boolean()
+});
+
 export const requestVoteInputSchema = z.object({
   electionStarterMasterNodeId: masterNodeIdSchema,
   epoch: consensusEpochSchema,
@@ -19,5 +31,7 @@ export const requestVoteResultSchema = z.object({
 
 /* types */
 
+export type RequestPreVoteInput = z.infer<typeof requestPreVoteInputSchema>;
+export type RequestPreVoteResult = z.infer<typeof requestPreVoteResultSchema>;
 export type RequestVoteInput = z.infer<typeof requestVoteInputSchema>;
 export type RequestVoteResult = z.infer<typeof requestVoteResultSchema>;

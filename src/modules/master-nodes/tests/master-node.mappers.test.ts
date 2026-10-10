@@ -20,6 +20,8 @@ import {
   mapGrpcRecordLeaderHeartbeatRequestToRecordLeaderHeartbeatInternodeInput,
   mapGrpcRecordLeaderHeartbeatResponseToRecordLeaderHeartbeatResult,
   mapGrpcRegisterMasterNodeRequestToRegisterMasterNodeInternodeInput,
+  mapGrpcRequestPreVoteRequestToRequestPreVoteInternodeInput,
+  mapGrpcRequestPreVoteResponseToRequestPreVoteResult,
   mapGrpcRequestVoteRequestToRequestVoteInternodeInput,
   mapGrpcRequestVoteResponseToRequestVoteResult,
   mapGrpcTaskEntryToInternodeTaskEntry,
@@ -293,6 +295,37 @@ describe('master node mappers', () => {
         port: domainMasterNode.port,
         scheme: domainMasterNode.scheme
       }
+    });
+  });
+
+  test('maps pre-vote requests and responses', () => {
+    expect(
+      mapGrpcRequestPreVoteRequestToRequestPreVoteInternodeInput(
+        {
+          prospective_epoch: '3',
+          last_log_sequence: '4',
+          caller_master_id: domainMasterNode.id,
+          caller_session_id: domainMasterNode.sessionId,
+          last_log_epoch: '2'
+        },
+        callerCertificateFingerprint
+      )
+    ).toEqual({
+      prospectiveEpoch: 3n,
+      lastLogEpoch: 2n,
+      lastLogSequence: 4n,
+      callerMasterNodeId: domainMasterNode.id,
+      callerMasterNodeSessionId: domainMasterNode.sessionId,
+      callerCertificateFingerprint
+    });
+    expect(
+      mapGrpcRequestPreVoteResponseToRequestPreVoteResult({
+        current_epoch: '2',
+        pre_vote_granted: false
+      })
+    ).toEqual({
+      currentEpoch: 2n,
+      preVoteGranted: false
     });
   });
 

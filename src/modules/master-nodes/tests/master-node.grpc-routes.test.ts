@@ -10,6 +10,8 @@ import type {
   RecordLeaderHeartbeatResponse,
   RegisterMasterNodeRequest,
   RegisterMasterNodeResponse,
+  RequestPreVoteRequest,
+  RequestPreVoteResponse,
   RequestVoteRequest,
   RequestVoteResponse
 } from '@/gen/proto/master/v1/master';
@@ -29,6 +31,7 @@ const createControllerMock = (): jest.Mocked<MasterNodeGrpcControllerContract> =
     fetchTaskEntries: jest.fn<MasterNodeGrpcControllerContract['fetchTaskEntries']>().mockResolvedValue(),
     fetchTaskPayload: jest.fn<MasterNodeGrpcControllerContract['fetchTaskPayload']>().mockResolvedValue(),
     forwardTask: jest.fn<MasterNodeGrpcControllerContract['forwardTask']>().mockResolvedValue(),
+    requestPreVote: jest.fn<MasterNodeGrpcControllerContract['requestPreVote']>().mockResolvedValue(),
     requestVote: jest.fn<MasterNodeGrpcControllerContract['requestVote']>().mockResolvedValue(),
     recordLeaderHeartbeat: jest.fn<MasterNodeGrpcControllerContract['recordLeaderHeartbeat']>().mockResolvedValue()
   };
@@ -84,6 +87,26 @@ describe('master node gRPC routes', () => {
     await handler(call, callback);
 
     expect(controller.fetchTaskPayload).toHaveBeenCalledWith(call, callback);
+  });
+
+  test('delegates pre-vote requests to the controller', async () => {
+    const controller = createControllerMock();
+    const routes = createMasterNodeGrpcRoutes({ controller });
+    const call = {
+      request: {
+        prospective_epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: 'master-node-bbbbbbbbbbbb',
+        caller_session_id: '00000000-0000-4000-8000-000000000004',
+        last_log_epoch: '2'
+      }
+    } as ServerUnaryCall<RequestPreVoteRequest, RequestPreVoteResponse>;
+    const callback = jest.fn<sendUnaryData<RequestPreVoteResponse>>();
+    const handler = routes.masterService.requestPreVote as MasterNodeGrpcControllerContract['requestPreVote'];
+
+    await handler(call, callback);
+
+    expect(controller.requestPreVote).toHaveBeenCalledWith(call, callback);
   });
 
   test('delegates vote requests to the controller', async () => {

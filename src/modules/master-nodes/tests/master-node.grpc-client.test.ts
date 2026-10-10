@@ -15,6 +15,7 @@ import type {
   MasterClient as GrpcMasterClient,
   RecordLeaderHeartbeatResponse,
   RegisterMasterNodeResponse,
+  RequestPreVoteResponse,
   RequestVoteResponse,
   TaskExecutionScope
 } from '@/gen/proto/master/v1/master';
@@ -81,6 +82,11 @@ const voteResponse: RequestVoteResponse = {
   vote_granted: false
 };
 
+const preVoteResponse: RequestPreVoteResponse = {
+  current_epoch: '2',
+  pre_vote_granted: false
+};
+
 const heartbeatResponse: RecordLeaderHeartbeatResponse = {
   epoch: '3',
   accepted: true,
@@ -111,6 +117,7 @@ type ClusterMembershipSnapshotCallback = (
 type PayloadCallback = (error: ServiceError | null, response: FetchTaskPayloadResponse) => void;
 type ForwardTaskCallback = (error: ServiceError | null, response: ForwardTaskResponse) => void;
 type RegistrationCallback = (error: ServiceError | null, response: RegisterMasterNodeResponse) => void;
+type PreVoteCallback = (error: ServiceError | null, response: RequestPreVoteResponse) => void;
 type VoteCallback = (error: ServiceError | null, response: RequestVoteResponse) => void;
 type HeartbeatCallback = (error: ServiceError | null, response: RecordLeaderHeartbeatResponse) => void;
 
@@ -132,6 +139,9 @@ type GrpcMasterClientMock = {
   >;
   forwardTask: jest.Mock<
     (_request: unknown, _metadata: unknown, _options: unknown, callback: ForwardTaskCallback) => void
+  >;
+  requestPreVote: jest.Mock<
+    (_request: unknown, _metadata: unknown, _options: unknown, callback: PreVoteCallback) => void
   >;
   requestVote: jest.Mock<(_request: unknown, _metadata: unknown, _options: unknown, callback: VoteCallback) => void>;
   recordLeaderHeartbeat: jest.Mock<
@@ -207,6 +217,9 @@ describe('MasterNodeGrpcClient', () => {
         }),
         forwardTask: jest.fn((_request, _metadata, _options, callback: ForwardTaskCallback) => {
           callback(null, forwardedTaskResponse);
+        }),
+        requestPreVote: jest.fn((_request, _metadata, _options, callback: PreVoteCallback) => {
+          callback(null, preVoteResponse);
         }),
         requestVote: jest.fn((_request, _metadata, _options, callback: VoteCallback) => {
           callback(null, voteResponse);
@@ -343,6 +356,37 @@ describe('MasterNodeGrpcClient', () => {
       {
         caller_master_id: selfMasterNodeId,
         caller_session_id: selfMasterNodeSessionId
+      },
+      expect.any(Metadata),
+      expect.objectContaining({ deadline: expect.any(Date) }),
+      expect.any(Function)
+    );
+  });
+
+  test('requests a pre-vote from an authenticated master node', async () => {
+    const { provider } = createCredentialsMock();
+    const client = createClient(provider);
+
+    await expect(
+      client.requestPreVote({
+        masterNodeEndpoint: endpoint,
+        expectedCertificateFingerprint: certificateFingerprint,
+        prospectiveEpoch: 3n,
+        lastLogEpoch: 2n,
+        lastLogSequence: 4n
+      })
+    ).resolves.toEqual({
+      currentEpoch: 2n,
+      preVoteGranted: false
+    });
+
+    expect(createdClients[0].requestPreVote).toHaveBeenCalledWith(
+      {
+        prospective_epoch: '3',
+        last_log_sequence: '4',
+        caller_master_id: selfMasterNodeId,
+        caller_session_id: selfMasterNodeSessionId,
+        last_log_epoch: '2'
       },
       expect.any(Metadata),
       expect.objectContaining({ deadline: expect.any(Date) }),
